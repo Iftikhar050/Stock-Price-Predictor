@@ -1,0 +1,73 @@
+import logging
+import pandas as pd
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
+from src.psx_predictor.db.connection import engine
+from src.psx_predictor.db.models import StockEODData
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(ch)
+
+def upsert_stock_data(df: pd.DataFrame) -> bool:
+    """
+    Efficiently bulk upserts a Pandas DataFrame into the stock_eod_data PostgreSQL table.
+    
+    Uses INSERT ... ON CONFLICT DO UPDATE to ensure idempotency. If a row with
+    the same (ticker, date) exists, it updates the OHLCV columns.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing stock data. 
+                           Expected columns: 'ticker', 'date', 'open', 'high', 'low', 'close', 'volume'
+                           
+    Returns:
+        bool: True if the operation was successful, False otherwise.
+    """
+    if df is None or df.empty:
+        logger.warning("Provided DataFrame is empty. Nothing to insert.")
+        return False
+
+    required_columns = {'ticker', 'date', 'open', 'high', 'low', 'close', 'volume'}
+    if not required_columns.issubset(set(df.columns)):
+        missing = required_columns - set(df.columns)
+        logger.error(f"DataFrame is missing required columns: {missing}")
+        return False
+
+    # Convert DataFrame to list of dictionaries for bulk insert
+    # Ensure NaN/NaT are handled gracefully, though pandas to_dict usually handles it
+    records = df.to_dict(orient='records')
+
+    # Construct the PostgreSQL-specific insert statement
+    stmt = insert(StockEODData).values(records)
+    
+    # Define the ON CONFLICT action
+    # We conflict on the primary key: (ticker, date)
+    update_dict = {
+        'open': stmt.excluded.open,
+        'high': stmt.excluded.high,
+        'low': stmt.excluded.low,
+        'close': stmt.excluded.close,
+        'volume': stmt.excluded.volume
+    }
+    
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['ticker', 'date'],
+        set_=update_dict
+    )
+
+    try:
+        # engine.begin() acts as a context manager that automatically starts
+        # a transaction and commits at the end, rolling back on exceptions.
+        with engine.begin() as conn:
+            result = conn.execute(upsert_stmt)
+            logger.info(f"Successfully upserted data into stock_eod_data. Rows affected: {result.rowcount}")
+        return True
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during upsert operation: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error during upsert operation: {e}")
+        return False
