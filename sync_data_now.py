@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 
+sys.stdout.reconfigure(encoding='utf-8')
 PYTHON_EXEC = sys.executable
 
 print("========================================")

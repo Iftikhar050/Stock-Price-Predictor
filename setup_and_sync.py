@@ -8,6 +8,8 @@ from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import Base
 from src.psx_predictor.scraper.client import PSXScraper
 
+TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+
 def main():
     print("1. Creating Database Tables...")
     try:
@@ -18,15 +20,18 @@ def main():
         print(f"   ERROR connecting to database. Is PostgreSQL running and credentials correct in .env? Error: {e}")
         sys.exit(1)
 
-    print("\n2. Scraping and Syncing PSO data to PostgreSQL...")
+    print("\n2. Scraping and Syncing data to PostgreSQL...")
     scraper = PSXScraper()
-    success = scraper.sync_ticker("PSO")
     
-    if success:
-        print("   Success! Data has been written to the PostgreSQL database.")
-        print("   You should now see the data in your 'stock_eod_data' table.")
-    else:
-        print("   ERROR: Failed to sync data to PostgreSQL.")
+    for ticker in TICKERS:
+        print(f"   Syncing {ticker}...")
+        success = scraper.sync_ticker(ticker)
+        if success:
+            print(f"   Success! {ticker} data written to PostgreSQL.")
+        else:
+            print(f"   ERROR: Failed to sync {ticker}.")
+
+    print("\n   All scraping tasks completed. Data is in 'stock_eod_data' table.")
 
 if __name__ == '__main__':
     main()

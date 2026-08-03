@@ -6,7 +6,7 @@ import pandas as pd
 import joblib
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
@@ -90,58 +90,81 @@ class EarlyStopping:
             self.best_loss = val_loss
             self.counter = 0
 
-def prepare_and_scale_data(ticker='PSO', lookback=30):
-    file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
-    df = pd.read_csv(file_path)
+TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+
+def prepare_and_scale_data(lookback=30):
+    X_raw_list, y_raw_list = [], []
+    feature_cols_len = 19
     
-    # Create Target Variable (Next Day's Close Price)
-    df['target_close_t1'] = df['close'].shift(-1)
-    df.dropna(subset=['target_close_t1'], inplace=True)
+    for ticker in TICKERS:
+        file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
+        try:
+            df = pd.read_csv(file_path)
+        except Exception:
+            logger.warning(f"Feature file not found for {ticker}, skipping.")
+            continue
+            
+        df['target_close_t1'] = df['close'].shift(-1)
+        df.dropna(subset=['target_close_t1'], inplace=True)
+        
+        exclude_cols = ['ticker', 'date', 'created_at', 'target_close_t1']
+        feature_cols = [col for col in df.columns if col not in exclude_cols]
+        feature_cols_len = len(feature_cols)
+        
+        X_raw = df[feature_cols].values
+        y_raw = df[['target_close_t1']].values
+        
+        n = len(X_raw)
+        if n < lookback * 3:
+            continue
+            
+        train_end = int(n * 0.7)
+        val_end = int(n * 0.8)
+        
+        X_raw_list.append((X_raw[:train_end], X_raw[train_end:val_end], X_raw[val_end:]))
+        y_raw_list.append((y_raw[:train_end], y_raw[train_end:val_end], y_raw[val_end:]))
+        
+    X_train_all = np.vstack([x[0] for x in X_raw_list])
+    y_train_all = np.vstack([y[0] for y in y_raw_list])
     
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_close_t1']
-    feature_cols = [col for col in df.columns if col not in exclude_cols]
-    
-    X_raw = df[feature_cols].values
-    y_raw = df[['target_close_t1']].values
-    
-    # Splitting before scaling to prevent data leakage
-    # Train: 70%, Val: 10%, Test: 20%
-    n = len(X_raw)
-    train_end = int(n * 0.7)
-    val_end = int(n * 0.8)
-    
-    X_train, y_train = X_raw[:train_end], y_raw[:train_end]
-    X_val, y_val = X_raw[train_end:val_end], y_raw[train_end:val_end]
-    X_test, y_test = X_raw[val_end:], y_raw[val_end:]
-    
-    # 4. Scale Features
     feature_scaler = MinMaxScaler()
     target_scaler = MinMaxScaler()
     
-    X_train_scaled = feature_scaler.fit_transform(X_train)
-    X_val_scaled = feature_scaler.transform(X_val)
-    X_test_scaled = feature_scaler.transform(X_test)
+    feature_scaler.fit(X_train_all)
+    target_scaler.fit(y_train_all)
     
-    y_train_scaled = target_scaler.fit_transform(y_train)
-    y_val_scaled = target_scaler.transform(y_val)
-    y_test_scaled = target_scaler.transform(y_test)
-    
-    # Save scalers
     os.makedirs(MODELS_DIR, exist_ok=True)
     joblib.dump(feature_scaler, os.path.join(MODELS_DIR, "feature_scaler.pkl"))
     joblib.dump(target_scaler, os.path.join(MODELS_DIR, "target_scaler.pkl"))
     
-    # Create DataLoaders
-    batch_size = 32
-    train_dataset = StockDataset(X_train_scaled, y_train_scaled, lookback)
-    val_dataset = StockDataset(X_val_scaled, y_val_scaled, lookback)
-    test_dataset = StockDataset(X_test_scaled, y_test_scaled, lookback)
+    train_datasets, val_datasets, test_datasets = [], [], []
     
+    for i in range(len(X_raw_list)):
+        X_tr_sc = feature_scaler.transform(X_raw_list[i][0])
+        X_va_sc = feature_scaler.transform(X_raw_list[i][1])
+        X_te_sc = feature_scaler.transform(X_raw_list[i][2])
+        
+        y_tr_sc = target_scaler.transform(y_raw_list[i][0])
+        y_va_sc = target_scaler.transform(y_raw_list[i][1])
+        y_te_sc = target_scaler.transform(y_raw_list[i][2])
+        
+        if len(X_tr_sc) > lookback:
+            train_datasets.append(StockDataset(X_tr_sc, y_tr_sc, lookback))
+        if len(X_va_sc) > lookback:
+            val_datasets.append(StockDataset(X_va_sc, y_va_sc, lookback))
+        if len(X_te_sc) > lookback:
+            test_datasets.append(StockDataset(X_te_sc, y_te_sc, lookback))
+            
+    train_dataset = ConcatDataset(train_datasets)
+    val_dataset = ConcatDataset(val_datasets)
+    test_dataset = ConcatDataset(test_datasets)
+    
+    batch_size = 32
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
-    return train_loader, val_loader, test_loader, target_scaler, len(feature_cols)
+    return train_loader, val_loader, test_loader, target_scaler, feature_cols_len
 
 def train_lstm_pipeline():
     logger.info("Starting Deep Learning LSTM Pipeline...")

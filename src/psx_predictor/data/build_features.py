@@ -121,6 +121,9 @@ def build_features(ticker: str) -> pd.DataFrame:
     
     return df
 
+TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+
 if __name__ == '__main__':
-    # When run directly, test the pipeline with PSO
-    build_features('PSO')
+    # When run directly, run the pipeline for all tickers
+    for ticker in TICKERS:
+        build_features(ticker)

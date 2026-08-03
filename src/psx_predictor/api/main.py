@@ -86,6 +86,10 @@ class PredictionRequest(BaseModel):
 class DataPoint(BaseModel):
     date: str
     close: float
+    rf_pred: float | None = None
+    lr_pred: float | None = None
+    xgb_pred: float | None = None
+    lstm_pred: float | None = None
 
 class PredictionResponse(BaseModel):
     ticker: str
@@ -154,7 +158,37 @@ async def get_prediction(payload: PredictionRequest):
         # cv=0.01 (1% variation) -> 90% confidence. cv=0.05 -> 50%
         confidence = float(max(0.0, min(98.0, 100.0 - (cv * 1000))))
         
-        recent_history = df.tail(1825)[['date', 'close']].to_dict(orient='records')
+        # --- Add Historical Predictions ---
+        # Vectorized inference for traditional models
+        df['rf_pred'] = pd.Series(ml_models["rf_predictor"].predict(df[feature_cols])).shift(1)
+        df['lr_pred'] = pd.Series(ml_models["lr_predictor"].predict(df[feature_cols])).shift(1)
+        df['xgb_pred'] = pd.Series(ml_models["xgb_predictor"].predict(df[feature_cols])).shift(1)
+        
+        # Batch sequence generation for LSTM
+        all_features_scaled = ml_models["feature_scaler"].transform(df[feature_cols].values)
+        lstm_sequences = []
+        lstm_valid_indices = []
+        for i in range(lookback, len(df)):
+            lstm_sequences.append(all_features_scaled[i-lookback:i])
+            lstm_valid_indices.append(i)
+            
+        df['lstm_pred'] = None
+        if lstm_sequences:
+            batch_tensor = torch.tensor(np.array(lstm_sequences), dtype=torch.float32)
+            with torch.no_grad():
+                batch_lstm_out = ml_models["lstm_predictor"](batch_tensor)
+            batch_lstm_preds = ml_models["target_scaler"].inverse_transform(batch_lstm_out.numpy()).flatten()
+            
+            # Create a temporary series to hold predictions and shift by 1
+            lstm_series = pd.Series(index=df.index, dtype=float)
+            lstm_series.loc[lstm_valid_indices] = batch_lstm_preds
+            df['lstm_pred'] = lstm_series.shift(1)
+            
+        # Select final columns and convert to dict
+        recent_history_df = df.tail(1825)[['date', 'close', 'rf_pred', 'lr_pred', 'xgb_pred', 'lstm_pred']]
+        # Replace NaNs with None for JSON serialization
+        recent_history_df = recent_history_df.where(pd.notnull(recent_history_df), None)
+        recent_history = recent_history_df.to_dict(orient='records')
         
         return PredictionResponse(
             ticker=payload.ticker.upper(),
@@ -297,4 +331,57 @@ async def get_realtime_price(ticker: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to parse real-time price.")
 
-
+@app.get("/api/market_performers")
+async def get_market_performers():
+    tickers = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+    results = []
+    
+    for t in tickers:
+        try:
+            # 1. Scrape real-time price
+            url = f"https://dps.psx.com.pk/company/{t}"
+            headers = {"User-Agent": "Mozilla/5.0"}
+            r = requests.get(url, headers=headers, timeout=5)
+            
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, 'html.parser')
+                
+                price_el = soup.select_one('.quote__close')
+                price = float(price_el.text.strip().replace('Rs.', '').replace(',', '')) if price_el else 0.0
+                
+                change_el = soup.select_one('.change__value')
+                change = float(change_el.text.strip().replace(',', '')) if change_el else 0.0
+                
+                percent_el = soup.select_one('.change__percent')
+                percent = float(percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')) if percent_el else 0.0
+            else:
+                price, change, percent = 0.0, 0.0, 0.0
+                
+            # 2. Get volume from the latest local dataset
+            data_path = os.path.join(PROCESSED_DIR, f"{t.lower()}_features.csv")
+            volume = 0
+            if os.path.exists(data_path):
+                df = pd.read_csv(data_path)
+                if not df.empty:
+                    volume = int(df['volume'].iloc[-1])
+                    
+            results.append({
+                "symbol": t,
+                "price": price,
+                "change": change,
+                "change_percent": percent,
+                "volume": volume
+            })
+        except Exception as e:
+            print(f"Error fetching performer data for {t}: {e}")
+            
+    # Sort into three categories
+    top_active = sorted(results, key=lambda x: x['volume'], reverse=True)
+    top_advancers = sorted(results, key=lambda x: x['change_percent'], reverse=True)
+    top_decliners = sorted(results, key=lambda x: x['change_percent'])
+    
+    return {
+        "top_active": top_active,
+        "top_advancers": top_advancers,
+        "top_decliners": top_decliners
+    }

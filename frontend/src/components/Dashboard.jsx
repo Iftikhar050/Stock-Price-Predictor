@@ -1,6 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+
+const MarketPerformers = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPerformers = async () => {
+      try {
+        const res = await axios.get('http://localhost:8000/api/market_performers');
+        setData(res.data);
+      } catch (err) {
+        console.error("Failed to fetch market performers", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerformers();
+    const interval = setInterval(fetchPerformers, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return <div className="animate-pulse bg-slate-800 h-64 rounded-xl border border-slate-700 mb-6"></div>;
+  }
+
+  if (!data) return null;
+
+  const renderTable = (title, items) => (
+    <div className="w-full">
+      <h3 className="text-[13px] font-bold text-slate-300 uppercase tracking-wider mb-2">{title}</h3>
+      <div className="overflow-hidden border border-slate-700 rounded-lg">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-900/50 text-slate-300 border-b border-slate-700">
+            <tr>
+              <th className="px-3 py-2 font-bold">SYMBOL</th>
+              <th className="px-3 py-2 font-bold text-right">PRICE</th>
+              <th className="px-3 py-2 font-bold text-right">CHANGE</th>
+              <th className="px-3 py-2 font-bold text-right">VOLUME</th>
+            </tr>
+          </thead>
+          <tbody className="bg-slate-800">
+            {items.map((item, idx) => (
+              <tr key={idx} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors text-slate-200 font-bold">
+                <td className="px-3 py-2.5">{item.symbol}</td>
+                <td className="px-3 py-2.5 text-right font-normal">{item.price.toFixed(2)}</td>
+                <td className={`px-3 py-2.5 text-right flex items-center justify-end ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {item.change >= 0 ? <span className="mr-1 text-[10px]">▲</span> : <span className="mr-1 text-[10px]">▼</span>}
+                  {Math.abs(item.change).toFixed(2)} ({item.change_percent >= 0 ? '+' : ''}{item.change_percent.toFixed(2)}%)
+                </td>
+                <td className="px-3 py-2.5 text-right font-normal text-slate-400">{item.volume.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 mb-6">
+      <h2 className="text-xl font-bold text-slate-100 mb-6 border-b border-slate-700 pb-3">Market Performers</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {renderTable('TOP ACTIVE STOCKS', data.top_active)}
+        {renderTable('TOP ADVANCERS', data.top_advancers)}
+        {renderTable('TOP DECLINERS', data.top_decliners)}
+      </div>
+    </div>
+  );
+};
+
 
 const Dashboard = () => {
   const [ticker, setTicker] = useState('PSO');
@@ -77,6 +147,15 @@ const Dashboard = () => {
     
     history = history.filter(row => new Date(row.date) >= cutoffDate);
     
+    // Map backend predicted values to a single 'predictedClose' key based on selected model
+    history = history.map(row => ({
+      ...row,
+      predictedClose: modelType === 'RF' ? row.rf_pred :
+                      modelType === 'LSTM' ? row.lstm_pred :
+                      modelType === 'LR' ? row.lr_pred :
+                      row.xgb_pred
+    }));
+    
     const predictedPrice = modelType === 'RF' ? data.rf_predicted_price :
                            modelType === 'LSTM' ? data.lstm_predicted_price :
                            modelType === 'LR' ? data.lr_predicted_price :
@@ -86,7 +165,7 @@ const Dashboard = () => {
     
     history.push({
       date: nextDate.toISOString().split('T')[0],
-      close: predictedPrice,
+      predictedClose: predictedPrice,
       isPrediction: true
     });
     
@@ -412,7 +491,7 @@ const Dashboard = () => {
 
                 <div className="flex-grow pt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
+                    <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} stopOpacity={0.5}/>
@@ -459,18 +538,32 @@ const Dashboard = () => {
                       <Area 
                         type="linear" 
                         dataKey="close" 
-                        name="Price (Rs.)"
+                        name="Actual Price"
                         stroke={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} 
                         strokeWidth={2}
                         fillOpacity={1} 
                         fill="url(#colorClose)" 
                         activeDot={{ r: 5, strokeWidth: 2, stroke: '#0f172a', fill: modelType === 'RF' ? '#34d399' : modelType === 'LSTM' ? '#22d3ee' : modelType === 'LR' ? '#fb923c' : '#c084fc' }}
                       />
-                    </AreaChart>
+                      <Line
+                        type="linear"
+                        dataKey="predictedClose"
+                        name="Predicted Price"
+                        stroke="#fbbf24" // Amber color for visibility
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        dot={false}
+                        activeDot={{ r: 5, strokeWidth: 0, fill: '#fbbf24' }}
+                        connectNulls={true}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </div>
+
+            {/* Market Performers Component - Positioned exactly above Company Profile */}
+            <MarketPerformers />
 
             {/* Scraped Company Profile Section */}
             <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">

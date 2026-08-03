@@ -4,8 +4,10 @@ A modern, full-stack AI application designed to predict stock prices for the Pak
 
 ## 🌟 Key Features
 
+* **Multi-Company Coverage:** Fully integrated support for tracking and predicting major PSX players including **PSO, FFC, NBP, MEBL, OGDC, and LUCK**.
+* **Live Market Performers:** An auto-updating dashboard ranking the top active stocks, top advancers, and top decliners across tracked tickers.
 * **Real-time Live Price Monitoring:** Automatically polls live prices during market hours.
-* **Ensemble AI Predictions:** Utilizes four different ML models (Random Forest, Linear Regression, XGBoost, and LSTM Deep Learning) to forecast stock prices.
+* **Global AI Predictions:** Utilizes four different ML models (Random Forest, Linear Regression, XGBoost, and LSTM Deep Learning) trained on a massive concatenated dataset across all companies to learn generalized market trends.
 * **Consensus Target Range:** Automatically calculates an ensemble range and assigns an **AI Confidence Score** based on the agreement variance between the models.
 * **Automated Data Scraping:** Includes a robust scraper pipeline to fetch the latest End-Of-Day (EOD) OHLCV data directly from the PSX Data Portal.
 * **Comprehensive Company Profiles:** Scrapes and displays vital company information, auditor details, business descriptions, and key personnel.
