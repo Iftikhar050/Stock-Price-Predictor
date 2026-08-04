@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL, VALID_TICKERS } from '../config';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const MarketPerformers = () => {
@@ -9,7 +10,7 @@ const MarketPerformers = () => {
   useEffect(() => {
     const fetchPerformers = async () => {
       try {
-        const res = await axios.get('http://localhost:8000/api/market_performers');
+        const res = await axios.get(`${API_BASE_URL}/api/market_performers`);
         setData(res.data);
       } catch (err) {
         console.error("Failed to fetch market performers", err);
@@ -87,9 +88,9 @@ const Dashboard = () => {
     setError(null);
     try {
       const [predRes, compRes, liveRes] = await Promise.all([
-        axios.post('http://localhost:8000/api/predict', { ticker: symbol }),
-        axios.get(`http://localhost:8000/api/company/${symbol}`),
-        axios.get(`http://localhost:8000/api/realtime/${symbol}`).catch(() => null)
+        axios.post(`${API_BASE_URL}/api/predict`, { ticker: symbol }),
+        axios.get(`${API_BASE_URL}/api/company/${symbol}`),
+        axios.get(`${API_BASE_URL}/api/realtime/${symbol}`).catch(() => null)
       ]);
       
       setData(predRes.data);
@@ -114,7 +115,7 @@ const Dashboard = () => {
     if (!data || !ticker) return;
     const interval = setInterval(async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/api/realtime/${ticker}`);
+        const res = await axios.get(`${API_BASE_URL}/api/realtime/${ticker}`);
         setLiveData(res.data);
       } catch (err) {
         console.error("Failed to fetch live data:", err);
@@ -295,13 +296,15 @@ const Dashboard = () => {
           </div>
           
           <form onSubmit={handleSearch} className="mt-4 md:mt-0 flex space-x-2">
-            <input
-              type="text"
+            <select
               value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              placeholder="Enter Ticker"
+              onChange={(e) => setTicker(e.target.value)}
               className="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase font-semibold w-48"
-            />
+            >
+              {VALID_TICKERS.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
             <button 
               type="submit" 
               disabled={loading}
@@ -430,20 +433,20 @@ const Dashboard = () => {
                     
                     <div>
                       <div className="text-[10px] uppercase text-slate-400 font-bold tracking-wider mb-1 flex justify-between items-center">
-                        <span>AI Confidence</span>
+                        <span>Model Agreement</span>
                         <span className={`font-bold ${
-                          data.confidence_score >= 80 ? 'text-emerald-400' : 
-                          data.confidence_score >= 60 ? 'text-amber-400' : 'text-rose-400'
-                        }`}>{data.confidence_score}%</span>
+                          data.model_agreement_score >= 80 ? 'text-emerald-400' : 
+                          data.model_agreement_score >= 60 ? 'text-amber-400' : 'text-rose-400'
+                        }`}>{data.model_agreement_score}%</span>
                       </div>
                       <div className="w-full bg-slate-900/60 rounded-full h-1.5 border border-slate-700/50 overflow-hidden">
                         <div 
                           className={`h-1.5 rounded-full transition-all duration-1000 ease-out ${
-                            data.confidence_score >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
-                            data.confidence_score >= 60 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 
+                            data.model_agreement_score >= 80 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                            data.model_agreement_score >= 60 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 
                             'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'
                           }`}
-                          style={{ width: `${Math.min(100, Math.max(0, data.confidence_score))}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, data.model_agreement_score))}%` }}
                         ></div>
                       </div>
                     </div>

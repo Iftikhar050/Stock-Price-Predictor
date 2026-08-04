@@ -4,16 +4,19 @@
 # ---------------------------------------------------------
 import os
 import sys
+import time
+import logging
 import joblib
 import pandas as pd
 import numpy as np
 import torch
 from contextlib import asynccontextmanager
-from functools import lru_cache
 import requests
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Depends, Header
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 # Ensure the root is in path for imports
@@ -22,9 +25,19 @@ if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from src.psx_predictor.models.train_lstm import LSTMModel
+from src.psx_predictor.config import VALID_TICKERS
 
-# Global dictionary to hold loaded ML models in memory
+# Logging configuration
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+if not logger.handlers:
+    ch = logging.StreamHandler()
+    logger.addHandler(ch)
+
+# Global dictionaries
 ml_models = {}
+psx_cache = {}
+CACHE_TTL = 15
 
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
@@ -38,15 +51,15 @@ async def lifespan(app: FastAPI):
     try:
         # Load RF
         ml_models["rf_predictor"] = joblib.load(os.path.join(MODELS_DIR, "baseline_rf_model.pkl"))
-        print("✅ Random Forest model loaded successfully.")
+        print("[SUCCESS] Random Forest model loaded successfully.")
         
         # Load LR
         ml_models["lr_predictor"] = joblib.load(os.path.join(MODELS_DIR, "lr_model.pkl"))
-        print("✅ Linear Regression model loaded successfully.")
+        print("[SUCCESS] Linear Regression model loaded successfully.")
 
         # Load XGBoost
         ml_models["xgb_predictor"] = joblib.load(os.path.join(MODELS_DIR, "xgboost_model.pkl"))
-        print("✅ XGBoost model loaded successfully.")
+        print("[SUCCESS] XGBoost model loaded successfully.")
         
         # Load Scalers for LSTM
         ml_models["feature_scaler"] = joblib.load(os.path.join(MODELS_DIR, "feature_scaler.pkl"))
@@ -59,9 +72,9 @@ async def lifespan(app: FastAPI):
         lstm.load_state_dict(torch.load(os.path.join(MODELS_DIR, "lstm_model.pth"), map_location=device, weights_only=True))
         lstm.eval()
         ml_models["lstm_predictor"] = lstm
-        print("✅ LSTM model loaded successfully.")
+        print("[SUCCESS] LSTM model loaded successfully.")
     except Exception as e:
-        print(f"❌ Error loading models: {e}")
+        print(f"[ERROR] Error loading models: {e}")
     yield
     ml_models.clear()
 
@@ -72,10 +85,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins_env.split(","),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -101,15 +115,19 @@ class PredictionResponse(BaseModel):
     lstm_predicted_price: float
     ensemble_min: float
     ensemble_max: float
-    confidence_score: float
+    model_agreement_score: float
     historical_data: list[DataPoint] = Field(..., description="Last 30 days of closing prices for chart rendering")
 
 @app.post("/api/predict", response_model=PredictionResponse)
 async def get_prediction(payload: PredictionRequest):
+    ticker = payload.ticker.upper()
+    if ticker not in VALID_TICKERS:
+        raise HTTPException(status_code=400, detail=f"Invalid ticker. Must be one of {VALID_TICKERS}")
+
     if "rf_predictor" not in ml_models or "lstm_predictor" not in ml_models or "lr_predictor" not in ml_models or "xgb_predictor" not in ml_models:
         raise HTTPException(status_code=503, detail="ML Models are currently unavailable.")
         
-    ticker = payload.ticker.lower()
+    ticker = ticker.lower()
     data_path = os.path.join(PROCESSED_DIR, f"{ticker}_features.csv")
     
     if not os.path.exists(data_path):
@@ -200,15 +218,26 @@ async def get_prediction(payload: PredictionRequest):
             lstm_predicted_price=round(float(lstm_prediction), 2),
             ensemble_min=round(ensemble_min, 2),
             ensemble_max=round(ensemble_max, 2),
-            confidence_score=round(confidence, 1),
+            model_agreement_score=round(confidence, 1),
             historical_data=recent_history
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
+        logger.error(f"Inference error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error while processing prediction.")
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def verify_api_key(api_key: str = Depends(api_key_header)):
+    expected_key = os.getenv("ADMIN_API_KEY")
+    if not expected_key:
+        raise HTTPException(status_code=500, detail="Server misconfiguration.")
+    if api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid API Key.")
+    return api_key
 
 @app.post("/api/reload_models")
-async def reload_models():
+async def reload_models(api_key: str = Depends(verify_api_key)):
     """Endpoint to hot-reload ML models from disk after retraining."""
     try:
         # Load RF
@@ -233,10 +262,16 @@ async def reload_models():
         
         return {"status": "success", "message": "All AI models successfully reloaded into memory!"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to reload models: {str(e)}")
+        logger.error(f"Failed to reload models: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error while reloading models.")
 
-@lru_cache(maxsize=100)
 def fetch_psx_company_profile(ticker: str):
+    cache_key = f"profile_{ticker.upper()}"
+    if cache_key in psx_cache:
+        cached_time, data = psx_cache[cache_key]
+        if time.time() - cached_time < CACHE_TTL:
+            return data
+
     url = f"https://dps.psx.com.pk/company/{ticker.upper()}"
     headers = {"User-Agent": "Mozilla/5.0"}
     r = requests.get(url, headers=headers)
@@ -278,17 +313,23 @@ def fetch_psx_company_profile(ticker: str):
             if val_node:
                 details[key] = val_node.text.strip()
                 
-    return {
+    result = {
         "name": name,
         "sector": sector,
         "description": desc,
         "people": people,
         "details": details
     }
+    psx_cache[cache_key] = (time.time(), result)
+    return result
 
 @app.get("/api/company/{ticker}")
 async def get_company_profile(ticker: str):
-    profile = fetch_psx_company_profile(ticker)
+    ticker = ticker.upper()
+    if ticker not in VALID_TICKERS:
+        raise HTTPException(status_code=400, detail=f"Invalid ticker. Must be one of {VALID_TICKERS}")
+
+    profile = await run_in_threadpool(fetch_psx_company_profile, ticker)
     if not profile:
         raise HTTPException(status_code=404, detail="Company profile not found on PSX.")
     return profile
@@ -301,9 +342,23 @@ class RealtimePriceResponse(BaseModel):
 
 @app.get("/api/realtime/{ticker}", response_model=RealtimePriceResponse)
 async def get_realtime_price(ticker: str):
-    url = f"https://dps.psx.com.pk/company/{ticker.upper()}"
+    ticker = ticker.upper()
+    if ticker not in VALID_TICKERS:
+        raise HTTPException(status_code=400, detail=f"Invalid ticker. Must be one of {VALID_TICKERS}")
+
+    cache_key = f"realtime_{ticker}"
+    if cache_key in psx_cache:
+        cached_time, data = psx_cache[cache_key]
+        if time.time() - cached_time < CACHE_TTL:
+            return data
+
+    url = f"https://dps.psx.com.pk/company/{ticker}"
     headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
+    
+    def fetch():
+        return requests.get(url, headers=headers, timeout=5)
+        
+    r = await run_in_threadpool(fetch)
     if r.status_code != 200:
         raise HTTPException(status_code=404, detail="Company not found on PSX.")
         
@@ -322,42 +377,37 @@ async def get_realtime_price(ticker: str):
         percent_str = percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')
         percent = float(percent_str)
         
-        return RealtimePriceResponse(
-            ticker=ticker.upper(),
+        result = RealtimePriceResponse(
+            ticker=ticker,
             price=price,
             change=change,
             change_percent=percent
         )
+        psx_cache[cache_key] = (time.time(), result)
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to parse real-time price.")
+        logger.error(f"Failed to parse real-time price for {ticker}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error while parsing real-time price.")
 
-@app.get("/api/market_performers")
-async def get_market_performers():
-    tickers = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+def fetch_performer_data(tickers):
     results = []
-    
     for t in tickers:
         try:
-            # 1. Scrape real-time price
             url = f"https://dps.psx.com.pk/company/{t}"
             headers = {"User-Agent": "Mozilla/5.0"}
             r = requests.get(url, headers=headers, timeout=5)
             
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, 'html.parser')
-                
                 price_el = soup.select_one('.quote__close')
                 price = float(price_el.text.strip().replace('Rs.', '').replace(',', '')) if price_el else 0.0
-                
                 change_el = soup.select_one('.change__value')
                 change = float(change_el.text.strip().replace(',', '')) if change_el else 0.0
-                
                 percent_el = soup.select_one('.change__percent')
                 percent = float(percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')) if percent_el else 0.0
             else:
                 price, change, percent = 0.0, 0.0, 0.0
                 
-            # 2. Get volume from the latest local dataset
             data_path = os.path.join(PROCESSED_DIR, f"{t.lower()}_features.csv")
             volume = 0
             if os.path.exists(data_path):
@@ -373,15 +423,29 @@ async def get_market_performers():
                 "volume": volume
             })
         except Exception as e:
-            print(f"Error fetching performer data for {t}: {e}")
-            
+            logger.error(f"Error fetching performer data for {t}: {e}")
+    return results
+
+@app.get("/api/market_performers")
+async def get_market_performers():
+    cache_key = "market_performers"
+    if cache_key in psx_cache:
+        cached_time, data = psx_cache[cache_key]
+        if time.time() - cached_time < CACHE_TTL:
+            return data
+
+    tickers = list(VALID_TICKERS)
+    results = await run_in_threadpool(fetch_performer_data, tickers)
+    
     # Sort into three categories
     top_active = sorted(results, key=lambda x: x['volume'], reverse=True)
     top_advancers = sorted(results, key=lambda x: x['change_percent'], reverse=True)
     top_decliners = sorted(results, key=lambda x: x['change_percent'])
     
-    return {
+    result = {
         "top_active": top_active,
         "top_advancers": top_advancers,
         "top_decliners": top_decliners
     }
+    psx_cache[cache_key] = (time.time(), result)
+    return result

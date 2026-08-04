@@ -39,7 +39,8 @@ except subprocess.CalledProcessError:
 
 print("\n[5/5] Hot-reloading new AI models into FastAPI Server...")
 try:
-    response = requests.post("http://127.0.0.1:8000/api/reload_models")
+    api_key = os.environ.get("ADMIN_API_KEY", "local-dev-key")
+    response = requests.post("http://127.0.0.1:8000/api/reload_models", headers={"X-API-Key": api_key})
     if response.status_code == 200:
         print("[SUCCESS] " + response.json().get("message", "Models reloaded!"))
     else:
