@@ -82,6 +82,35 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [modelType, setModelType] = useState('RF'); // 'RF', 'LR', 'XGB', 'LSTM'
   const [timeRange, setTimeRange] = useState('30D'); // '7D', '30D', '90D', '1Y'
+  const [isMarketClosed, setIsMarketClosed] = useState(false);
+
+  useEffect(() => {
+    const checkMarketStatus = () => {
+      const now = new Date();
+      const options = { timeZone: 'Asia/Karachi', hour12: false, hour: 'numeric', minute: 'numeric', weekday: 'short' };
+      const formatter = new Intl.DateTimeFormat('en-US', options);
+      const parts = formatter.formatToParts(now);
+      
+      let hour = 0;
+      let weekday = '';
+      
+      parts.forEach(part => {
+        if (part.type === 'hour') hour = parseInt(part.value, 10);
+        if (part.type === 'weekday') weekday = part.value;
+      });
+
+      // PSX closes at 4 PM (16:00). Also closed on weekends.
+      if (weekday === 'Sat' || weekday === 'Sun' || hour >= 16) {
+        setIsMarketClosed(true);
+      } else {
+        setIsMarketClosed(false);
+      }
+    };
+    
+    checkMarketStatus();
+    const interval = setInterval(checkMarketStatus, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchData = async (symbol) => {
     setLoading(true);
@@ -346,13 +375,20 @@ const Dashboard = () => {
                 {/* Current Price Card (Enhanced) */}
                 <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
                   <h3 className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 flex items-center">
-                    {liveData ? (
+                    {liveData && !isMarketClosed ? (
                       <>
                         <span className="relative flex h-3 w-3 mr-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                           <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                         </span>
                         Live Price
+                      </>
+                    ) : liveData && isMarketClosed ? (
+                      <>
+                        <span className="relative flex h-3 w-3 mr-2">
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                        </span>
+                        Market Closed
                       </>
                     ) : (
                       "Current Price"
@@ -463,6 +499,67 @@ const Dashboard = () => {
                     </svg>
                   </div>
                 </div>
+
+                {/* Market Sentiment Card */}
+                <div className={`p-6 rounded-xl shadow-lg border relative overflow-hidden ${
+                  data.latest_sentiment > 0.05 ? 'bg-gradient-to-br from-slate-800 to-emerald-900/30 border-emerald-900/50' :
+                  data.latest_sentiment < -0.05 ? 'bg-gradient-to-br from-slate-800 to-rose-900/30 border-rose-900/50' :
+                  'bg-gradient-to-br from-slate-800 to-amber-900/30 border-amber-900/50'
+                }`}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider mb-2 text-slate-300">
+                    Market Sentiment
+                  </h3>
+                  <div className="text-3xl font-bold text-white mb-2 flex items-center">
+                    {data.latest_sentiment > 0.05 ? 'Bullish' : data.latest_sentiment < -0.05 ? 'Bearish' : 'Neutral'}
+                  </div>
+                  <div className="text-sm font-medium text-slate-400 mb-4">
+                    Score: {data.latest_sentiment.toFixed(2)}
+                  </div>
+                  
+                  {/* Sentiment Gauge */}
+                  <div className="w-full bg-slate-900/60 rounded-full h-2 border border-slate-700/50 overflow-hidden relative">
+                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-500/50 z-10"></div>
+                    <div 
+                      className={`h-2 rounded-full absolute top-0 bottom-0 transition-all duration-1000 ease-out ${
+                        data.latest_sentiment > 0 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
+                        'bg-rose-500 shadow-[0_0_8px_rgba(243,33,33,0.5)]'
+                      }`}
+                      style={{ 
+                        width: `${Math.min(50, Math.abs(data.latest_sentiment) * 50)}%`,
+                        [data.latest_sentiment > 0 ? 'left' : 'right']: '50%'
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase mt-1">
+                    <span>Bearish</span>
+                    <span>Neutral</span>
+                    <span>Bullish</span>
+                  </div>
+                </div>
+
+                {/* Recent Dividend Card */}
+                {data.latest_dividend && (
+                  <div className="p-6 rounded-xl shadow-lg border border-slate-700 bg-gradient-to-br from-slate-800 to-indigo-900/20 relative overflow-hidden">
+                    <h3 className="text-xs font-bold uppercase tracking-wider mb-2 text-slate-300 flex items-center">
+                      <svg className="w-4 h-4 mr-1.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      Recent Dividend
+                    </h3>
+                    <div className="text-3xl font-bold text-white mb-1">
+                      Rs. {data.latest_dividend.amount.toFixed(2)}
+                    </div>
+                    <div className="text-sm font-medium text-slate-400 mb-3">
+                      Yield: {((data.latest_dividend.amount / data.current_price) * 100).toFixed(2)}%
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-[11px] font-semibold bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/50">
+                      <span className="text-slate-400">Ex-Date</span>
+                      <span className="text-indigo-300">{new Date(data.latest_dividend.ex_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Right Column: Chart (Professional Upgrade) */}
@@ -567,6 +664,56 @@ const Dashboard = () => {
 
             {/* Market Performers Component - Positioned exactly above Company Profile */}
             <MarketPerformers />
+
+            {/* Recent News Feed Component */}
+            <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">
+              <h2 className="text-xl font-bold text-slate-100 mb-6 border-b border-slate-700 pb-3 flex items-center">
+                <svg className="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2.5 2.5 0 00-2.5-2.5H15"></path>
+                </svg>
+                Latest News Intelligence
+              </h2>
+              {data.recent_news && data.recent_news.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {data.recent_news.map((news, idx) => (
+                    <a 
+                      key={idx}
+                      href={news.url} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="group bg-slate-900/50 p-4 rounded-lg border border-slate-700 hover:border-blue-500/50 hover:bg-slate-700 transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{news.source}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            news.sentiment_score > 0.05 ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800/50' : 
+                            news.sentiment_score < -0.05 ? 'bg-rose-900/50 text-rose-400 border border-rose-800/50' : 
+                            'bg-amber-900/50 text-amber-400 border border-amber-800/50'
+                          }`}>
+                            {news.sentiment_score > 0.05 ? 'Bullish' : news.sentiment_score < -0.05 ? 'Bearish' : 'Neutral'}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-slate-200 group-hover:text-blue-400 transition-colors line-clamp-2 leading-snug">
+                          {news.headline}
+                        </h4>
+                      </div>
+                      <div className="mt-4 text-[10px] text-slate-500">
+                        {new Date(news.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 bg-slate-900/30 rounded-lg border border-slate-700 border-dashed">
+                  <svg className="w-12 h-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2.5 2.5 0 00-2.5-2.5H15"></path>
+                  </svg>
+                  <p className="text-slate-400 font-medium">No recent financial news detected for this company.</p>
+                  <p className="text-slate-500 text-sm mt-1">Sentiment will remain Neutral (0.00) until new market activity is recorded.</p>
+                </div>
+              )}
+            </div>
 
             {/* Scraped Company Profile Section */}
             <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700">

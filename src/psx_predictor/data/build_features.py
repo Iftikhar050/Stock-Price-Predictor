@@ -90,6 +90,114 @@ def calculate_lag_features(df: pd.DataFrame, col: str = 'close', lags: list = [1
         
     return df
 
+def merge_sentiment(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Queries stock_news_sentiment, merges it, and applies a 3-day decay factor
+    to handle missing days realistically instead of infinite forward-fill.
+    """
+    logger.info(f"Merging sentiment data for {ticker}...")
+    query = text("SELECT date, sentiment_score FROM stock_news_sentiment WHERE ticker = :ticker ORDER BY date ASC")
+    
+    with engine.connect() as conn:
+        sentiment_df = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
+        
+    if sentiment_df.empty:
+        logger.warning(f"No sentiment data found for {ticker}. Filling with 0.0")
+        df['sentiment_score'] = 0.0
+        return df
+        
+    sentiment_df['date'] = pd.to_datetime(sentiment_df['date'])
+    
+    # Left join onto the main EOD dataframe
+    df = pd.merge(df, sentiment_df, on='date', how='left')
+    
+    # Implement 3-day decay logic
+    # We create shifted columns to see the sentiment of previous days
+    df['sent_lag_1'] = df['sentiment_score'].shift(1)
+    df['sent_lag_2'] = df['sentiment_score'].shift(2)
+    df['sent_lag_3'] = df['sentiment_score'].shift(3)
+    
+    # Apply decay: if today is NaN, check lag 1 (x0.5). If lag 1 is NaN, check lag 2 (x0.25). 
+    # If lag 2 is NaN, check lag 3 (x0.125). Else 0.0.
+    
+    def apply_decay(row):
+        if pd.notna(row['sentiment_score']):
+            return row['sentiment_score']
+        if pd.notna(row['sent_lag_1']):
+            return row['sent_lag_1'] * 0.5
+        if pd.notna(row['sent_lag_2']):
+            return row['sent_lag_2'] * 0.25
+        if pd.notna(row['sent_lag_3']):
+            return row['sent_lag_3'] * 0.125
+        return 0.0
+        
+    df['sentiment_score'] = df.apply(apply_decay, axis=1)
+    
+    # Drop intermediate lag columns
+    df.drop(columns=['sent_lag_1', 'sent_lag_2', 'sent_lag_3'], inplace=True)
+    return df
+
+def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Queries stock_dividends, merges it, and engineers dividend features:
+    - days_since_dividend
+    - dividend_yield
+    - is_ex_dividend_week
+    """
+    logger.info(f"Merging dividend data for {ticker}...")
+    query = text("SELECT ex_dividend_date as date, dividend_amount FROM stock_dividends WHERE ticker = :ticker ORDER BY date ASC")
+    
+    with engine.connect() as conn:
+        div_df = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
+        
+    if div_df.empty:
+        logger.warning(f"No dividend data found for {ticker}.")
+        df['days_since_dividend'] = 9999
+        df['dividend_yield'] = 0.0
+        df['is_ex_dividend_week'] = 0
+        return df
+        
+    div_df['date'] = pd.to_datetime(div_df['date'])
+    
+    # Left join onto the main EOD dataframe
+    df = pd.merge(df, div_df, on='date', how='left')
+    
+    # days_since_dividend
+    # Identify indices where a dividend occurred
+    df['dividend_amount'] = df['dividend_amount'].fillna(0)
+    
+    # We want a forward fill for the date of the last dividend
+    div_dates = df.loc[df['dividend_amount'] > 0, 'date']
+    df['last_div_date'] = pd.Series(index=df.index, dtype='datetime64[ns]')
+    df.loc[div_dates.index, 'last_div_date'] = div_dates
+    df['last_div_date'] = df['last_div_date'].ffill()
+    
+    # Calculate days since last dividend
+    df['days_since_dividend'] = (df['date'] - df['last_div_date']).dt.days
+    df['days_since_dividend'] = df['days_since_dividend'].fillna(9999) # For days before any dividend
+    
+    # dividend_yield: trailing 12 months dividend sum / price
+    # Since we don't have exactly 12 months rolling easily without dates, we'll just use the last dividend amount * 4 (assuming quarterly) for a rough annualized yield, or just the last dividend amount / close. Let's just use last dividend amount / close price
+    
+    df['last_div_amount'] = df['dividend_amount'].replace(0, pd.NA).ffill().fillna(0)
+    df['dividend_yield'] = df['last_div_amount'] / df['close']
+    
+    # is_ex_dividend_week: is the current date within 7 days of ANY dividend date (past or future)?
+    # Actually, predicting requires looking forward, so 'is_ex_dividend_week' (upcoming) would be cheating if not known. 
+    # But usually, announcement date is known before ex-div date. So it's fair if within [-7, 0] days of ex_dividend_date.
+    # Let's say: is the date within 7 days PRIOR to an ex-dividend date?
+    df['next_div_date'] = pd.Series(index=df.index, dtype='datetime64[ns]')
+    df.loc[div_dates.index, 'next_div_date'] = div_dates
+    df['next_div_date'] = df['next_div_date'].bfill()
+    df['days_to_next_dividend'] = (df['next_div_date'] - df['date']).dt.days
+    
+    df['is_ex_dividend_week'] = ((df['days_to_next_dividend'] >= 0) & (df['days_to_next_dividend'] <= 7)).astype(int)
+    
+    # Drop intermediate columns
+    df.drop(columns=['dividend_amount', 'last_div_date', 'last_div_amount', 'next_div_date', 'days_to_next_dividend'], inplace=True)
+    return df
+
+
 def build_features(ticker: str) -> pd.DataFrame:
     """Orchestrates the entire feature engineering pipeline."""
     df = load_data(ticker)
@@ -106,7 +214,13 @@ def build_features(ticker: str) -> pd.DataFrame:
     # 2. Daily Returns and Lag Features (t-1, t-2, t-3)
     df = calculate_lag_features(df, col='close', lags=[1, 2, 3])
     
-    # 3. Handle Missing Values
+    # 3. Merge Sentiment Data with Decay
+    df = merge_sentiment(df, ticker)
+    
+    # 3.5 Merge Dividend Data
+    df = merge_dividends(df, ticker)
+    
+    # 4. Handle Missing Values
     # Since rolling windows (e.g., SMA-50) require at least 50 days of data to compute,
     # the first ~49 rows will contain NaNs. We drop these to prevent model poisoning.
     initial_len = len(df)

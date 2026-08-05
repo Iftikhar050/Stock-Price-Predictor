@@ -26,6 +26,8 @@ if ROOT_DIR not in sys.path:
 
 from src.psx_predictor.models.train_lstm import LSTMModel
 from src.psx_predictor.config import VALID_TICKERS
+from sqlalchemy import text
+from src.psx_predictor.db.connection import engine
 
 # Logging configuration
 logger = logging.getLogger(__name__)
@@ -66,9 +68,10 @@ async def lifespan(app: FastAPI):
         ml_models["target_scaler"] = joblib.load(os.path.join(MODELS_DIR, "target_scaler.pkl"))
         
         # Load LSTM
-        # We need to know input_dim. It's usually 19 based on the current feature set.
+        # We dynamically get the input_dim from the loaded scaler
         device = torch.device("cpu")
-        lstm = LSTMModel(input_dim=19, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
+        input_dim = ml_models["feature_scaler"].n_features_in_
+        lstm = LSTMModel(input_dim=input_dim, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
         lstm.load_state_dict(torch.load(os.path.join(MODELS_DIR, "lstm_model.pth"), map_location=device, weights_only=True))
         lstm.eval()
         ml_models["lstm_predictor"] = lstm
@@ -105,6 +108,11 @@ class DataPoint(BaseModel):
     xgb_pred: float | None = None
     lstm_pred: float | None = None
 
+class DividendInfo(BaseModel):
+    amount: float
+    ex_date: str
+    type: str
+
 class PredictionResponse(BaseModel):
     ticker: str
     latest_date: str
@@ -117,6 +125,9 @@ class PredictionResponse(BaseModel):
     ensemble_max: float
     model_agreement_score: float
     historical_data: list[DataPoint] = Field(..., description="Last 30 days of closing prices for chart rendering")
+    latest_sentiment: float = 0.0
+    recent_news: list[dict] = Field(default_factory=list)
+    latest_dividend: DividendInfo | None = None
 
 @app.post("/api/predict", response_model=PredictionResponse)
 async def get_prediction(payload: PredictionRequest):
@@ -208,6 +219,44 @@ async def get_prediction(payload: PredictionRequest):
         recent_history_df = recent_history_df.where(pd.notnull(recent_history_df), None)
         recent_history = recent_history_df.to_dict(orient='records')
         
+        # Get latest sentiment
+        latest_sentiment = float(df['sentiment_score'].iloc[-1]) if 'sentiment_score' in df.columns else 0.0
+        
+        # Query recent news from DB
+        recent_news = []
+        try:
+            query = text("""
+                SELECT headline, source, published_at, url, sentiment_score 
+                FROM stock_news 
+                WHERE ticker = :ticker 
+                ORDER BY published_at DESC 
+                LIMIT 5
+            """)
+            with engine.connect() as conn:
+                news_result = conn.execute(query, {"ticker": payload.ticker.upper()}).fetchall()
+                for row in news_result:
+                    recent_news.append({
+                        "headline": row.headline,
+                        "source": row.source,
+                        "published_at": str(row.published_at),
+                        "url": row.url,
+                        "sentiment_score": float(row.sentiment_score) if row.sentiment_score is not None else 0.0
+                    })
+        except Exception as e:
+            logger.error(f"Failed to fetch recent news: {e}")
+            
+        # Fetch latest dividend
+        latest_dividend = None
+        dividend_query = text("SELECT dividend_amount, ex_dividend_date, dividend_type FROM stock_dividends WHERE ticker = :ticker ORDER BY ex_dividend_date DESC LIMIT 1")
+        with engine.connect() as conn:
+            div_res = conn.execute(dividend_query, {"ticker": payload.ticker.upper()}).fetchone()
+            if div_res:
+                latest_dividend = DividendInfo(
+                    amount=float(div_res[0]),
+                    ex_date=str(div_res[1]),
+                    type=str(div_res[2])
+                )
+        
         return PredictionResponse(
             ticker=payload.ticker.upper(),
             latest_date=str(df['date'].iloc[-1]),
@@ -219,7 +268,10 @@ async def get_prediction(payload: PredictionRequest):
             ensemble_min=round(ensemble_min, 2),
             ensemble_max=round(ensemble_max, 2),
             model_agreement_score=round(confidence, 1),
-            historical_data=recent_history
+            historical_data=recent_history,
+            latest_sentiment=round(latest_sentiment, 2),
+            recent_news=recent_news,
+            latest_dividend=latest_dividend
         )
         
     except Exception as e:
@@ -253,9 +305,10 @@ async def reload_models(api_key: str = Depends(verify_api_key)):
         ml_models["feature_scaler"] = joblib.load(os.path.join(MODELS_DIR, "feature_scaler.pkl"))
         ml_models["target_scaler"] = joblib.load(os.path.join(MODELS_DIR, "target_scaler.pkl"))
         
-        # Load LSTM
+        # Load LSTM dynamically using feature_scaler's input dim
         device = torch.device("cpu")
-        lstm = LSTMModel(input_dim=19, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
+        input_dim = ml_models["feature_scaler"].n_features_in_
+        lstm = LSTMModel(input_dim=input_dim, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
         lstm.load_state_dict(torch.load(os.path.join(MODELS_DIR, "lstm_model.pth"), map_location=device, weights_only=True))
         lstm.eval()
         ml_models["lstm_predictor"] = lstm

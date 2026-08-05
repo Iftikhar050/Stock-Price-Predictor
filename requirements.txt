@@ -41,3 +41,9 @@ pytest-cov==6.0.0
 black==25.1.0
 flake8==7.1.2
 mypy==1.15.0
+
+# Financial News Pipeline
+vaderSentiment==3.3.2
+gnews==0.3.6
+dateparser==1.2.0
+schedule==1.2.2

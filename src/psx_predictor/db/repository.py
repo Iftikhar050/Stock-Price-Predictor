@@ -3,7 +3,7 @@ import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
-from src.psx_predictor.db.models import StockEODData
+from src.psx_predictor.db.models import StockEODData, StockNews, StockNewsSentiment
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -71,3 +71,53 @@ def upsert_stock_data(df: pd.DataFrame) -> bool:
     except Exception as e:
         logger.error(f"Unexpected error during upsert operation: {e}")
         return False
+
+def upsert_stock_news(df: pd.DataFrame) -> bool:
+    """
+    Inserts raw news articles. Deduplication happens before this step, so we simply insert.
+    """
+    if df is None or df.empty:
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(StockNews).values(records)
+    
+    # URL and Ticker are not a composite PK, so if we wanted to avoid duplicate inserts on the DB level,
+    # we would need a unique constraint on (url, ticker). For now, we trust the deduplicator.
+    # However, to be safe, we can do a DO NOTHING on conflict if we add a unique constraint later.
+    try:
+        with engine.begin() as conn:
+            conn.execute(stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error inserting news: {e}")
+        return False
+
+def upsert_news_sentiment(df: pd.DataFrame) -> bool:
+    """
+    Upserts daily aggregated sentiment into stock_news_sentiment.
+    """
+    if df is None or df.empty:
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(StockNewsSentiment).values(records)
+    
+    update_dict = {
+        'sentiment_score': stmt.excluded.sentiment_score,
+        'article_count': stmt.excluded.article_count
+    }
+    
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['ticker', 'date'],
+        set_=update_dict
+    )
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting sentiment: {e}")
+        return False
+

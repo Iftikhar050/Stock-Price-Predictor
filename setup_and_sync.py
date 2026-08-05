@@ -7,6 +7,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import Base
 from src.psx_predictor.scraper.client import PSXScraper
+from src.psx_predictor.scraper.dividend_scraper import DividendScraper
 
 TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
 
@@ -31,7 +32,17 @@ def main():
         else:
             print(f"   ERROR: Failed to sync {ticker}.")
 
-    print("\n   All scraping tasks completed. Data is in 'stock_eod_data' table.")
+    print("\n   All EOD scraping tasks completed. Data is in 'stock_eod_data' table.")
+    
+    print("\n3. Scraping and Syncing Dividends to PostgreSQL...")
+    div_scraper = DividendScraper()
+    for ticker in TICKERS:
+        print(f"   Syncing dividends for {ticker}...")
+        div_success = div_scraper.sync_dividends(ticker)
+        if div_success:
+            print(f"   Success! {ticker} dividends written to PostgreSQL.")
+        else:
+            print(f"   ERROR/WARNING: Failed to sync dividends for {ticker}.")
 
 if __name__ == '__main__':
     main()
