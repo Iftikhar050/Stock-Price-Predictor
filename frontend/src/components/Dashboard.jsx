@@ -72,6 +72,98 @@ const MarketPerformers = () => {
   );
 };
 
+const AllCompaniesTable = ({ modelType }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      setLoading(true);
+      try {
+        const promises = VALID_TICKERS.map(t => axios.post(`${API_BASE_URL}/api/predict`, { ticker: t }));
+        const responses = await Promise.all(promises);
+        const parsedData = responses.map(res => {
+          const d = res.data;
+          const lastRecord = d.historical_data[d.historical_data.length - 1];
+          const prefix = modelType === 'RF' ? 'rf' : modelType === 'LSTM' ? 'lstm' : modelType === 'LR' ? 'lr' : 'xgb';
+          const predToday = lastRecord[`${prefix}_pred`];
+          const actualToday = d.current_price;
+          const diff = predToday ? actualToday - predToday : 0;
+          const diffPercent = predToday ? (diff / predToday) * 100 : 0;
+          const predTomorrow = d[`${prefix}_predicted_price`];
+          
+          return {
+            ticker: d.ticker,
+            actualToday,
+            predToday,
+            diff,
+            diffPercent,
+            predTomorrow
+          };
+        });
+        setData(parsedData);
+      } catch (err) {
+        console.error("Failed to fetch all predictions", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchAll();
+    const interval = setInterval(fetchAll, 60000);
+    return () => clearInterval(interval);
+  }, [modelType]);
+
+  if (loading && data.length === 0) {
+    return <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-64 animate-pulse mt-6"></div>;
+  }
+
+  return (
+    <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 mt-6">
+      <h3 className="text-xl font-bold text-slate-100 mb-4 border-b border-slate-700 pb-3 flex items-center">
+        <svg className="w-5 h-5 mr-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        Model Performance ({modelType})
+      </h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-900/50 text-slate-300 border-b border-slate-700">
+            <tr>
+              <th className="px-4 py-3 font-bold uppercase text-[11px] tracking-wider">Company</th>
+              <th className="px-4 py-3 font-bold text-right uppercase text-[11px] tracking-wider">Actual Today</th>
+              <th className="px-4 py-3 font-bold text-right uppercase text-[11px] tracking-wider">Pred Today</th>
+              <th className="px-4 py-3 font-bold text-right uppercase text-[11px] tracking-wider">Error (Act - Pred)</th>
+              <th className="px-4 py-3 font-bold text-right text-emerald-400 uppercase text-[11px] tracking-wider">Pred Tomorrow</th>
+            </tr>
+          </thead>
+          <tbody className="bg-slate-800">
+            {data.map((row, idx) => (
+              <tr key={idx} className="border-b border-slate-700/50 last:border-0 hover:bg-slate-700/50 transition-colors text-slate-200 font-medium">
+                <td className="px-4 py-3 font-bold">{row.ticker}</td>
+                <td className="px-4 py-3 text-right">Rs. {row.actualToday.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right">
+                  {row.predToday ? `Rs. ${row.predToday.toFixed(2)}` : 'N/A'}
+                </td>
+                <td className={`px-4 py-3 text-right font-semibold ${row.diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {row.predToday ? (
+                    <>
+                      {row.diff > 0 ? '+' : ''}{row.diff.toFixed(2)} ({row.diffPercent > 0 ? '+' : ''}{row.diffPercent.toFixed(2)}%)
+                    </>
+                  ) : 'N/A'}
+                </td>
+                <td className="px-4 py-3 text-right font-bold text-emerald-400 bg-emerald-900/10">
+                  Rs. {row.predTomorrow.toFixed(2)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 
 const Dashboard = () => {
   const [ticker, setTicker] = useState('PSO');
@@ -562,103 +654,111 @@ const Dashboard = () => {
 
               </div>
 
-              {/* Right Column: Chart (Professional Upgrade) */}
-              <div className="md:col-span-2 bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-[450px] flex flex-col">
-                <div className="flex justify-between items-start mb-4">
-                  {/* Time Range Tabs */}
-                  <div className="flex space-x-1 bg-slate-900/50 p-1 rounded-lg border border-slate-700/50">
-                    {['7D', '30D', '90D', '1Y', '5Y'].map(range => (
-                      <button
-                        key={range}
-                        onClick={() => setTimeRange(range)}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                          timeRange === range 
-                            ? 'bg-emerald-500 text-white shadow-sm' 
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                        }`}
-                      >
-                        {range}
-                      </button>
-                    ))}
+              {/* Right Column: Chart and Table */}
+              <div className="md:col-span-2 flex flex-col">
+                
+                {/* Chart Container */}
+                <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-[450px] flex flex-col">
+                  <div className="flex justify-between items-start mb-4">
+                    {/* Time Range Tabs */}
+                    <div className="flex space-x-1 bg-slate-900/50 p-1 rounded-lg border border-slate-700/50">
+                      {['7D', '30D', '90D', '1Y', '5Y'].map(range => (
+                        <button
+                          key={range}
+                          onClick={() => setTimeRange(range)}
+                          className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                            timeRange === range 
+                              ? 'bg-emerald-500 text-white shadow-sm' 
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          }`}
+                        >
+                          {range}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Beautiful Timestamp */}
+                    <div className="text-right">
+                      <p className="text-slate-300 text-xs font-medium">As of {formattedTimestamp}</p>
+                      <p className="text-slate-500 text-[10px] mt-0.5">Market Close Data</p>
+                    </div>
                   </div>
-                  
-                  {/* Beautiful Timestamp */}
-                  <div className="text-right">
-                    <p className="text-slate-300 text-xs font-medium">As of {formattedTimestamp}</p>
-                    <p className="text-slate-500 text-[10px] mt-0.5">Market Close Data</p>
-                  </div>
-                </div>
 
-                <div className="flex-grow pt-2">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} stopOpacity={0.5}/>
-                          {/* Fades out much earlier to look professional */}
-                          <stop offset="60%" stopColor={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      
-                      {/* Subtle, low-opacity horizontal gridlines only */}
-                      <CartesianGrid stroke="#334155" strokeOpacity={0.4} vertical={false} strokeDasharray="4 4" />
-                      
-                      <XAxis 
-                        dataKey="date" 
-                        stroke="#64748b" 
-                        tick={{fill: '#64748b', fontSize: 11}}
-                        tickLine={false}
-                        axisLine={{stroke: '#334155'}}
-                        tickFormatter={formatXAxisDate} 
-                        minTickGap={getTickGap()}
-                      />
-                      
-                      {/* Professional Right-Aligned Y-Axis */}
-                      <YAxis 
-                        domain={['auto', 'auto']} 
-                        orientation="right"
-                        stroke="#64748b" 
-                        tick={{fill: '#64748b', fontSize: 11}}
-                        tickLine={false}
-                        axisLine={{stroke: '#334155'}}
-                        tickFormatter={(tick) => `${tick}`}
-                      />
-                      
-                      {/* Interactive Tooltip with Crosshair */}
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)' }}
-                        itemStyle={{ color: modelType === 'RF' ? '#34d399' : modelType === 'LSTM' ? '#22d3ee' : modelType === 'LR' ? '#fb923c' : '#c084fc', fontWeight: 'bold' }}
-                        labelStyle={{ color: '#94a3b8', marginBottom: '4px', fontSize: '12px' }}
-                        cursor={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '3 3' }}
-                      />
-                      
-                      <ReferenceLine x={data.latest_date} stroke="#64748b" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'Today', fill: '#94a3b8', fontSize: 11 }} />
-                      
-                      {/* Linear interpolation for jagged, realistic lines */}
-                      <Area 
-                        type="linear" 
-                        dataKey="close" 
-                        name="Actual Price"
-                        stroke={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} 
-                        strokeWidth={2}
-                        fillOpacity={1} 
-                        fill="url(#colorClose)" 
-                        activeDot={{ r: 5, strokeWidth: 2, stroke: '#0f172a', fill: modelType === 'RF' ? '#34d399' : modelType === 'LSTM' ? '#22d3ee' : modelType === 'LR' ? '#fb923c' : '#c084fc' }}
-                      />
-                      <Line
-                        type="linear"
-                        dataKey="predictedClose"
-                        name="Predicted Price"
-                        stroke="#fbbf24" // Amber color for visibility
-                        strokeWidth={2}
-                        strokeDasharray="4 4"
-                        dot={false}
-                        activeDot={{ r: 5, strokeWidth: 0, fill: '#fbbf24' }}
-                        connectNulls={true}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <div className="flex-grow pt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorClose" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} stopOpacity={0.5}/>
+                            {/* Fades out much earlier to look professional */}
+                            <stop offset="60%" stopColor={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        
+                        {/* Subtle, low-opacity horizontal gridlines only */}
+                        <CartesianGrid stroke="#334155" strokeOpacity={0.4} vertical={false} strokeDasharray="4 4" />
+                        
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#64748b" 
+                          tick={{fill: '#64748b', fontSize: 11}}
+                          tickLine={false}
+                          axisLine={{stroke: '#334155'}}
+                          tickFormatter={formatXAxisDate} 
+                          minTickGap={getTickGap()}
+                        />
+                        
+                        {/* Professional Right-Aligned Y-Axis */}
+                        <YAxis 
+                          domain={['auto', 'auto']} 
+                          orientation="right"
+                          stroke="#64748b" 
+                          tick={{fill: '#64748b', fontSize: 11}}
+                          tickLine={false}
+                          axisLine={{stroke: '#334155'}}
+                          tickFormatter={(tick) => `${tick}`}
+                        />
+                        
+                        {/* Interactive Tooltip with Crosshair */}
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)' }}
+                          itemStyle={{ color: modelType === 'RF' ? '#34d399' : modelType === 'LSTM' ? '#22d3ee' : modelType === 'LR' ? '#fb923c' : '#c084fc', fontWeight: 'bold' }}
+                          labelStyle={{ color: '#94a3b8', marginBottom: '4px', fontSize: '12px' }}
+                          cursor={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '3 3' }}
+                        />
+                        
+                        <ReferenceLine x={data.latest_date} stroke="#64748b" strokeDasharray="3 3" label={{ position: 'insideTopLeft', value: 'Today', fill: '#94a3b8', fontSize: 11 }} />
+                        
+                        {/* Linear interpolation for jagged, realistic lines */}
+                        <Area 
+                          type="linear" 
+                          dataKey="close" 
+                          name="Actual Price"
+                          stroke={modelType === 'RF' ? "#10b981" : modelType === 'LSTM' ? "#06b6d4" : modelType === 'LR' ? "#f97316" : "#a855f7"} 
+                          strokeWidth={2}
+                          fillOpacity={1} 
+                          fill="url(#colorClose)" 
+                          activeDot={{ r: 5, strokeWidth: 2, stroke: '#0f172a', fill: modelType === 'RF' ? '#34d399' : modelType === 'LSTM' ? '#22d3ee' : modelType === 'LR' ? '#fb923c' : '#c084fc' }}
+                        />
+                        <Line
+                          type="linear"
+                          dataKey="predictedClose"
+                          name="Predicted Price"
+                          stroke="#fbbf24" // Amber color for visibility
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          dot={false}
+                          activeDot={{ r: 5, strokeWidth: 0, fill: '#fbbf24' }}
+                          connectNulls={true}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
+                
+                {/* All Companies Table positioned beneath the Chart */}
+                <AllCompaniesTable modelType={modelType} />
+
               </div>
             </div>
 
