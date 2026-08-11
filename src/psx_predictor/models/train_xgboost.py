@@ -34,29 +34,31 @@ def prepare_data(ticker: str):
         
     df = pd.read_csv(file_path)
     
-    # 1. Create Target Variable (Next Day's Close Price)
-    df['target_close_t1'] = df['close'].shift(-1)
-    df.dropna(subset=['target_close_t1'], inplace=True)
+    # 1. Create Target Variable (Next Day's Return)
+    df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
+    df.dropna(subset=['target_return_t1'], inplace=True)
     
     # 2. Select Features (X) and Target (y)
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_close_t1']
+    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     
     X = df[feature_cols]
-    y = df['target_close_t1']
+    y = df['target_return_t1']
     dates = df['date']
+    current_close = df['close']
     
-    return X, y, dates
+    return X, y, dates, current_close
 
 def train_and_evaluate():
     """Builds and evaluates the XGBoost model."""
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
-    dates_test_pso, y_test_pso, preds_pso = None, None, None
+    close_test_list = []
+    dates_test_pso, y_test_pso, preds_pso, close_test_pso = None, None, None, None
     
     for ticker in TICKERS:
         try:
-            X, y, dates = prepare_data(ticker)
+            X, y, dates, current_close = prepare_data(ticker)
         except Exception:
             continue
             
@@ -67,16 +69,19 @@ def train_and_evaluate():
         X_test_list.append(X.iloc[split_idx:])
         y_train_list.append(y.iloc[:split_idx])
         y_test_list.append(y.iloc[split_idx:])
+        close_test_list.append(current_close.iloc[split_idx:])
         
         if ticker == 'PSO':
             dates_test_pso = dates.iloc[split_idx:]
             y_test_pso = y.iloc[split_idx:]
             X_test_pso = X.iloc[split_idx:]
+            close_test_pso = current_close.iloc[split_idx:]
             
     X_train = pd.concat(X_train_list, ignore_index=True)
     X_test = pd.concat(X_test_list, ignore_index=True)
     y_train = pd.concat(y_train_list, ignore_index=True)
     y_test = pd.concat(y_test_list, ignore_index=True)
+    close_test_all = pd.concat(close_test_list, ignore_index=True)
     
     logger.info(f"Global Training set: {len(X_train)} samples")
     logger.info(f"Global Testing set: {len(X_test)} samples")
@@ -95,12 +100,15 @@ def train_and_evaluate():
     
     # Predictions
     logger.info("Evaluating model on global test set...")
-    predictions = model.predict(X_test)
+    predictions_return = model.predict(X_test)
+    
+    predicted_prices = close_test_all * (1 + predictions_return)
+    actual_prices = close_test_all * (1 + y_test)
     
     # Metrics
-    mae = mean_absolute_error(y_test, predictions)
-    rmse = np.sqrt(mean_squared_error(y_test, predictions))
-    mape = mean_absolute_percentage_error(y_test, predictions) * 100
+    mae = mean_absolute_error(actual_prices, predicted_prices)
+    rmse = np.sqrt(mean_squared_error(actual_prices, predicted_prices))
+    mape = mean_absolute_percentage_error(actual_prices, predicted_prices) * 100
     
     logger.info(f"--- Global Model Performance on Test Set ---")
     logger.info(f"MAE:  Rs. {mae:.2f}")
@@ -115,11 +123,14 @@ def train_and_evaluate():
     
     # Plotting Actual vs Predicted
     if dates_test_pso is not None:
-        preds_pso = model.predict(X_test_pso)
+        preds_pso_return = model.predict(X_test_pso)
+        preds_pso_price = close_test_pso * (1 + preds_pso_return)
+        actual_pso_price = close_test_pso * (1 + y_test_pso)
+        
         os.makedirs(REPORTS_DIR, exist_ok=True)
         plt.figure(figsize=(14, 6))
-        plt.plot(pd.to_datetime(dates_test_pso), y_test_pso.values, label='Actual Close Price', color='blue', alpha=0.7)
-        plt.plot(pd.to_datetime(dates_test_pso), preds_pso, label='Predicted Close Price', color='purple', alpha=0.7)
+        plt.plot(pd.to_datetime(dates_test_pso), actual_pso_price.values, label='Actual Close Price', color='blue', alpha=0.7)
+        plt.plot(pd.to_datetime(dates_test_pso), preds_pso_price.values, label='Predicted Close Price', color='purple', alpha=0.7)
         plt.title(f"PSO - XGBoost Price Prediction (Test Set)")
         plt.xlabel('Date')
         plt.ylabel('Closing Price (Rs.)')

@@ -104,15 +104,15 @@ def prepare_and_scale_data(lookback=30):
             logger.warning(f"Feature file not found for {ticker}, skipping.")
             continue
             
-        df['target_close_t1'] = df['close'].shift(-1)
-        df.dropna(subset=['target_close_t1'], inplace=True)
+        df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
+        df.dropna(subset=['target_return_t1'], inplace=True)
         
-        exclude_cols = ['ticker', 'date', 'created_at', 'target_close_t1']
+        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
         feature_cols = [col for col in df.columns if col not in exclude_cols]
         feature_cols_len = len(feature_cols)
         
         X_raw = df[feature_cols].values
-        y_raw = df[['target_close_t1']].values
+        y_raw = df[['target_return_t1']].values
         
         n = len(X_raw)
         if n < lookback * 3:
@@ -237,7 +237,7 @@ def train_lstm_pipeline():
             predictions.extend(outputs.cpu().numpy())
             actuals.extend(y_batch.numpy())
             
-    # Inverse transform to get real Rs. values
+    # Inverse transform to get real Return values
     predictions_real = target_scaler.inverse_transform(predictions)
     actuals_real = target_scaler.inverse_transform(actuals)
     
@@ -245,8 +245,8 @@ def train_lstm_pipeline():
     rmse = np.sqrt(mean_squared_error(actuals_real, predictions_real))
     
     logger.info(f"--- LSTM Model Performance (Test Set) ---")
-    logger.info(f"MAE:  Rs. {mae:.2f}")
-    logger.info(f"RMSE: Rs. {rmse:.2f}")
+    logger.info(f"MAE:  {mae * 100:.2f}%")
+    logger.info(f"RMSE: {rmse * 100:.2f}%")
     logger.info(f"Model weights saved to {model_path}")
 
 if __name__ == '__main__':

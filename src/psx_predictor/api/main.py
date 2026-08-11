@@ -147,18 +147,25 @@ async def get_prediction(payload: PredictionRequest):
     try:
         df = pd.read_csv(data_path)
         
-        exclude_cols = ['ticker', 'date', 'created_at', 'target_close_t1']
+        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
         feature_cols = [col for col in df.columns if col not in exclude_cols]
+        
+        # The models now predict percentage return.
+        # We need to convert it back to an actual price by multiplying by the current close price.
+        current_close_price = df['close'].iloc[-1]
         
         # 1. Random Forest Inference (Requires only the last day)
         latest_day_features = df[feature_cols].iloc[-1:]
-        rf_prediction = ml_models["rf_predictor"].predict(latest_day_features)[0]
+        rf_return = ml_models["rf_predictor"].predict(latest_day_features)[0]
+        rf_prediction = current_close_price * (1 + rf_return)
         
         # 1a. Linear Regression Inference
-        lr_prediction = ml_models["lr_predictor"].predict(latest_day_features)[0]
+        lr_return = ml_models["lr_predictor"].predict(latest_day_features)[0]
+        lr_prediction = current_close_price * (1 + lr_return)
 
         # 1b. XGBoost Inference
-        xgb_prediction = ml_models["xgb_predictor"].predict(latest_day_features)[0]
+        xgb_return = ml_models["xgb_predictor"].predict(latest_day_features)[0]
+        xgb_prediction = current_close_price * (1 + xgb_return)
         
         # 2. LSTM Inference (Requires sequence of last 30 days)
         lookback = 30
@@ -172,7 +179,8 @@ async def get_prediction(payload: PredictionRequest):
         with torch.no_grad():
             lstm_out_scaled = ml_models["lstm_predictor"](tensor_input)
             
-        lstm_prediction = ml_models["target_scaler"].inverse_transform(lstm_out_scaled.numpy())[0][0]
+        lstm_return = ml_models["target_scaler"].inverse_transform(lstm_out_scaled.numpy())[0][0]
+        lstm_prediction = current_close_price * (1 + lstm_return)
         
         # Calculate Ensemble Metrics
         predictions = [rf_prediction, lr_prediction, xgb_prediction, lstm_prediction]
@@ -189,9 +197,14 @@ async def get_prediction(payload: PredictionRequest):
         
         # --- Add Historical Predictions ---
         # Vectorized inference for traditional models
-        df['rf_pred'] = pd.Series(ml_models["rf_predictor"].predict(df[feature_cols])).shift(1)
-        df['lr_pred'] = pd.Series(ml_models["lr_predictor"].predict(df[feature_cols])).shift(1)
-        df['xgb_pred'] = pd.Series(ml_models["xgb_predictor"].predict(df[feature_cols])).shift(1)
+        rf_preds_return = pd.Series(ml_models["rf_predictor"].predict(df[feature_cols]))
+        df['rf_pred'] = (df['close'] * (1 + rf_preds_return)).shift(1)
+        
+        lr_preds_return = pd.Series(ml_models["lr_predictor"].predict(df[feature_cols]))
+        df['lr_pred'] = (df['close'] * (1 + lr_preds_return)).shift(1)
+        
+        xgb_preds_return = pd.Series(ml_models["xgb_predictor"].predict(df[feature_cols]))
+        df['xgb_pred'] = (df['close'] * (1 + xgb_preds_return)).shift(1)
         
         # Batch sequence generation for LSTM
         all_features_scaled = ml_models["feature_scaler"].transform(df[feature_cols].values)
@@ -206,12 +219,12 @@ async def get_prediction(payload: PredictionRequest):
             batch_tensor = torch.tensor(np.array(lstm_sequences), dtype=torch.float32)
             with torch.no_grad():
                 batch_lstm_out = ml_models["lstm_predictor"](batch_tensor)
-            batch_lstm_preds = ml_models["target_scaler"].inverse_transform(batch_lstm_out.numpy()).flatten()
+            batch_lstm_preds_return = ml_models["target_scaler"].inverse_transform(batch_lstm_out.numpy()).flatten()
             
             # Create a temporary series to hold predictions and shift by 1
-            lstm_series = pd.Series(index=df.index, dtype=float)
-            lstm_series.loc[lstm_valid_indices] = batch_lstm_preds
-            df['lstm_pred'] = lstm_series.shift(1)
+            lstm_series_return = pd.Series(index=df.index, dtype=float)
+            lstm_series_return.loc[lstm_valid_indices] = batch_lstm_preds_return
+            df['lstm_pred'] = (df['close'] * (1 + lstm_series_return)).shift(1)
             
         # Select final columns and convert to dict
         recent_history_df = df.tail(1825)[['date', 'close', 'rf_pred', 'lr_pred', 'xgb_pred', 'lstm_pred']]
@@ -461,12 +474,16 @@ def fetch_performer_data(tickers):
             else:
                 price, change, percent = 0.0, 0.0, 0.0
                 
-            data_path = os.path.join(PROCESSED_DIR, f"{t.lower()}_features.csv")
+            # Since volume is no longer in the ML feature set, query it directly from the database
             volume = 0
-            if os.path.exists(data_path):
-                df = pd.read_csv(data_path)
-                if not df.empty:
-                    volume = int(df['volume'].iloc[-1])
+            try:
+                vol_query = text("SELECT volume FROM stock_eod_data WHERE ticker = :ticker ORDER BY date DESC LIMIT 1")
+                with engine.connect() as conn:
+                    vol_res = conn.execute(vol_query, {"ticker": t.upper()}).fetchone()
+                    if vol_res:
+                        volume = int(vol_res[0])
+            except Exception as db_e:
+                logger.error(f"Failed to fetch volume from DB for {t}: {db_e}")
                     
             results.append({
                 "symbol": t,

@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import pandas as pd
+import numpy as np
 from sqlalchemy import text
 
 # Add the project root to the sys.path to allow imports when running as a script
@@ -49,7 +50,8 @@ def load_data(ticker: str) -> pd.DataFrame:
 def calculate_sma(df: pd.DataFrame, col: str = 'close', windows: list = [7, 21, 50]) -> pd.DataFrame:
     """Calculates Simple Moving Averages for specified windows."""
     for window in windows:
-        df[f'sma_{window}'] = df[col].rolling(window=window).mean()
+        sma = df[col].rolling(window=window).mean()
+        df[f'sma_{window}_dist'] = (df[col] / sma) - 1.0
     return df
 
 def calculate_rsi(df: pd.DataFrame, col: str = 'close', window: int = 14) -> pd.DataFrame:
@@ -85,9 +87,45 @@ def calculate_lag_features(df: pd.DataFrame, col: str = 'close', lags: list = [1
     
     # Lagged features (t-1, t-2, t-3)
     for lag in lags:
-        df[f'{col}_lag_{lag}'] = df[col].shift(lag)
         df[f'return_lag_{lag}'] = df['daily_return'].shift(lag)
         
+    return df
+
+def calculate_bollinger_bands(df: pd.DataFrame, col: str = 'close', window: int = 20) -> pd.DataFrame:
+    """Calculates Bollinger Bands (Upper, Lower, and Middle)."""
+    bb_middle = df[col].rolling(window=window).mean()
+    rolling_std = df[col].rolling(window=window).std()
+    bb_upper = bb_middle + (rolling_std * 2)
+    bb_lower = bb_middle - (rolling_std * 2)
+    
+    df['bb_middle_dist'] = (df[col] / bb_middle) - 1.0
+    df['bb_upper_dist'] = (df[col] / bb_upper) - 1.0
+    df['bb_lower_dist'] = (df[col] / bb_lower) - 1.0
+    return df
+
+def calculate_vwap(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculates Volume Weighted Average Price (VWAP)."""
+    # Typical Price = (High + Low + Close) / 3
+    # VWAP = Cumulative(Typical Price * Volume) / Cumulative(Volume)
+    # Since this is daily data over a long period, a rolling VWAP is better to avoid infinite accumulation.
+    # Let's use a 14-day rolling VWAP.
+    window = 14
+    typical_price = (df['high'] + df['low'] + df['close']) / 3
+    tp_v = typical_price * df['volume']
+    
+    vwap = tp_v.rolling(window=window).sum() / df['volume'].rolling(window=window).sum()
+    df['vwap_14_dist'] = (df['close'] / vwap) - 1.0
+    return df
+
+def extract_time_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Extracts calendar and time-based features."""
+    df['day_of_week'] = df['date'].dt.dayofweek
+    return df
+
+def calculate_obv(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculates On-Balance Volume (OBV)."""
+    obv = (np.sign(df['close'].diff()) * df['volume']).fillna(0).cumsum()
+    df['obv'] = obv
     return df
 
 def merge_sentiment(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
@@ -214,11 +252,22 @@ def build_features(ticker: str) -> pd.DataFrame:
     # 2. Daily Returns and Lag Features (t-1, t-2, t-3)
     df = calculate_lag_features(df, col='close', lags=[1, 2, 3])
     
+    # 2.5 New Distinct Features (Volatility, Volume Context, Time)
+    df = calculate_bollinger_bands(df, col='close', window=20)
+    df = calculate_vwap(df)
+    df = extract_time_features(df)
+    df = calculate_obv(df)
+    
     # 3. Merge Sentiment Data with Decay
     df = merge_sentiment(df, ticker)
     
     # 3.5 Merge Dividend Data
     df = merge_dividends(df, ticker)
+    
+    # 3.8 Spread Features
+    df['daily_spread'] = (df['high'] - df['low']) / df['close']
+    high_low_diff = df['high'] - df['low']
+    df['close_pos'] = np.where(high_low_diff == 0, 0.5, (df['close'] - df['low']) / high_low_diff)
     
     # 4. Handle Missing Values
     # Since rolling windows (e.g., SMA-50) require at least 50 days of data to compute,
@@ -228,7 +277,11 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = df.reset_index(drop=True)
     logger.info(f"Dropped {initial_len - len(df)} rows containing NaNs introduced by rolling windows.")
     
-    # 4. Save finalized dataset
+    cols_to_drop = ['open', 'high', 'low', 'volume']
+    cols_to_drop = [c for c in cols_to_drop if c in df.columns]
+    df.drop(columns=cols_to_drop, inplace=True)
+    
+    # 5. Save finalized dataset
     final_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
     df.to_csv(final_path, index=False)
     logger.info(f"Saved finalized feature dataset ready for ML to {final_path}")
