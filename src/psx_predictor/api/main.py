@@ -147,7 +147,7 @@ async def get_prediction(payload: PredictionRequest):
     try:
         df = pd.read_csv(data_path)
         
-        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
+        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
         feature_cols = [col for col in df.columns if col not in exclude_cols]
         
         # The models now predict percentage return.

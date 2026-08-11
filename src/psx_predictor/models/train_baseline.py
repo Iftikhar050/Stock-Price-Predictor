@@ -39,7 +39,7 @@ def prepare_data(ticker: str):
     df.dropna(subset=['target_return_t1'], inplace=True)
     
     # 2. Select Features (X) and Target (y)
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
+    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     
     X = df[feature_cols]

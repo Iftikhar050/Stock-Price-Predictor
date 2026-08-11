@@ -80,12 +80,12 @@ def calculate_macd(df: pd.DataFrame, col: str = 'close', fast: int = 12, slow: i
     df['macd_hist'] = df['macd'] - df['macd_signal']
     return df
 
-def calculate_lag_features(df: pd.DataFrame, col: str = 'close', lags: list = [1, 2, 3]) -> pd.DataFrame:
+def calculate_lag_features(df: pd.DataFrame, col: str = 'close', lags: list = [1, 2, 3, 5, 10]) -> pd.DataFrame:
     """Calculates percentage returns and standard lag features."""
     # Daily percentage return (Target Variable base)
     df['daily_return'] = df[col].pct_change()
     
-    # Lagged features (t-1, t-2, t-3)
+    # Lagged features
     for lag in lags:
         df[f'return_lag_{lag}'] = df['daily_return'].shift(lag)
         
@@ -119,13 +119,22 @@ def calculate_vwap(df: pd.DataFrame) -> pd.DataFrame:
 
 def extract_time_features(df: pd.DataFrame) -> pd.DataFrame:
     """Extracts calendar and time-based features."""
-    df['day_of_week'] = df['date'].dt.dayofweek
+    day_of_week = df['date'].dt.dayofweek
+    df['dow_sin'] = np.sin(2 * np.pi * day_of_week / 5)
+    df['dow_cos'] = np.cos(2 * np.pi * day_of_week / 5)
     return df
 
-def calculate_obv(df: pd.DataFrame) -> pd.DataFrame:
-    """Calculates On-Balance Volume (OBV)."""
+def calculate_obv(df: pd.DataFrame, window: int = 50) -> pd.DataFrame:
+    """Calculates normalized On-Balance Volume (OBV) via rolling z-score."""
     obv = (np.sign(df['close'].diff()) * df['volume']).fillna(0).cumsum()
-    df['obv'] = obv
+    
+    obv_mean = obv.rolling(window=window).mean()
+    obv_std = obv.rolling(window=window).std()
+    
+    # Avoid division by zero
+    obv_std = obv_std.replace(0, 1)
+    
+    df['obv'] = (obv - obv_mean) / obv_std
     return df
 
 def merge_sentiment(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
@@ -212,29 +221,65 @@ def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     
     # Calculate days since last dividend
     df['days_since_dividend'] = (df['date'] - df['last_div_date']).dt.days
-    df['days_since_dividend'] = df['days_since_dividend'].fillna(9999) # For days before any dividend
+    df['days_since_dividend'] = df['days_since_dividend'].fillna(365).clip(upper=365) # Cap at 365
     
     # dividend_yield: trailing 12 months dividend sum / price
     # Since we don't have exactly 12 months rolling easily without dates, we'll just use the last dividend amount * 4 (assuming quarterly) for a rough annualized yield, or just the last dividend amount / close. Let's just use last dividend amount / close price
     
-    df['last_div_amount'] = df['dividend_amount'].replace(0, pd.NA).ffill().fillna(0)
-    df['dividend_yield'] = df['last_div_amount'] / df['close']
+    df['last_div_amount'] = df['dividend_amount'].replace(0, np.nan).ffill().fillna(0).astype(float)
+    df['dividend_yield'] = (df['last_div_amount'] / df['close']).astype(float)
     
-    # is_ex_dividend_week: is the current date within 7 days of ANY dividend date (past or future)?
-    # Actually, predicting requires looking forward, so 'is_ex_dividend_week' (upcoming) would be cheating if not known. 
-    # But usually, announcement date is known before ex-div date. So it's fair if within [-7, 0] days of ex_dividend_date.
-    # Let's say: is the date within 7 days PRIOR to an ex-dividend date?
-    df['next_div_date'] = pd.Series(index=df.index, dtype='datetime64[ns]')
-    df.loc[div_dates.index, 'next_div_date'] = div_dates
-    df['next_div_date'] = df['next_div_date'].bfill()
-    df['days_to_next_dividend'] = (df['next_div_date'] - df['date']).dt.days
-    
-    df['is_ex_dividend_week'] = ((df['days_to_next_dividend'] >= 0) & (df['days_to_next_dividend'] <= 7)).astype(int)
+    # NOTE: Dropped is_ex_dividend_week and forward-looking next_div_date to avoid lookahead leak,
+    # as we do not currently have the actual announcement date available.
     
     # Drop intermediate columns
-    df.drop(columns=['dividend_amount', 'last_div_date', 'last_div_amount', 'next_div_date', 'days_to_next_dividend'], inplace=True)
+    df.drop(columns=['dividend_amount', 'last_div_date', 'last_div_amount'], inplace=True)
     return df
 
+
+def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    TODO: Join daily return of the KSE-100 index here.
+    Currently stubbed out as no index table exists in the DB yet.
+    Requires a 'stock_market_index' table with 'date' and 'close' or 'return' columns.
+    """
+    # Example when data is available:
+    # df['market_return'] = ...
+    return df
+
+def calculate_relative_volume(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
+    """Calculates relative volume over a rolling window."""
+    vol_ma = df['volume'].rolling(window=window).mean()
+    # Avoid division by zero
+    vol_ma = vol_ma.replace(0, 1)
+    df['relative_volume'] = df['volume'] / vol_ma
+    return df
+
+def calculate_realized_volatility(df: pd.DataFrame, windows: list = [5, 20]) -> pd.DataFrame:
+    """Calculates rolling realized volatility (standard deviation of daily return)."""
+    if 'daily_return' not in df.columns:
+        df['daily_return'] = df['close'].pct_change()
+        
+    for window in windows:
+        df[f'return_vol_{window}'] = df['daily_return'].rolling(window=window).std()
+    return df
+
+def calculate_atr(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
+    """Calculates Average True Range (ATR)."""
+    high_low = df['high'] - df['low']
+    high_close = np.abs(df['high'] - df['close'].shift(1))
+    low_close = np.abs(df['low'] - df['close'].shift(1))
+    
+    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    df['atr'] = true_range.rolling(window=window).mean()
+    return df
+
+def encode_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """One-hot encodes the ticker identity."""
+    tickers = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+    for t in tickers:
+        df[f'ticker_{t}'] = 1 if t == ticker else 0
+    return df
 
 def build_features(ticker: str) -> pd.DataFrame:
     """Orchestrates the entire feature engineering pipeline."""
@@ -249,14 +294,19 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = calculate_rsi(df, col='close', window=14)
     df = calculate_macd(df, col='close')
     
-    # 2. Daily Returns and Lag Features (t-1, t-2, t-3)
-    df = calculate_lag_features(df, col='close', lags=[1, 2, 3])
+    # 2. Daily Returns and Lag Features
+    df = calculate_lag_features(df, col='close', lags=[1, 2, 3, 5, 10])
     
     # 2.5 New Distinct Features (Volatility, Volume Context, Time)
     df = calculate_bollinger_bands(df, col='close', window=20)
     df = calculate_vwap(df)
     df = extract_time_features(df)
     df = calculate_obv(df)
+    df = calculate_relative_volume(df)
+    df = calculate_realized_volatility(df)
+    df = calculate_atr(df)
+    df = encode_ticker(df, ticker)
+    df = merge_market_index(df, ticker)
     
     # 3. Merge Sentiment Data with Decay
     df = merge_sentiment(df, ticker)

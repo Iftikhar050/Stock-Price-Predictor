@@ -107,7 +107,7 @@ def prepare_and_scale_data(lookback=30):
         df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
         df.dropna(subset=['target_return_t1'], inplace=True)
         
-        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
+        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
         feature_cols = [col for col in df.columns if col not in exclude_cols]
         feature_cols_len = len(feature_cols)
         

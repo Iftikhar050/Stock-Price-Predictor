@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 import joblib
 
@@ -39,7 +39,7 @@ def prepare_data(ticker: str):
     df.dropna(subset=['target_return_t1'], inplace=True)
     
     # 2. Select Features (X) and Target (y)
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1']
+    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     
     X = df[feature_cols]
@@ -87,8 +87,8 @@ def train_and_evaluate():
     logger.info(f"Global Testing set: {len(X_test)} samples")
     
     # Train Linear Regression
-    logger.info("Training LinearRegression...")
-    model = LinearRegression()
+    logger.info("Training Ridge Regression...")
+    model = Ridge(alpha=1.0)
     model.fit(X_train, y_train)
     
     # Predictions
