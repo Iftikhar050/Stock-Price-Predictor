@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { API_BASE_URL, VALID_TICKERS } from '../config';
+import Select from 'react-select';
+import { API_BASE_URL } from '../config';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
 const MarketPerformers = () => {
@@ -72,15 +73,16 @@ const MarketPerformers = () => {
   );
 };
 
-const AllCompaniesTable = ({ modelType }) => {
+const AllCompaniesTable = ({ modelType, availableTickers }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!availableTickers || availableTickers.length === 0) return;
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const promises = VALID_TICKERS.map(t => axios.post(`${API_BASE_URL}/api/predict`, { ticker: t }));
+        const promises = availableTickers.map(t => axios.post(`${API_BASE_URL}/api/predict`, { ticker: t.value }));
         const responses = await Promise.all(promises);
         const parsedData = responses.map(res => {
           const d = res.data;
@@ -167,6 +169,7 @@ const AllCompaniesTable = ({ modelType }) => {
 
 const Dashboard = () => {
   const [ticker, setTicker] = useState('PSO');
+  const [availableTickers, setAvailableTickers] = useState([]);
   const [data, setData] = useState(null);
   const [company, setCompany] = useState(null);
   const [liveData, setLiveData] = useState(null);
@@ -175,6 +178,22 @@ const Dashboard = () => {
   const [modelType, setModelType] = useState('RF'); // 'RF', 'LR', 'XGB', 'LSTM'
   const [timeRange, setTimeRange] = useState('30D'); // '7D', '30D', '90D', '1Y'
   const [isMarketClosed, setIsMarketClosed] = useState(false);
+
+  useEffect(() => {
+    const fetchTickers = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/tickers`);
+        const options = res.data.map(t => ({
+          value: t.ticker,
+          label: `${t.ticker} - ${t.name} (${t.sector})`
+        }));
+        setAvailableTickers(options);
+      } catch (err) {
+        console.error("Failed to load tickers", err);
+      }
+    };
+    fetchTickers();
+  }, []);
 
   useEffect(() => {
     const checkMarketStatus = () => {
@@ -417,15 +436,15 @@ const Dashboard = () => {
           </div>
           
           <form onSubmit={handleSearch} className="mt-4 md:mt-0 flex space-x-2">
-            <select
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              className="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 uppercase font-semibold w-48"
-            >
-              {VALID_TICKERS.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+            <div className="w-64 md:w-80 text-slate-900 text-sm">
+              <Select
+                value={availableTickers.find(opt => opt.value === ticker) || null}
+                onChange={(selected) => setTicker(selected.value)}
+                options={availableTickers}
+                classNamePrefix="react-select"
+                placeholder="Search Company..."
+              />
+            </div>
             <button 
               type="submit" 
               disabled={loading}
@@ -757,7 +776,7 @@ const Dashboard = () => {
                 </div>
                 
                 {/* All Companies Table positioned beneath the Chart */}
-                <AllCompaniesTable modelType={modelType} />
+                <AllCompaniesTable modelType={modelType} availableTickers={availableTickers} />
 
               </div>
             </div>

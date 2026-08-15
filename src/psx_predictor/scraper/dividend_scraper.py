@@ -1,7 +1,7 @@
 import os
 import logging
-import requests
 import pandas as pd
+import yfinance as yf
 from datetime import datetime, date
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -22,10 +22,7 @@ class DividendScraper:
     by appending '.KA' to the ticker for the Karachi Stock Exchange.
     """
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-        })
+        pass # No longer needed since yfinance manages the session
 
     def fetch_dividends(self, ticker: str) -> pd.DataFrame:
         """
@@ -33,34 +30,24 @@ class DividendScraper:
         Returns a DataFrame with columns: ['ticker', 'ex_dividend_date', 'dividend_amount']
         """
         yf_ticker = f"{ticker.upper()}.KA"
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_ticker}?events=div&range=max"
         
         try:
-            response = self.session.get(url, timeout=15)
-            response.raise_for_status()
-            data = response.json()
+            stock = yf.Ticker(yf_ticker)
+            divs = stock.dividends
             
-            result = data.get('chart', {}).get('result', [])
-            if not result:
-                logger.warning(f"No chart result found for {ticker} dividends.")
-                return pd.DataFrame()
-                
-            events = result[0].get('events', {})
-            dividends_data = events.get('dividends', {})
-            
-            if not dividends_data:
+            if divs.empty:
                 logger.info(f"No dividend events found for {ticker}.")
                 return pd.DataFrame()
                 
             records = []
-            for timestamp_str, info in dividends_data.items():
-                ex_date = datetime.fromtimestamp(int(timestamp_str)).date()
-                amount = float(info.get('amount', 0.0))
+            for date_idx, amount in divs.items():
+                # yfinance returns pandas Timestamp in index
+                ex_date = date_idx.date() if hasattr(date_idx, 'date') else pd.to_datetime(date_idx).date()
                 records.append({
                     'ticker': ticker.upper(),
                     'ex_dividend_date': ex_date,
-                    'dividend_amount': amount,
-                    'dividend_type': 'Cash' # Defaulting to Cash for Yahoo Finance
+                    'dividend_amount': float(amount),
+                    'dividend_type': 'Cash'
                 })
                 
             df = pd.DataFrame(records)

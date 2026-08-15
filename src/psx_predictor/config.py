@@ -1,3 +1,4 @@
 # Shared Configuration
 
-VALID_TICKERS = {"PSO", "FFC", "NBP", "MEBL", "OGDC", "LUCK"}
+from src.psx_predictor.db.repository import get_active_tickers
+VALID_TICKERS = get_active_tickers()

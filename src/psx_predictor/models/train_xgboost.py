@@ -23,7 +23,21 @@ PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+from src.psx_predictor.db.repository import get_active_tickers
+from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.db.connection import engine
+from sqlalchemy import text
+import datetime
+
+TICKERS = get_active_tickers()
+
+def get_ticker_sectors():
+    query = text("SELECT ticker, sector FROM stock_metadata")
+    with engine.connect() as conn:
+        res = conn.execute(query).fetchall()
+    return {row[0]: row[1] for row in res}
+
+TICKER_SECTORS = get_ticker_sectors()
 
 def prepare_data(ticker: str):
     """Loads the engineered features and creates the target variable."""
@@ -39,46 +53,65 @@ def prepare_data(ticker: str):
     df.dropna(subset=['target_return_t1'], inplace=True)
     
     # 2. Select Features (X) and Target (y)
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
+    exclude_cols = ['date', 'created_at', 'target_return_t1', 'close'] # Keep 'ticker'
     feature_cols = [col for col in df.columns if col not in exclude_cols]
     
-    X = df[feature_cols]
+    X = df[feature_cols].copy()
+    
+    X['sector'] = X['ticker'].map(TICKER_SECTORS)
+    
     y = df['target_return_t1']
-    dates = df['date']
+    dates = pd.to_datetime(df['date'])
     current_close = df['close']
     
     return X, y, dates, current_close
 
 def train_and_evaluate():
     """Builds and evaluates the XGBoost model."""
+    cutoff_str, valid_tickers = choose_global_cutoff(test_trading_days=250, min_train_trading_days=500)
+    cutoff_date = pd.to_datetime(cutoff_str)
+    
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
     close_test_list = []
     dates_test_pso, y_test_pso, preds_pso, close_test_pso = None, None, None, None
     
-    for ticker in TICKERS:
+    for ticker in valid_tickers:
         try:
             X, y, dates, current_close = prepare_data(ticker)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Skipping {ticker}: {e}")
             continue
             
-        # Time-Series Split (80% Train, 20% Test) without shuffling
-        split_idx = int(len(X) * 0.8)
+        # Global Date Split
+        train_mask = dates <= cutoff_date
+        test_mask = dates > cutoff_date
         
-        X_train_list.append(X.iloc[:split_idx])
-        X_test_list.append(X.iloc[split_idx:])
-        y_train_list.append(y.iloc[:split_idx])
-        y_test_list.append(y.iloc[split_idx:])
-        close_test_list.append(current_close.iloc[split_idx:])
+        X_train_list.append(X[train_mask])
+        X_test_list.append(X[test_mask])
+        y_train_list.append(y[train_mask])
+        y_test_list.append(y[test_mask])
+        close_test_list.append(current_close[test_mask])
         
         if ticker == 'PSO':
-            dates_test_pso = dates.iloc[split_idx:]
-            y_test_pso = y.iloc[split_idx:]
-            X_test_pso = X.iloc[split_idx:]
-            close_test_pso = current_close.iloc[split_idx:]
+            dates_test_pso = dates[test_mask]
+            y_test_pso = y[test_mask]
+            X_test_pso = X[test_mask]
+            close_test_pso = current_close[test_mask]
             
     X_train = pd.concat(X_train_list, ignore_index=True)
     X_test = pd.concat(X_test_list, ignore_index=True)
+    
+    X_train['ticker'] = X_train['ticker'].astype('category')
+    X_train['sector'] = X_train['sector'].astype('category')
+    
+    # Ensure test set has same categories
+    X_test['ticker'] = pd.Categorical(X_test['ticker'], categories=X_train['ticker'].cat.categories)
+    X_test['sector'] = pd.Categorical(X_test['sector'], categories=X_train['sector'].cat.categories)
+    
+    if X_test_pso is not None:
+        X_test_pso['ticker'] = pd.Categorical(X_test_pso['ticker'], categories=X_train['ticker'].cat.categories)
+        X_test_pso['sector'] = pd.Categorical(X_test_pso['sector'], categories=X_train['sector'].cat.categories)
     y_train = pd.concat(y_train_list, ignore_index=True)
     y_test = pd.concat(y_test_list, ignore_index=True)
     close_test_all = pd.concat(close_test_list, ignore_index=True)
@@ -94,7 +127,8 @@ def train_and_evaluate():
         max_depth=6,
         random_state=42,
         n_jobs=-1,
-        objective='reg:squarederror'
+        objective='reg:squarederror',
+        enable_categorical=True
     )
     model.fit(X_train, y_train)
     

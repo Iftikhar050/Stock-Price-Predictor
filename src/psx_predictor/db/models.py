@@ -91,3 +91,41 @@ class StockDividend(Base):
         DateTime(timezone=True), 
         default=lambda: datetime.now(timezone.utc)
     )
+
+class StockMetadata(Base):
+    """
+    SQLAlchemy ORM Model for Ticker Universe Metadata.
+    """
+    __tablename__ = "stock_metadata"
+
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    company_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    sector: Mapped[str] = mapped_column(String(100), nullable=True)
+    market_cap_tier: Mapped[str] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    listed_date: Mapped[datetime.date] = mapped_column(Date, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+class StockMarketIndex(Base):
+    """
+    SQLAlchemy ORM Model for Daily Market Index (e.g. KSE100).
+    """
+    __tablename__ = "stock_market_index"
+    
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    index_name: Mapped[str] = mapped_column(String(50), primary_key=True, default="KSE100")
+    
+    open: Mapped[float] = mapped_column(Float, nullable=True)
+    high: Mapped[float] = mapped_column(Float, nullable=True)
+    low: Mapped[float] = mapped_column(Float, nullable=True)
+    close: Mapped[float] = mapped_column(Float, nullable=True)
+    volume: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc)
+    )

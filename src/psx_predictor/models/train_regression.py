@@ -23,7 +23,8 @@ PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+from src.psx_predictor.db.repository import get_active_tickers
+TICKERS = get_active_tickers()
 
 def prepare_data(ticker: str):
     """Loads the engineered features and creates the target variable."""

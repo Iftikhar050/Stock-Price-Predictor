@@ -239,12 +239,59 @@ def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
 def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
-    TODO: Join daily return of the KSE-100 index here.
-    Currently stubbed out as no index table exists in the DB yet.
-    Requires a 'stock_market_index' table with 'date' and 'close' or 'return' columns.
+    Joins daily return of the KSE-100 index and calculates sector average return.
     """
-    # Example when data is available:
-    # df['market_return'] = ...
+    logger.info(f"Merging market index & sector data for {ticker}...")
+    
+    # Fetch Market Index
+    query_idx = text("SELECT date, close as market_close FROM stock_market_index WHERE index_name = 'KSE100' ORDER BY date ASC")
+    with engine.connect() as conn:
+        idx_df = pd.read_sql(query_idx, conn)
+    
+    if idx_df.empty:
+        logger.warning("No market index data found. Skipping market features.")
+        df['market_return'] = 0.0
+        df['market_return_lag_1'] = 0.0
+        df['relative_strength_20'] = 0.0
+        df['sector_return'] = 0.0
+        return df
+        
+    idx_df['date'] = pd.to_datetime(idx_df['date'])
+    idx_df['market_return'] = idx_df['market_close'].pct_change()
+    idx_df['market_return_lag_1'] = idx_df['market_return'].shift(1)
+    
+    df = pd.merge(df, idx_df[['date', 'market_return', 'market_return_lag_1']], on='date', how='left')
+    df['market_return'] = df['market_return'].fillna(0.0)
+    df['market_return_lag_1'] = df['market_return_lag_1'].fillna(0.0)
+    
+    # Calculate Relative Strength
+    if 'daily_return' not in df.columns:
+        df['daily_return'] = df['close'].pct_change()
+    
+    diff = df['daily_return'] - df['market_return']
+    df['relative_strength_20'] = diff.rolling(window=20).sum().fillna(0.0)
+    
+    # Sector Return
+    query_sec = text("""
+        SELECT e.date, e.close
+        FROM stock_eod_data e
+        JOIN stock_metadata m ON e.ticker = m.ticker
+        WHERE m.sector = (SELECT sector FROM stock_metadata WHERE ticker = :ticker)
+          AND e.ticker != :ticker
+        ORDER BY e.date ASC
+    """)
+    with engine.connect() as conn:
+        sec_raw_df = pd.read_sql(query_sec, conn, params={"ticker": ticker})
+        
+    if sec_raw_df.empty:
+        df['sector_return'] = df['market_return'] # fallback to market return if no peers
+    else:
+        sec_df = sec_raw_df.groupby('date')['close'].mean().reset_index()
+        sec_df['date'] = pd.to_datetime(sec_df['date'])
+        sec_df['sector_return'] = sec_df['close'].pct_change()
+        df = pd.merge(df, sec_df[['date', 'sector_return']], on='date', how='left')
+        df['sector_return'] = df['sector_return'].fillna(df['market_return'])
+        
     return df
 
 def calculate_relative_volume(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
@@ -274,12 +321,8 @@ def calculate_atr(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
     df['atr'] = true_range.rolling(window=window).mean()
     return df
 
-def encode_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """One-hot encodes the ticker identity."""
-    tickers = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
-    for t in tickers:
-        df[f'ticker_{t}'] = 1 if t == ticker else 0
-    return df
+# Ticker encoding removed for Phase 2 scaling. 
+# Categorical/Embedding representation will be handled downstream in models.
 
 def build_features(ticker: str) -> pd.DataFrame:
     """Orchestrates the entire feature engineering pipeline."""
@@ -305,7 +348,7 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = calculate_relative_volume(df)
     df = calculate_realized_volatility(df)
     df = calculate_atr(df)
-    df = encode_ticker(df, ticker)
+    # df = encode_ticker(df, ticker) # Removed in favor of native categorical/embeddings
     df = merge_market_index(df, ticker)
     
     # 3. Merge Sentiment Data with Decay
@@ -338,9 +381,11 @@ def build_features(ticker: str) -> pd.DataFrame:
     
     return df
 
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+from src.psx_predictor.db.repository import get_active_tickers
 
 if __name__ == '__main__':
-    # When run directly, run the pipeline for all tickers
-    for ticker in TICKERS:
+    # When run directly, run the pipeline for all active tickers
+    tickers = get_active_tickers()
+    logger.info(f"Building features for {len(tickers)} active tickers...")
+    for ticker in tickers:
         build_features(ticker)

@@ -11,7 +11,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+from src.psx_predictor.db.repository import get_active_tickers
+TICKERS = get_active_tickers()
 
 def run_diagnostics():
     print("Loading data for diagnostics...")

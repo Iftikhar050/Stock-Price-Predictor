@@ -4,13 +4,13 @@ A modern, full-stack AI application designed to predict stock prices for the Pak
 
 ## 🌟 Key Features
 
-* **Multi-Company Coverage:** Fully integrated support for tracking and predicting major PSX players including **PSO, FFC, NBP, MEBL, OGDC, and LUCK**.
+* **Full-Market Coverage:** Designed to dynamically ingest, track, and predict over 30 active KSE-100 equities seamlessly. The system builds and updates the universe directly from PSX Metadata.
 * **Global AI Predictions:** Utilizes four different ML models (Random Forest, Linear Regression, XGBoost, and LSTM Deep Learning) trained on a massive concatenated dataset across all companies to learn generalized market trends.
 * **Consensus Target Range:** Automatically calculates an ensemble range and assigns an **AI Confidence Score** based on the agreement variance between the models.
 * **Live Market Performers & Pricing:** An auto-updating dashboard ranking the top active stocks, advancers, and decliners. Automatically polls live prices during market hours and displays a "Market Closed" indicator after hours.
 * **NLP News Sentiment Analysis:** Scrapes real-time financial news for each ticker from Google News, performs NLP sentiment analysis using VADER, and incorporates a 3-day sentiment decay into the ML dataset.
 * **Corporate Dividend Engine:** Scrapes historical cash payouts via Yahoo Finance to engineer `dividend_yield` and `days_since_dividend` features, drastically improving AI accuracy around ex-dividend dates.
-* **Automated Data Scraping:** Includes a robust scraper pipeline to fetch the latest End-Of-Day (EOD) OHLCV data, News Articles, and Dividend Payouts directly into PostgreSQL.
+* **Automated Pipeline Orchestration:** A zero-touch cron-ready architecture (`run_pipeline.py`) continuously orchestrates EOD OHLCV scraping (via Yahoo Finance), NLP News aggregation, Dividend tracking, dynamic ML Feature Engineering, and model retraining.
 
 ## 🛠️ Technology Stack
 
@@ -41,25 +41,16 @@ source venv/Scripts/activate  # On Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Initialize the database tables and scrape the latest historical data, news, and dividends:
-```bash
-python setup_and_sync.py
-```
-
-Build the technical indicators, merge sentiment, merge dividends, and prepare the dataset for the AI models:
-```bash
-python src/psx_predictor/data/build_features.py
-```
-
-Train the ML models from scratch on the newly generated dataset:
-```bash
-python retrain_models_now.py
-```
-
 Start the FastAPI server:
 ```bash
 uvicorn src.psx_predictor.api.main:app --reload
 ```
+
+The database scraping, feature engineering, and AI model training is entirely orchestrated through a single automated pipeline. In a new terminal, run:
+```bash
+python run_pipeline.py --run-now
+```
+*(This will fetch the latest market data, build all technical features, train all 4 ML models, and automatically hot-reload the backend server you started above).*
 
 ### 3. Frontend Setup
 Open a new terminal, navigate to the `frontend` folder, and install the dependencies:
@@ -77,11 +68,15 @@ The application will be available at `http://localhost:5173`.
 
 ## 🔄 Updating Data
 
-To manually sync the latest market data (EOD + News + Dividends) without rebuilding the database tables:
+To fully sync the latest market data (EOD + News + Dividends), calculate features, and retrain the machine learning models, simply trigger the pipeline orchestrator:
 ```bash
-python sync_data_now.py
+python run_pipeline.py --run-now
 ```
-After syncing, you can trigger `build_features.py` and `retrain_models_now.py` to update the AI.
+
+Alternatively, to automate this process so that the AI trains on the new market data every single day without human intervention, run:
+```bash
+python run_pipeline.py
+```
 
 ## 📜 License
 This project is open-source and available under the MIT License.

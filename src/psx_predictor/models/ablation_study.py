@@ -10,11 +10,19 @@ from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 from src.psx_predictor.db.connection import engine
 from sqlalchemy import text
+from src.psx_predictor.models.utils import choose_global_cutoff
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+
+def get_ticker_sectors():
+    query = text("SELECT ticker, sector FROM stock_metadata")
+    with engine.connect() as conn:
+        res = conn.execute(query).fetchall()
+    return {row[0]: row[1] for row in res}
+
+TICKER_SECTORS = get_ticker_sectors()
 
 def get_original_features(ticker):
     """Reconstructs the original baseline features from the DB for fair comparison."""
@@ -28,7 +36,6 @@ def get_original_features(ticker):
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values('date').reset_index(drop=True)
     
-    # 1. Technical Indicators
     for window in [7, 21, 50]:
         sma = df['close'].rolling(window=window).mean()
         df[f'sma_{window}_dist'] = (df['close'] / sma) - 1.0
@@ -67,7 +74,6 @@ def get_original_features(ticker):
     df['day_of_week'] = df['date'].dt.dayofweek
     df['obv'] = (np.sign(df['close'].diff()) * df['volume']).fillna(0).cumsum()
     
-    # Sentiment
     query_sent = text("SELECT date, sentiment_score FROM stock_news_sentiment WHERE ticker = :ticker ORDER BY date ASC")
     with engine.connect() as conn:
         sentiment_df = pd.read_sql(query_sent, conn, params={"ticker": ticker.upper()})
@@ -89,7 +95,6 @@ def get_original_features(ticker):
     else:
         df['sentiment_score'] = 0.0
         
-    # Dividends
     query_div = text("SELECT ex_dividend_date as date, dividend_amount FROM stock_dividends WHERE ticker = :ticker ORDER BY date ASC")
     with engine.connect() as conn:
         div_df = pd.read_sql(query_div, conn, params={"ticker": ticker.upper()})
@@ -134,37 +139,46 @@ def get_original_features(ticker):
     return df
 
 def run_ablation():
+    cutoff_str, valid_tickers = choose_global_cutoff(test_trading_days=250, min_train_trading_days=500)
+    cutoff_date = pd.to_datetime(cutoff_str)
+    
     configs = {
         "Baseline (Original)": [],
         "Baseline - Close - Raw OBV": [],
-        "Full Patched": []
+        "Full Patched": [],
+        "Naive Persistence": []
     }
     
-    for ticker in TICKERS:
+    for ticker in valid_tickers:
         # 1. Baseline
         df_base = get_original_features(ticker)
         if not df_base.empty:
-            exclude_base = ['ticker', 'date', 'created_at', 'target_return_t1']
+            exclude_base = ['date', 'created_at', 'target_return_t1']
             feat_base = [c for c in df_base.columns if c not in exclude_base]
-            configs["Baseline (Original)"].append((df_base[feat_base], df_base['target_return_t1'], df_base['close']))
+            configs["Baseline (Original)"].append((df_base[feat_base], df_base['target_return_t1'], df_base['close'], ticker, df_base['date']))
             
-            # 2. Baseline - Close - Raw OBV
             exclude_minus = exclude_base + ['close', 'obv']
             feat_minus = [c for c in df_base.columns if c not in exclude_minus]
-            configs["Baseline - Close - Raw OBV"].append((df_base[feat_minus], df_base['target_return_t1'], df_base['close']))
+            configs["Baseline - Close - Raw OBV"].append((df_base[feat_minus], df_base['target_return_t1'], df_base['close'], ticker, df_base['date']))
             
-        # 3. Full Patched (Reads from current processed files)
+        # 3. Full Patched & Naive Persistence
         file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
         if os.path.exists(file_path):
             df_full = pd.read_csv(file_path)
             if 'target_return_t1' not in df_full.columns:
                 df_full['target_return_t1'] = (df_full['close'].shift(-1) - df_full['close']) / df_full['close']
                 df_full.dropna(subset=['target_return_t1'], inplace=True)
-            exclude_full = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
+                
+            df_full['sector'] = df_full['ticker'].map(TICKER_SECTORS)
+            exclude_full = ['date', 'created_at', 'target_return_t1', 'close']
             feat_full = [c for c in df_full.columns if c not in exclude_full]
-            configs["Full Patched"].append((df_full[feat_full], df_full['target_return_t1'], df_full['close']))
+            
+            df_full['date'] = pd.to_datetime(df_full['date'])
+            configs["Full Patched"].append((df_full[feat_full], df_full['target_return_t1'], df_full['close'], ticker, df_full['date']))
+            configs["Naive Persistence"].append((df_full[feat_full], df_full['target_return_t1'], df_full['close'], ticker, df_full['date']))
             
     results = []
+    ticker_results = []
     final_model = None
     final_X_all = None
     
@@ -175,27 +189,46 @@ def run_ablation():
         X_train_list, X_test_list = [], []
         y_train_list, y_test_list = [], []
         close_test_list = []
+        ticker_test_list = []
         
-        for X, y, close in data_list:
-            split_idx = int(len(X) * 0.8)
-            X_train_list.append(X.iloc[:split_idx])
-            X_test_list.append(X.iloc[split_idx:])
-            y_train_list.append(y.iloc[:split_idx])
-            y_test_list.append(y.iloc[split_idx:])
-            close_test_list.append(close.iloc[split_idx:])
+        for X, y, close, ticker_name, dates in data_list:
+            train_mask = dates <= cutoff_date
+            test_mask = dates > cutoff_date
+            
+            X_train_list.append(X[train_mask])
+            X_test_list.append(X[test_mask])
+            y_train_list.append(y[train_mask])
+            y_test_list.append(y[test_mask])
+            close_test_list.append(close[test_mask])
+            ticker_test_list.extend([ticker_name] * test_mask.sum())
             
         X_train = pd.concat(X_train_list, ignore_index=True)
         X_test = pd.concat(X_test_list, ignore_index=True)
+        
+        # Cast categorical columns after concat
+        X_train['ticker'] = X_train['ticker'].astype('category')
+        X_test['ticker'] = pd.Categorical(X_test['ticker'], categories=X_train['ticker'].cat.categories)
+        if 'sector' in X_train.columns:
+            X_train['sector'] = X_train['sector'].astype('category')
+            X_test['sector'] = pd.Categorical(X_test['sector'], categories=X_train['sector'].cat.categories)
+            
         y_train = pd.concat(y_train_list, ignore_index=True)
         y_test = pd.concat(y_test_list, ignore_index=True)
         close_test_all = pd.concat(close_test_list, ignore_index=True)
         
-        model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42, n_jobs=-1, objective='reg:squarederror')
-        model.fit(X_train, y_train)
+        if name == "Naive Persistence":
+            predictions_return = np.zeros_like(y_test)
+        else:
+            model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42, n_jobs=-1, objective='reg:squarederror', enable_categorical=True)
+            model.fit(X_train, y_train)
+            predictions_return = model.predict(X_test)
         
-        predictions_return = model.predict(X_test)
         predicted_prices = close_test_all * (1 + predictions_return)
         actual_prices = close_test_all * (1 + y_test)
+        
+        actual_dir = np.sign(y_test)
+        pred_dir = np.sign(predictions_return)
+        dir_acc = (actual_dir == pred_dir).mean() * 100
         
         mae = mean_absolute_error(actual_prices, predicted_prices)
         rmse = np.sqrt(mean_squared_error(actual_prices, predicted_prices))
@@ -205,19 +238,74 @@ def run_ablation():
             "Config": name,
             "MAE": mae,
             "RMSE": rmse,
-            "MAPE": mape
+            "MAPE": mape,
+            "Directional Accuracy (%)": dir_acc
         })
+        
+        df_eval = pd.DataFrame({
+            'ticker': ticker_test_list,
+            'actual_price': actual_prices.values,
+            'predicted_price': predicted_prices.values,
+            'actual_return': y_test.values,
+            'predicted_return': predictions_return
+        })
+        
+        for t in valid_tickers:
+            df_t = df_eval[df_eval['ticker'] == t]
+            if not df_t.empty:
+                t_mae = mean_absolute_error(df_t['actual_price'], df_t['predicted_price'])
+                t_rmse = np.sqrt(mean_squared_error(df_t['actual_price'], df_t['predicted_price']))
+                t_mape = mean_absolute_percentage_error(df_t['actual_price'], df_t['predicted_price']) * 100
+                t_dir = (np.sign(df_t['actual_return']) == np.sign(df_t['predicted_return'])).mean() * 100
+                ticker_results.append({
+                    "Config": name,
+                    "Ticker": t,
+                    "MAE": t_mae,
+                    "RMSE": t_rmse,
+                    "MAPE": t_mape,
+                    "Directional Accuracy (%)": t_dir
+                })
         
         if name == "Full Patched":
             final_model = model
             final_X_all = X_train
             
-    # Print Results
-    print("\n--- Ablation Study Results ---")
+    print("\n--- Global Ablation Study Results ---")
     results_df = pd.DataFrame(results)
     print(results_df.to_string(index=False))
     
-    # Feature Importances for Final Model
+    print("\n--- Per-Ticker Ablation Study Results ---")
+    ticker_df = pd.DataFrame(ticker_results)
+    print(ticker_df.to_string(index=False))
+    
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    summary_csv = os.path.join(REPORTS_DIR, "ablation_summary.csv")
+    ticker_csv = os.path.join(REPORTS_DIR, "ablation_by_ticker.csv")
+    results_df.to_csv(summary_csv, index=False)
+    ticker_df.to_csv(ticker_csv, index=False)
+    print(f"\nSaved CSV reports to {REPORTS_DIR}")
+    
+    patched_global = results_df[results_df['Config'] == 'Full Patched'].iloc[0]
+    naive_global = results_df[results_df['Config'] == 'Naive Persistence'].iloc[0]
+    
+    diff_dir_acc = patched_global['Directional Accuracy (%)'] - naive_global['Directional Accuracy (%)']
+    diff_mape = patched_global['MAPE'] - naive_global['MAPE']
+    
+    print("\n### Conclusion")
+    print(f"**Globally**, Full Patched beats Naive Persistence in Directional Accuracy by {diff_dir_acc:+.2f} percentage points.")
+    print(f"For MAPE, the difference is {diff_mape:+.3f}% (negative is better).")
+    
+    print("\n**Per-Ticker Highlights (Full Patched vs Naive):**")
+    for t in valid_tickers:
+        patched_filter = ticker_df[(ticker_df['Config'] == 'Full Patched') & (ticker_df['Ticker'] == t)]
+        naive_filter = ticker_df[(ticker_df['Config'] == 'Naive Persistence') & (ticker_df['Ticker'] == t)]
+        if not patched_filter.empty and not naive_filter.empty:
+            t_patched = patched_filter.iloc[0]
+            t_naive = naive_filter.iloc[0]
+            t_diff_dir = t_patched['Directional Accuracy (%)'] - t_naive['Directional Accuracy (%)']
+            t_diff_mape = t_patched['MAPE'] - t_naive['MAPE']
+            print(f" - {t}: DirAcc {t_diff_dir:+.2f} pts, MAPE {t_diff_mape:+.3f}%")
+    
     if final_model is not None:
         importance = final_model.feature_importances_
         features = final_X_all.columns

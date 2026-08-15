@@ -12,6 +12,22 @@ if not logger.handlers:
     ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(ch)
 
+def get_active_tickers() -> list[str]:
+    """
+    Returns a list of active tickers from the stock_metadata table.
+    Acts as the single source of truth for the ticker universe.
+    """
+    from sqlalchemy import text
+    query = text("SELECT ticker FROM stock_metadata WHERE is_active = true ORDER BY ticker ASC")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(query).fetchall()
+            return [row[0] for row in result]
+    except Exception as e:
+        logger.error(f"Error fetching active tickers: {e}")
+        # Fallback for safety if table doesn't exist during early init
+        return ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+
 def upsert_stock_data(df: pd.DataFrame) -> bool:
     """
     Efficiently bulk upserts a Pandas DataFrame into the stock_eod_data PostgreSQL table.

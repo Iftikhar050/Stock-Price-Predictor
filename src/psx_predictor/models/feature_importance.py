@@ -9,7 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
-TICKERS = ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
+from src.psx_predictor.db.repository import get_active_tickers
+TICKERS = get_active_tickers()
 
 def analyze_feature_importance():
     X_list, y_list = [], []
