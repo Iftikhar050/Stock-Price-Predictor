@@ -6,7 +6,19 @@ import schedule
 import argparse
 import requests
 import logging
-
+from datetime import datetime, timedelta
+# Additional imports for walk‑forward, registry & promotion
+from src.psx_predictor.models.walk_forward import generate_walk_forward_windows, run_walk_forward
+from src.psx_predictor.models.model_factories import baseline_factory, ridge_factory, xgboost_factory
+from src.psx_predictor.models.feature_wrapper import feature_fn
+from src.psx_predictor.models.registry import register_run, load_all_runs
+from src.psx_predictor.models.promotion import select_best_model_overall
+from src.psx_predictor.data.build_features import FEATURE_SET_VERSION
+from src.psx_predictor.db.repository import get_active_tickers
+import uuid
+import shutil
+import json
+import pandas as pd
 # Ensure root path
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
@@ -14,8 +26,8 @@ sys.path.append(ROOT_DIR)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("PipelineOrchestrator")
 
-# Define Python executable to use the virtual environment
-PYTHON_EXE = os.path.join(ROOT_DIR, "venv", "Scripts", "python.exe")
+# Define Python executable to use the current environment
+PYTHON_EXE = sys.executable
 
 def run_script(script_path: str):
     """Executes a Python script as a subprocess and streams its output."""
@@ -48,7 +60,9 @@ def reload_api_models():
     """Calls the FastAPI backend to reload ML models from disk."""
     logger.info("Triggering API Model Hot-Reload...")
     try:
-        api_key = os.getenv("ADMIN_API_KEY", "super_secret_admin_key")
+        api_key = os.getenv("ADMIN_API_KEY")
+        if not api_key:
+            raise ValueError("ADMIN_API_KEY environment variable is not set. Cannot authenticate for hot-reload.")
         headers = {"X-API-Key": api_key}
         # Assuming the API is running locally on port 8000
         response = requests.post("http://localhost:8000/api/reload_models", headers=headers, timeout=10)
@@ -113,8 +127,76 @@ def execute_full_pipeline():
         logger.error(f"Error running LSTM Training: {e}")
         return
         
+    # 6. Walk‑Forward Evaluation & Registration
+    logger.info("--- Starting: Walk‑Forward Evaluation ---")
+    try:
+        # Determine active tickers for evaluation
+        tickers = get_active_tickers()
+        # Generate windows covering recent history (approx last 1500 days)
+        end_dt = datetime.now().date()
+        start_dt = end_dt - timedelta(days=1500)
+        windows = generate_walk_forward_windows(start_dt.isoformat(), end_dt.isoformat())
+        if not windows:
+            logger.warning("No walk‑forward windows generated; skipping evaluation.")
+        else:
+            # Baseline
+            baseline_results = run_walk_forward(baseline_factory, feature_fn, windows, tickers)
+            baseline_id = uuid.uuid4().hex
+            register_run(
+                run_id=baseline_id,
+                model_type="baseline",
+                feature_set_version=FEATURE_SET_VERSION,
+                ticker_list=tickers,
+                results_df=baseline_results,
+                model_path=os.path.join(ROOT_DIR, "models", "baseline.pkl"),
+            )
+            # Ridge
+            ridge_results = run_walk_forward(ridge_factory, feature_fn, windows, tickers)
+            ridge_id = uuid.uuid4().hex
+            register_run(
+                run_id=ridge_id,
+                model_type="ridge",
+                feature_set_version=FEATURE_SET_VERSION,
+                ticker_list=tickers,
+                results_df=ridge_results,
+                model_path=os.path.join(ROOT_DIR, "models", "ridge.pkl"),
+            )
+            # XGBoost
+            xgb_results = run_walk_forward(xgboost_factory, feature_fn, windows, tickers)
+            xgb_id = uuid.uuid4().hex
+            register_run(
+                run_id=xgb_id,
+                model_type="xgboost",
+                feature_set_version=FEATURE_SET_VERSION,
+                ticker_list=tickers,
+                results_df=xgb_results,
+                model_path=os.path.join(ROOT_DIR, "models", "xgboost.pkl"),
+            )
+            # Promotion – select best qualifying model
+            best_run = select_best_model_overall()
+            if best_run:
+                # Copy the winning model into production location
+                prod_dir = os.path.join(ROOT_DIR, "models", "production")
+                os.makedirs(prod_dir, exist_ok=True)
+                src_path = best_run["model_path"]
+                dst_path = os.path.join(prod_dir, os.path.basename(src_path))
+                shutil.copyfile(src_path, dst_path)
+                # Write pointer file
+                pointer_path = os.path.join(prod_dir, "pointer.json")
+                with open(pointer_path, "w") as f:
+                    json.dump({"run_id": best_run["run_id"], "model_type": best_run["model_type"]}, f)
+                logger.info(f"Promoted model {best_run['model_type']} (run {best_run['run_id']}) to production.")
+            else:
+                logger.warning("No model met promotion criteria; production model unchanged.")
+    except Exception as e:
+        logger.error(f"Walk‑forward evaluation failed: {e}")
     # 6. Reload Models in Production Server
-    reload_api_models()
+
+    if not reload_api_models():
+        logger.warning("=========================================")
+        logger.warning("WARNING: Pipeline finished but API models failed to reload!")
+        logger.warning("The live server is serving stale predictions.")
+        logger.warning("=========================================")
     
     duration = time.time() - start_time
     logger.info("=========================================")

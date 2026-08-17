@@ -17,7 +17,9 @@ if not logger.handlers:
     ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(ch)
 
-# Define output path based on current script location
+# Feature set version – bump when features change
+FEATURE_SET_VERSION = "v1"
+
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 
@@ -243,13 +245,19 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
     logger.info(f"Merging market index & sector data for {ticker}...")
     
-    # Fetch Market Index
-    query_idx = text("SELECT date, close as market_close FROM stock_market_index WHERE index_name = 'KSE100' ORDER BY date ASC")
+    # Fetch Market Index (Synthetic proxy excluding the current ticker)
+    query_idx = text("""
+        SELECT date, AVG(close) as market_close
+        FROM stock_eod_data
+        WHERE ticker != :ticker
+        GROUP BY date
+        ORDER BY date ASC
+    """)
     with engine.connect() as conn:
-        idx_df = pd.read_sql(query_idx, conn)
+        idx_df = pd.read_sql(query_idx, conn, params={"ticker": ticker})
     
     if idx_df.empty:
-        logger.warning("No market index data found. Skipping market features.")
+        logger.warning("No market index data found (or no other tickers available). Skipping market features.")
         df['market_return'] = 0.0
         df['market_return_lag_1'] = 0.0
         df['relative_strength_20'] = 0.0

@@ -167,6 +167,8 @@ def prepare_and_scale_data(lookback=30):
     os.makedirs(MODELS_DIR, exist_ok=True)
     joblib.dump(feature_scaler, os.path.join(MODELS_DIR, "feature_scaler_lstm.pkl"))
     joblib.dump(target_scaler, os.path.join(MODELS_DIR, "target_scaler_lstm.pkl"))
+    joblib.dump(ticker_to_id, os.path.join(MODELS_DIR, "ticker_to_id.pkl"))
+    joblib.dump(sector_to_id, os.path.join(MODELS_DIR, "sector_to_id.pkl"))
     
     train_datasets, test_datasets = [], []
     

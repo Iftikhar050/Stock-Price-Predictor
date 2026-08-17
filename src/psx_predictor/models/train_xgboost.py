@@ -29,17 +29,13 @@ from src.psx_predictor.db.connection import engine
 from sqlalchemy import text
 import datetime
 
-TICKERS = get_active_tickers()
-
 def get_ticker_sectors():
     query = text("SELECT ticker, sector FROM stock_metadata")
     with engine.connect() as conn:
         res = conn.execute(query).fetchall()
     return {row[0]: row[1] for row in res}
 
-TICKER_SECTORS = get_ticker_sectors()
-
-def prepare_data(ticker: str):
+def prepare_data(ticker: str, ticker_sectors: dict):
     """Loads the engineered features and creates the target variable."""
     file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
     if not os.path.exists(file_path):
@@ -58,7 +54,7 @@ def prepare_data(ticker: str):
     
     X = df[feature_cols].copy()
     
-    X['sector'] = X['ticker'].map(TICKER_SECTORS)
+    X['sector'] = X['ticker'].map(ticker_sectors)
     
     y = df['target_return_t1']
     dates = pd.to_datetime(df['date'])
@@ -68,17 +64,21 @@ def prepare_data(ticker: str):
 
 def train_and_evaluate():
     """Builds and evaluates the XGBoost model."""
+    ticker_sectors = get_ticker_sectors()
     cutoff_str, valid_tickers = choose_global_cutoff(test_trading_days=250, min_train_trading_days=500)
     cutoff_date = pd.to_datetime(cutoff_str)
     
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
     close_test_list = []
-    dates_test_pso, y_test_pso, preds_pso, close_test_pso = None, None, None, None
+    
+    dates_test_diag, y_test_diag, X_test_diag, close_test_diag = None, None, None, None
+    diagnostic_candidates = ['PSO', 'LUCK', 'FFC']
+    target_diag_ticker = next((t for t in diagnostic_candidates if t in valid_tickers), valid_tickers[0] if valid_tickers else None)
     
     for ticker in valid_tickers:
         try:
-            X, y, dates, current_close = prepare_data(ticker)
+            X, y, dates, current_close = prepare_data(ticker, ticker_sectors)
         except Exception as e:
             logger.warning(f"Skipping {ticker}: {e}")
             continue
@@ -93,11 +93,11 @@ def train_and_evaluate():
         y_test_list.append(y[test_mask])
         close_test_list.append(current_close[test_mask])
         
-        if ticker == 'PSO':
-            dates_test_pso = dates[test_mask]
-            y_test_pso = y[test_mask]
-            X_test_pso = X[test_mask]
-            close_test_pso = current_close[test_mask]
+        if ticker == target_diag_ticker:
+            dates_test_diag = dates[test_mask]
+            y_test_diag = y[test_mask]
+            X_test_diag = X[test_mask]
+            close_test_diag = current_close[test_mask]
             
     X_train = pd.concat(X_train_list, ignore_index=True)
     X_test = pd.concat(X_test_list, ignore_index=True)
@@ -109,9 +109,9 @@ def train_and_evaluate():
     X_test['ticker'] = pd.Categorical(X_test['ticker'], categories=X_train['ticker'].cat.categories)
     X_test['sector'] = pd.Categorical(X_test['sector'], categories=X_train['sector'].cat.categories)
     
-    if X_test_pso is not None:
-        X_test_pso['ticker'] = pd.Categorical(X_test_pso['ticker'], categories=X_train['ticker'].cat.categories)
-        X_test_pso['sector'] = pd.Categorical(X_test_pso['sector'], categories=X_train['sector'].cat.categories)
+    if X_test_diag is not None:
+        X_test_diag['ticker'] = pd.Categorical(X_test_diag['ticker'], categories=X_train['ticker'].cat.categories)
+        X_test_diag['sector'] = pd.Categorical(X_test_diag['sector'], categories=X_train['sector'].cat.categories)
     y_train = pd.concat(y_train_list, ignore_index=True)
     y_test = pd.concat(y_test_list, ignore_index=True)
     close_test_all = pd.concat(close_test_list, ignore_index=True)
@@ -153,19 +153,21 @@ def train_and_evaluate():
     os.makedirs(MODELS_DIR, exist_ok=True)
     model_path = os.path.join(MODELS_DIR, "xgboost_model.pkl")
     joblib.dump(model, model_path)
+    joblib.dump(list(X_train['ticker'].cat.categories), os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
+    joblib.dump(list(X_train['sector'].cat.categories), os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))
     logger.info(f"Saved trained model artifact to {model_path}")
     
     # Plotting Actual vs Predicted
-    if dates_test_pso is not None:
-        preds_pso_return = model.predict(X_test_pso)
-        preds_pso_price = close_test_pso * (1 + preds_pso_return)
-        actual_pso_price = close_test_pso * (1 + y_test_pso)
+    if dates_test_diag is not None:
+        preds_diag_return = model.predict(X_test_diag)
+        preds_diag_price = close_test_diag * (1 + preds_diag_return)
+        actual_diag_price = close_test_diag * (1 + y_test_diag)
         
         os.makedirs(REPORTS_DIR, exist_ok=True)
         plt.figure(figsize=(14, 6))
-        plt.plot(pd.to_datetime(dates_test_pso), actual_pso_price.values, label='Actual Close Price', color='blue', alpha=0.7)
-        plt.plot(pd.to_datetime(dates_test_pso), preds_pso_price.values, label='Predicted Close Price', color='purple', alpha=0.7)
-        plt.title(f"PSO - XGBoost Price Prediction (Test Set)")
+        plt.plot(pd.to_datetime(dates_test_diag), actual_diag_price.values, label='Actual Close Price', color='blue', alpha=0.7)
+        plt.plot(pd.to_datetime(dates_test_diag), preds_diag_price.values, label='Predicted Close Price', color='purple', alpha=0.7)
+        plt.title(f"{target_diag_ticker} - XGBoost Price Prediction (Test Set)")
         plt.xlabel('Date')
         plt.ylabel('Closing Price (Rs.)')
         plt.legend()

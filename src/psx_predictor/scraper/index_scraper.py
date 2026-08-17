@@ -42,6 +42,12 @@ def fetch_market_index(start_date: str = '2010-01-01', end_date: str = None) -> 
     return df
 
 def sync_market_index():
+    logger.warning("===============================================================")
+    logger.warning("WARNING: The market index being synced is a SYNTHETIC PROXY.")
+    logger.warning("This is NOT the real KSE-100 index. It is computed internally")
+    logger.warning("from available ticker data due to PSX anti-scraping measures.")
+    logger.warning("===============================================================")
+    
     df = fetch_market_index()
     if df.empty:
         logger.warning("No market index data fetched.")

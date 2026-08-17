@@ -10,6 +10,7 @@ This document outlines the architecture and phased approach for scaling the `Sto
   - Migrated hardcoded `TICKERS` lists to dynamic DB-driven `get_active_tickers()` lookups.
   - Re-architected model ingestion (XGBoost & LSTM) to support native categorical/embedding representations of ticker and sector.
   - Proved validity through ablation studies showing Top-4 feature importance for the new market-context variables (Market Return, Sector Return, Dividend Yield).
+  - **Decision Log (Market Index):** The current synthetic KSE-100 proxy is a stopgap due to anti-scraping on the PSX DPS. The real fix to be implemented is pulling the official `^KSE` index from Yahoo Finance (or Investing.com if Yahoo lacks full historical depth) to provide truly exogenous market signal without self-referential ticker leakage.
 
 ## Phase 2: Live Scraper Refactoring (Completed)
 - **Accomplishments:**

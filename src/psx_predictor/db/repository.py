@@ -12,7 +12,7 @@ if not logger.handlers:
     ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(ch)
 
-def get_active_tickers() -> list[str]:
+def get_active_tickers(allow_fallback: bool = False) -> list[str]:
     """
     Returns a list of active tickers from the stock_metadata table.
     Acts as the single source of truth for the ticker universe.
@@ -25,7 +25,10 @@ def get_active_tickers() -> list[str]:
             return [row[0] for row in result]
     except Exception as e:
         logger.error(f"Error fetching active tickers: {e}")
+        if not allow_fallback:
+            raise RuntimeError(f"Database error while fetching tickers, and allow_fallback=False. {e}")
         # Fallback for safety if table doesn't exist during early init
+        logger.warning("Falling back to hardcoded list of 6 tickers.")
         return ['PSO', 'FFC', 'NBP', 'MEBL', 'OGDC', 'LUCK']
 
 def upsert_stock_data(df: pd.DataFrame) -> bool:

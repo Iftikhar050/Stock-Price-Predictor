@@ -69,6 +69,10 @@ async def lifespan(app: FastAPI):
         ml_models["ticker_to_id"] = joblib.load(os.path.join(MODELS_DIR, "ticker_to_id.pkl"))
         ml_models["sector_to_id"] = joblib.load(os.path.join(MODELS_DIR, "sector_to_id.pkl"))
         
+        # Load XGBoost Categories
+        ml_models["xgb_ticker_categories"] = joblib.load(os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
+        ml_models["xgb_sector_categories"] = joblib.load(os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))
+        
         # Load LSTM
         # We dynamically get the input_dim from the loaded scaler and embeddings from state_dict
         device = torch.device("cpu")
@@ -188,8 +192,8 @@ async def get_prediction(payload: PredictionRequest):
                 sector = conn.execute(query, {"ticker": ticker.upper()}).scalar() or "Unknown"
             latest_day_features_xgb['sector'] = sector
         
-            ticker_categories = list(ml_models["ticker_to_id"].keys())
-            sector_categories = list(ml_models["sector_to_id"].keys())
+            ticker_categories = ml_models["xgb_ticker_categories"]
+            sector_categories = ml_models["xgb_sector_categories"]
             latest_day_features_xgb['ticker'] = pd.Categorical(latest_day_features_xgb['ticker'], categories=ticker_categories)
             latest_day_features_xgb['sector'] = pd.Categorical(latest_day_features_xgb['sector'], categories=sector_categories)
         
@@ -382,6 +386,10 @@ async def reload_models(api_key: str = Depends(verify_api_key)):
         ml_models["target_scaler"] = joblib.load(os.path.join(MODELS_DIR, "target_scaler_lstm.pkl"))
         ml_models["ticker_to_id"] = joblib.load(os.path.join(MODELS_DIR, "ticker_to_id.pkl"))
         ml_models["sector_to_id"] = joblib.load(os.path.join(MODELS_DIR, "sector_to_id.pkl"))
+        
+        # Load XGBoost Categories
+        ml_models["xgb_ticker_categories"] = joblib.load(os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
+        ml_models["xgb_sector_categories"] = joblib.load(os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))
         
         # Load LSTM dynamically using feature_scaler's input dim and state_dict embeddings
         device = torch.device("cpu")

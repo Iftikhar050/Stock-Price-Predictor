@@ -125,6 +125,8 @@ class StockMarketIndex(Base):
     close: Mapped[float] = mapped_column(Float, nullable=True)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=True)
     
+    is_synthetic_index: Mapped[bool] = mapped_column(default=True, doc="Flag to indicate this is a proxy index computed from constituents, not real KSE-100 data.")
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
         default=lambda: datetime.now(timezone.utc)

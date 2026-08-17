@@ -24,7 +24,7 @@ MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
 from src.psx_predictor.db.repository import get_active_tickers
-TICKERS = get_active_tickers()
+from src.psx_predictor.models.utils import choose_global_cutoff
 
 def prepare_data(ticker: str):
     """Loads the engineered features and creates the target variable."""
@@ -51,32 +51,36 @@ def prepare_data(ticker: str):
     return X, y, dates, current_close
 
 def train_and_evaluate():
-    """Builds and evaluates the Linear Regression model."""
+    """Builds and evaluates the Ridge Regression model."""
+    cutoff_str, valid_tickers = choose_global_cutoff(test_trading_days=250, min_train_trading_days=500)
+    cutoff_date = pd.to_datetime(cutoff_str)
+
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
     close_test_list = []
     dates_test_pso, y_test_pso, preds_pso, close_test_pso = None, None, None, None
     
-    for ticker in TICKERS:
+    for ticker in valid_tickers:
         try:
             X, y, dates, current_close = prepare_data(ticker)
         except Exception:
             continue
             
-        # Time-Series Split (80% Train, 20% Test) without shuffling
-        split_idx = int(len(X) * 0.8)
+        dates_dt = pd.to_datetime(dates)
+        train_mask = dates_dt <= cutoff_date
+        test_mask = dates_dt > cutoff_date
         
-        X_train_list.append(X.iloc[:split_idx])
-        X_test_list.append(X.iloc[split_idx:])
-        y_train_list.append(y.iloc[:split_idx])
-        y_test_list.append(y.iloc[split_idx:])
-        close_test_list.append(current_close.iloc[split_idx:])
+        X_train_list.append(X[train_mask])
+        X_test_list.append(X[test_mask])
+        y_train_list.append(y[train_mask])
+        y_test_list.append(y[test_mask])
+        close_test_list.append(current_close[test_mask])
         
         if ticker == 'PSO':
-            dates_test_pso = dates.iloc[split_idx:]
-            y_test_pso = y.iloc[split_idx:]
-            X_test_pso = X.iloc[split_idx:]
-            close_test_pso = current_close.iloc[split_idx:]
+            dates_test_pso = dates[test_mask]
+            y_test_pso = y[test_mask]
+            X_test_pso = X[test_mask]
+            close_test_pso = current_close[test_mask]
             
     X_train = pd.concat(X_train_list, ignore_index=True)
     X_test = pd.concat(X_test_list, ignore_index=True)
