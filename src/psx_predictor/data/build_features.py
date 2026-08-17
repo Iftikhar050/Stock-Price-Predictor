@@ -18,7 +18,7 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 # Feature set version – bump when features change
-FEATURE_SET_VERSION = "v1"
+FEATURE_SET_VERSION = "v2"
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
@@ -238,6 +238,84 @@ def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df.drop(columns=['dividend_amount', 'last_div_date', 'last_div_amount'], inplace=True)
     return df
 
+def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Queries stock_fundamentals, merges it using as-of/backward-fill semantics.
+    Computes dynamic pe_ratio (close / eps_trailing).
+    """
+    logger.info(f"Merging fundamentals data for {ticker}...")
+    query = text("SELECT report_date as date, eps, roe, debt_to_equity, book_value_per_share FROM stock_fundamentals WHERE ticker = :ticker ORDER BY date ASC")
+    
+    with engine.connect() as conn:
+        fund_df = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
+        
+    if fund_df.empty:
+        logger.warning(f"No fundamentals data found for {ticker}.")
+        df['eps_trailing'] = 0.0
+        df['pe_ratio'] = 0.0
+        df['roe'] = 0.0
+        df['debt_to_equity'] = 0.0
+        df['book_value_per_share'] = 0.0
+        df['eps_growth_yoy'] = 0.0
+        return df
+        
+    fund_df['date'] = pd.to_datetime(fund_df['date'])
+    
+    fund_df['eps_growth_yoy'] = fund_df['eps'].pct_change(periods=4)
+    fund_df.rename(columns={'eps': 'eps_trailing'}, inplace=True)
+    
+    df = pd.merge(df, fund_df, on='date', how='left')
+    
+    cols_to_fill = ['eps_trailing', 'roe', 'debt_to_equity', 'book_value_per_share', 'eps_growth_yoy']
+    df[cols_to_fill] = df[cols_to_fill].ffill().fillna(0.0)
+    
+    eps_safe = df['eps_trailing'].replace(0, 0.001)
+    df['pe_ratio'] = df['close'] / eps_safe
+    
+    return df
+
+def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.DataFrame:
+    """
+    Queries macro_indicators, merges it, computes returns, conditionally includes oil.
+    """
+    logger.info(f"Merging macro indicators for {ticker} (Sector: {sector})...")
+    query = text("SELECT date, sbp_policy_rate, pkr_usd_rate, brent_oil_price FROM macro_indicators ORDER BY date ASC")
+    
+    with engine.connect() as conn:
+        macro_df = pd.read_sql(query, conn)
+        
+    if macro_df.empty:
+        logger.warning(f"No macro data found.")
+        df['sbp_policy_rate'] = 0.0
+        df['days_since_rate_change'] = 0.0
+        df['pkr_usd_change_pct'] = 0.0
+        df['oil_return_pct'] = 0.0
+        return df
+        
+    macro_df['date'] = pd.to_datetime(macro_df['date'])
+    macro_df['pkr_usd_change_pct'] = macro_df['pkr_usd_rate'].pct_change()
+    macro_df['oil_return_pct'] = macro_df['brent_oil_price'].pct_change()
+    
+    df = pd.merge(df, macro_df[['date', 'sbp_policy_rate', 'pkr_usd_change_pct', 'oil_return_pct']], on='date', how='left')
+    
+    df['sbp_policy_rate'] = df['sbp_policy_rate'].ffill().bfill().fillna(0.0)
+    
+    rate_changes = df['sbp_policy_rate'].diff() != 0
+    df['rate_change_date'] = pd.Series(index=df.index, dtype='datetime64[ns]')
+    df.loc[rate_changes, 'rate_change_date'] = df.loc[rate_changes, 'date']
+    df['rate_change_date'] = df['rate_change_date'].ffill()
+    df['days_since_rate_change'] = (df['date'] - df['rate_change_date']).dt.days.fillna(0)
+    df.drop(columns=['rate_change_date'], inplace=True)
+    
+    df['pkr_usd_change_pct'] = df['pkr_usd_change_pct'].fillna(0.0)
+    
+    if sector and sector.lower() == 'energy':
+        df['oil_return_pct'] = df['oil_return_pct'].fillna(0.0)
+    else:
+        df['oil_return_pct'] = 0.0
+        
+    return df
+
 
 def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
@@ -300,6 +378,9 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         df = pd.merge(df, sec_df[['date', 'sector_return']], on='date', how='left')
         df['sector_return'] = df['sector_return'].fillna(df['market_return'])
         
+    sec_diff = df['daily_return'] - df['sector_return']
+    df['sector_relative_strength_20'] = sec_diff.rolling(window=20).sum().fillna(0.0)
+        
     return df
 
 def calculate_relative_volume(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
@@ -310,7 +391,7 @@ def calculate_relative_volume(df: pd.DataFrame, window: int = 20) -> pd.DataFram
     df['relative_volume'] = df['volume'] / vol_ma
     return df
 
-def calculate_realized_volatility(df: pd.DataFrame, windows: list = [5, 20]) -> pd.DataFrame:
+def calculate_realized_volatility(df: pd.DataFrame, windows: list = [10, 20]) -> pd.DataFrame:
     """Calculates rolling realized volatility (standard deviation of daily return)."""
     if 'daily_return' not in df.columns:
         df['daily_return'] = df['close'].pct_change()
@@ -364,6 +445,14 @@ def build_features(ticker: str) -> pd.DataFrame:
     
     # 3.5 Merge Dividend Data
     df = merge_dividends(df, ticker)
+    
+    # 3.6 Merge Fundamentals and Macro
+    query = text("SELECT sector FROM stock_metadata WHERE ticker = :ticker")
+    with engine.connect() as conn:
+        sector = conn.execute(query, {"ticker": ticker.upper()}).scalar() or ""
+        
+    df = merge_fundamentals(df, ticker)
+    df = merge_macro_indicators(df, ticker, sector)
     
     # 3.8 Spread Features
     df['daily_spread'] = (df['high'] - df['low']) / df['close']

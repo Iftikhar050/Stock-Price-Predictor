@@ -57,8 +57,14 @@ def generate_walk_forward_windows(
         return []
 
     windows: List[Tuple[str, str, str, str]] = []
+    
+    if train_window_days >= len(all_dates):
+        logger.warning(f"Not enough trading days ({len(all_dates)}) to form a training window of {train_window_days} days.")
+        return []
+        
     date_index = {d: i for i, d in enumerate(all_dates)}
-    test_start_idx = 0
+    test_start_idx = train_window_days
+    
     while test_start_idx < len(all_dates):
         test_end_idx = min(test_start_idx + test_window_days - 1, len(all_dates) - 1)
         test_start = all_dates[test_start_idx]
@@ -119,6 +125,10 @@ def run_walk_forward(
             except Exception as e:
                 logger.warning(f"Skipping ticker {ticker} for window due to data error: {e}")
                 continue
+
+            if len(X_train) == 0 or len(X_test) == 0:
+                continue
+
             model = model_factory()
             model.fit(X_train, y_train)
             preds = model.predict(X_test)

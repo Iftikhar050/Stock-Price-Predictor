@@ -3,7 +3,7 @@ import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
-from src.psx_predictor.db.models import StockEODData, StockNews, StockNewsSentiment
+from src.psx_predictor.db.models import StockEODData, StockNews, StockNewsSentiment, StockFundamentals, MacroIndicators
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -138,5 +138,65 @@ def upsert_news_sentiment(df: pd.DataFrame) -> bool:
         return True
     except Exception as e:
         logger.error(f"Database error upserting sentiment: {e}")
+        return False
+
+def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
+    """
+    Upserts fundamental data into stock_fundamentals.
+    """
+    if df is None or df.empty:
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(StockFundamentals).values(records)
+    
+    update_dict = {
+        'eps': stmt.excluded.eps,
+        'pe_ratio': stmt.excluded.pe_ratio,
+        'roe': stmt.excluded.roe,
+        'debt_to_equity': stmt.excluded.debt_to_equity,
+        'book_value_per_share': stmt.excluded.book_value_per_share
+    }
+    
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['ticker', 'report_date'],
+        set_=update_dict
+    )
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting fundamentals: {e}")
+        return False
+
+def upsert_macro_indicators(df: pd.DataFrame) -> bool:
+    """
+    Upserts macro data into macro_indicators.
+    """
+    if df is None or df.empty:
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(MacroIndicators).values(records)
+    
+    update_dict = {
+        'sbp_policy_rate': stmt.excluded.sbp_policy_rate,
+        'pkr_usd_rate': stmt.excluded.pkr_usd_rate,
+        'brent_oil_price': stmt.excluded.brent_oil_price
+    }
+    
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['date'],
+        set_=update_dict
+    )
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting macro indicators: {e}")
         return False
 

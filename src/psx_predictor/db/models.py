@@ -131,3 +131,40 @@ class StockMarketIndex(Base):
         DateTime(timezone=True), 
         default=lambda: datetime.now(timezone.utc)
     )
+
+class StockFundamentals(Base):
+    """
+    SQLAlchemy ORM Model for Quarterly/Annual Fundamentals.
+    """
+    __tablename__ = "stock_fundamentals"
+    
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    report_date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    
+    eps: Mapped[float] = mapped_column(Float, nullable=True)
+    pe_ratio: Mapped[float] = mapped_column(Float, nullable=True)
+    roe: Mapped[float] = mapped_column(Float, nullable=True)
+    debt_to_equity: Mapped[float] = mapped_column(Float, nullable=True)
+    book_value_per_share: Mapped[float] = mapped_column(Float, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+class MacroIndicators(Base):
+    """
+    SQLAlchemy ORM Model for Daily/Periodic Macroeconomic Data.
+    """
+    __tablename__ = "macro_indicators"
+    
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    
+    sbp_policy_rate: Mapped[float] = mapped_column(Float, nullable=True)
+    pkr_usd_rate: Mapped[float] = mapped_column(Float, nullable=True)
+    brent_oil_price: Mapped[float] = mapped_column(Float, nullable=True)
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        default=lambda: datetime.now(timezone.utc)
+    )

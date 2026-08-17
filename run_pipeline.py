@@ -84,15 +84,15 @@ def execute_full_pipeline():
     
     start_time = time.time()
     
-    # 1. Scrape & Sync Data
-    if not run_script(os.path.join("setup_and_sync.py")):
-        logger.error("Pipeline aborted at Data Sync phase.")
-        return
+    # 1. Scrape & Sync Data (Skipped for manual run)
+    # if not run_script(os.path.join("setup_and_sync.py")):
+    #     logger.error("Pipeline aborted at Data Sync phase.")
+    #     return
         
-    # 2. Build Features
-    if not run_script(os.path.join("src", "psx_predictor", "data", "build_features.py")):
-        logger.error("Pipeline aborted at Feature Engineering phase.")
-        return
+    # 2. Build Features (Skipped for manual run)
+    # if not run_script(os.path.join("src", "psx_predictor", "data", "build_features.py")):
+    #     logger.error("Pipeline aborted at Feature Engineering phase.")
+    #     return
         
     # 3. Train Baseline & Regression (Ensemble Dependencies)
     if not run_script(os.path.join("src", "psx_predictor", "models", "train_baseline.py")):
@@ -109,7 +109,6 @@ def execute_full_pipeline():
         return
         
     # 5. Train PyTorch LSTM
-    # We must run this as a module so it finds `src`
     logger.info(f"--- Starting: LSTM Training ---")
     try:
         process = subprocess.Popen(

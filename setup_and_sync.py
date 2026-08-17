@@ -8,6 +8,8 @@ from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import Base
 from src.psx_predictor.scraper.client import PSXScraper
 from src.psx_predictor.scraper.dividend_scraper import DividendScraper
+from src.psx_predictor.scraper.fundamentals_scraper import FundamentalsScraper
+from src.psx_predictor.scraper.macro_scraper import MacroScraper
 
 from src.psx_predictor.db.repository import get_active_tickers
 from src.psx_predictor.scraper.index_scraper import sync_market_index
@@ -28,6 +30,14 @@ def main():
         print("   Success! Market index data synchronized.")
     else:
         print("   ERROR: Failed to sync market index.")
+
+    print("\n2.5 Scraping and Syncing Macro Indicators...")
+    macro_scraper = MacroScraper()
+    macro_success = macro_scraper.sync_macro()
+    if macro_success:
+        print("   Success! Macro indicators synchronized.")
+    else:
+        print("   WARNING: Failed to sync macro indicators.")
 
     print("\n3. Scraping and Syncing data to PostgreSQL...")
     scraper = PSXScraper()
@@ -73,6 +83,28 @@ def main():
         print(f"\n   Dividend scraping completed with {len(div_failures)} failures: {div_failures}")
     else:
         print(f"\n   All Dividend scraping tasks completed successfully.")
+
+    print("\n5. Scraping and Syncing Fundamentals to PostgreSQL...")
+    fund_scraper = FundamentalsScraper()
+    fund_failures = []
+    for ticker in active_tickers:
+        print(f"   Syncing fundamentals for {ticker}...")
+        try:
+            fund_success = fund_scraper.sync_fundamentals(ticker)
+            if fund_success:
+                print(f"   Success! {ticker} fundamentals written.")
+            else:
+                print(f"   WARNING: Failed to sync fundamentals for {ticker} (or missing data).")
+                fund_failures.append(ticker)
+        except Exception as e:
+            print(f"   ERROR: Exception syncing fundamentals for {ticker}: {e}")
+            fund_failures.append(ticker)
+        time.sleep(1) # Rate limiting
+        
+    if fund_failures:
+        print(f"\n   Fundamentals scraping completed with {len(fund_failures)} failures: {fund_failures}")
+    else:
+        print(f"\n   All Fundamentals scraping tasks completed successfully.")
 
 if __name__ == '__main__':
     main()

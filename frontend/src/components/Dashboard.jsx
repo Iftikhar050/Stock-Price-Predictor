@@ -114,7 +114,7 @@ const AllCompaniesTable = ({ modelType, availableTickers }) => {
     fetchAll();
     const interval = setInterval(fetchAll, 60000);
     return () => clearInterval(interval);
-  }, [modelType]);
+  }, [modelType, availableTickers]);
 
   if (loading && data.length === 0) {
     return <div className="bg-slate-800 p-6 rounded-xl shadow-lg border border-slate-700 h-64 animate-pulse mt-6"></div>;
@@ -439,7 +439,10 @@ const Dashboard = () => {
             <div className="w-64 md:w-80 text-slate-900 text-sm">
               <Select
                 value={availableTickers.find(opt => opt.value === ticker) || null}
-                onChange={(selected) => setTicker(selected.value)}
+                onChange={(selected) => {
+                  setTicker(selected.value);
+                  fetchData(selected.value);
+                }}
                 options={availableTickers}
                 classNamePrefix="react-select"
                 placeholder="Search Company..."
