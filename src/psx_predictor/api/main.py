@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import joblib
 import pandas as pd
 import numpy as np
@@ -166,6 +167,8 @@ async def get_prediction(payload: PredictionRequest):
         # Run synchronous blocking logic in threadpool to avoid blocking event loop
         def _compute():
             df = pd.read_csv(data_path)
+            if df.empty:
+                raise HTTPException(status_code=404, detail=f"Insufficient historical data to compute predictions for {ticker.upper()}.")
             
             exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
             feature_cols = [col for col in df.columns if col not in exclude_cols]
@@ -353,6 +356,8 @@ async def get_prediction(payload: PredictionRequest):
         return result
         
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         import traceback
         traceback.print_exc()
         logger.error(f"Inference error: {str(e)}")
@@ -563,45 +568,53 @@ async def get_realtime_price(ticker: str):
         logger.error(f"Failed to parse real-time price for {ticker}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error while parsing real-time price.")
 
+def _fetch_single_performer(t):
+    try:
+        url = f"https://dps.psx.com.pk/company/{t}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=5)
+        
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            price_el = soup.select_one('.quote__close')
+            price = float(price_el.text.strip().replace('Rs.', '').replace(',', '')) if price_el else 0.0
+            change_el = soup.select_one('.change__value')
+            change = float(change_el.text.strip().replace(',', '')) if change_el else 0.0
+            percent_el = soup.select_one('.change__percent')
+            percent = float(percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')) if percent_el else 0.0
+        else:
+            price, change, percent = 0.0, 0.0, 0.0
+            
+        # Since volume is no longer in the ML feature set, query it directly from the database
+        volume = 0
+        try:
+            vol_query = text("SELECT volume FROM stock_eod_data WHERE ticker = :ticker ORDER BY date DESC LIMIT 1")
+            with engine.connect() as conn:
+                vol_res = conn.execute(vol_query, {"ticker": t.upper()}).fetchone()
+                if vol_res:
+                    volume = int(vol_res[0])
+        except Exception as db_e:
+            logger.error(f"Failed to fetch volume from DB for {t}: {db_e}")
+                
+        return {
+            "symbol": t,
+            "price": price,
+            "change": change,
+            "change_percent": percent,
+            "volume": volume
+        }
+    except Exception as e:
+        logger.error(f"Error fetching performer data for {t}: {e}")
+        return None
+
 def fetch_performer_data(tickers):
     results = []
-    for t in tickers:
-        try:
-            url = f"https://dps.psx.com.pk/company/{t}"
-            headers = {"User-Agent": "Mozilla/5.0"}
-            r = requests.get(url, headers=headers, timeout=5)
-            
-            if r.status_code == 200:
-                soup = BeautifulSoup(r.text, 'html.parser')
-                price_el = soup.select_one('.quote__close')
-                price = float(price_el.text.strip().replace('Rs.', '').replace(',', '')) if price_el else 0.0
-                change_el = soup.select_one('.change__value')
-                change = float(change_el.text.strip().replace(',', '')) if change_el else 0.0
-                percent_el = soup.select_one('.change__percent')
-                percent = float(percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')) if percent_el else 0.0
-            else:
-                price, change, percent = 0.0, 0.0, 0.0
-                
-            # Since volume is no longer in the ML feature set, query it directly from the database
-            volume = 0
-            try:
-                vol_query = text("SELECT volume FROM stock_eod_data WHERE ticker = :ticker ORDER BY date DESC LIMIT 1")
-                with engine.connect() as conn:
-                    vol_res = conn.execute(vol_query, {"ticker": t.upper()}).fetchone()
-                    if vol_res:
-                        volume = int(vol_res[0])
-            except Exception as db_e:
-                logger.error(f"Failed to fetch volume from DB for {t}: {db_e}")
-                    
-            results.append({
-                "symbol": t,
-                "price": price,
-                "change": change,
-                "change_percent": percent,
-                "volume": volume
-            })
-        except Exception as e:
-            logger.error(f"Error fetching performer data for {t}: {e}")
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_ticker = {executor.submit(_fetch_single_performer, t): t for t in tickers}
+        for future in as_completed(future_to_ticker):
+            res = future.result()
+            if res:
+                results.append(res)
     return results
 
 @app.get("/api/market_performers")

@@ -203,7 +203,6 @@ def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         logger.warning(f"No dividend data found for {ticker}.")
         df['days_since_dividend'] = 9999
         df['dividend_yield'] = 0.0
-        df['is_ex_dividend_week'] = 0
         return df
         
     div_df['date'] = pd.to_datetime(div_df['date'])
@@ -252,16 +251,25 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     if fund_df.empty:
         logger.warning(f"No fundamentals data found for {ticker}.")
         df['eps_trailing'] = 0.0
-        df['pe_ratio'] = 0.0
+        df['pe_ratio'] = np.nan
         df['roe'] = 0.0
         df['debt_to_equity'] = 0.0
         df['book_value_per_share'] = 0.0
         df['eps_growth_yoy'] = 0.0
         return df
         
+    if len(fund_df) < 4:
+        logger.warning(f"Fundamentals coverage is thin for {ticker} (only {len(fund_df)} rows).")
+        
     fund_df['date'] = pd.to_datetime(fund_df['date'])
+    fund_df = fund_df.sort_values('date').reset_index(drop=True)
     
-    fund_df['eps_growth_yoy'] = fund_df['eps'].pct_change(periods=4)
+    fund_df['eps_growth_yoy_raw'] = fund_df['eps'].pct_change(periods=4)
+    fund_df['gap_days'] = (fund_df['date'] - fund_df['date'].shift(4)).dt.days
+    
+    fund_df['eps_growth_yoy'] = np.where(fund_df['gap_days'].between(340, 390), fund_df['eps_growth_yoy_raw'], np.nan)
+    fund_df.drop(columns=['eps_growth_yoy_raw', 'gap_days'], inplace=True)
+    
     fund_df.rename(columns={'eps': 'eps_trailing'}, inplace=True)
     
     df = pd.merge(df, fund_df, on='date', how='left')
@@ -269,8 +277,10 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     cols_to_fill = ['eps_trailing', 'roe', 'debt_to_equity', 'book_value_per_share', 'eps_growth_yoy']
     df[cols_to_fill] = df[cols_to_fill].ffill().fillna(0.0)
     
-    eps_safe = df['eps_trailing'].replace(0, 0.001)
-    df['pe_ratio'] = df['close'] / eps_safe
+    df['pe_ratio'] = np.nan
+    mask = (df['eps_trailing'] != 0) & (df['eps_trailing'].notna())
+    if mask.any():
+        df.loc[mask, 'pe_ratio'] = df.loc[mask, 'close'] / df.loc[mask, 'eps_trailing']
     
     return df
 
@@ -309,7 +319,7 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     
     df['pkr_usd_change_pct'] = df['pkr_usd_change_pct'].fillna(0.0)
     
-    if sector and sector.lower() == 'energy':
+    if sector and any(s in sector.lower() for s in ['oil & gas', 'refinery', 'power generation']):
         df['oil_return_pct'] = df['oil_return_pct'].fillna(0.0)
     else:
         df['oil_return_pct'] = 0.0

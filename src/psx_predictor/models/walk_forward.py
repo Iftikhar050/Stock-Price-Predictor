@@ -134,13 +134,18 @@ def run_walk_forward(
             preds = model.predict(X_test)
             # Naïve persistence baseline (next day's return = 0 change)
             naive_preds = np.zeros(len(y_test))
-            mae_val = mae(y_test, preds)
-            rmse_val = np.sqrt(rmse(y_test, preds))
-            mape_val = mape(y_test, preds)
+            actual_prices = close_test * (1 + y_test)
+            pred_prices = close_test * (1 + preds)
+            naive_pred_prices = close_test * (1 + naive_preds)
+
+            mae_val = mae(actual_prices, pred_prices)
+            rmse_val = np.sqrt(rmse(actual_prices, pred_prices))
+            mape_val = mape(actual_prices, pred_prices) * 100
             dir_acc = directional_accuracy(y_test, preds)
-            naive_mae = mae(y_test, naive_preds)
-            naive_rmse = np.sqrt(rmse(y_test, naive_preds))
-            naive_mape = mape(y_test, naive_preds)
+            
+            naive_mae = mae(actual_prices, naive_pred_prices)
+            naive_rmse = np.sqrt(rmse(actual_prices, naive_pred_prices))
+            naive_mape = mape(actual_prices, naive_pred_prices) * 100
             naive_dir_acc = directional_accuracy(y_test, naive_preds)
             rows.append({
                 "ticker": ticker,

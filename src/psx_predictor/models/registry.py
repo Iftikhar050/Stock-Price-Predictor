@@ -44,8 +44,8 @@ def register_run(
         raise FileNotFoundError(f"Expected model artifact not found: {model_path}")
 
     # Save raw results
-    results_path = os.path.join(run_folder, "results.parquet")
-    results_df.to_parquet(results_path, index=False)
+    results_path = os.path.join(run_folder, "results.csv")
+    results_df.to_csv(results_path, index=False)
 
     # Compute summary statistics
     summary = {}

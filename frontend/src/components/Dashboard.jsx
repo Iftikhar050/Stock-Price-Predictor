@@ -82,28 +82,36 @@ const AllCompaniesTable = ({ modelType, availableTickers }) => {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const promises = availableTickers.map(t => axios.post(`${API_BASE_URL}/api/predict`, { ticker: t.value }));
-        const responses = await Promise.all(promises);
-        const parsedData = responses.map(res => {
-          const d = res.data;
-          const lastRecord = d.historical_data[d.historical_data.length - 1];
-          const prefix = modelType === 'RF' ? 'rf' : modelType === 'LSTM' ? 'lstm' : modelType === 'LR' ? 'lr' : 'xgb';
-          const predToday = lastRecord[`${prefix}_pred`];
-          const actualToday = d.current_price;
-          const diff = predToday ? actualToday - predToday : 0;
-          const diffPercent = predToday ? (diff / predToday) * 100 : 0;
-          const predTomorrow = d[`${prefix}_predicted_price`];
+        const parsedData = [];
+        const chunkSize = 10;
+        for (let i = 0; i < availableTickers.length; i += chunkSize) {
+          const chunk = availableTickers.slice(i, i + chunkSize);
+          const promises = chunk.map(t => axios.post(`${API_BASE_URL}/api/predict`, { ticker: t.value }).catch(err => null));
+          const responses = await Promise.all(promises);
           
-          return {
-            ticker: d.ticker,
-            actualToday,
-            predToday,
-            diff,
-            diffPercent,
-            predTomorrow
-          };
-        });
-        setData(parsedData);
+          responses.forEach(res => {
+            if (!res || !res.data) return;
+            const d = res.data;
+            const lastRecord = d.historical_data[d.historical_data.length - 1];
+            const prefix = modelType === 'RF' ? 'rf' : modelType === 'LSTM' ? 'lstm' : modelType === 'LR' ? 'lr' : 'xgb';
+            const predToday = lastRecord[`${prefix}_pred`];
+            const actualToday = d.current_price;
+            const diff = predToday ? actualToday - predToday : 0;
+            const diffPercent = predToday ? (diff / predToday) * 100 : 0;
+            const predTomorrow = d[`${prefix}_predicted_price`];
+            
+            parsedData.push({
+              ticker: d.ticker,
+              actualToday,
+              predToday,
+              diff,
+              diffPercent,
+              predTomorrow
+            });
+          });
+          // Update state progressively so UI doesn't freeze
+          setData([...parsedData]);
+        }
       } catch (err) {
         console.error("Failed to fetch all predictions", err);
       } finally {

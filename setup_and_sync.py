@@ -1,7 +1,7 @@
 import os
 import sys
+import time
 
-# Ensure the root directory is in sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.psx_predictor.db.connection import engine
@@ -13,11 +13,53 @@ from src.psx_predictor.scraper.macro_scraper import MacroScraper
 
 from src.psx_predictor.db.repository import get_active_tickers
 from src.psx_predictor.scraper.index_scraper import sync_market_index
-import time
+
+def execute_with_backoff(func, *args, max_retries=3, initial_delay=2, **kwargs):
+    """Executes a function with adaptive exponential backoff."""
+    delay = initial_delay
+    for attempt in range(max_retries):
+        try:
+            result = func(*args, **kwargs)
+            if result:
+                return True
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"   [!] Final attempt failed: {e}")
+            else:
+                print(f"   [!] Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+        
+        if attempt < max_retries - 1:
+            time.sleep(delay)
+            delay *= 2
+            
+    return False
+
+def sync_category(category_name, tickers, sync_function, delay=1):
+    print(f"\nScraping and Syncing {category_name} to PostgreSQL...")
+    failures = []
+    successes = []
+    
+    for ticker in tickers:
+        print(f"   Syncing {category_name} for {ticker}...")
+        success = execute_with_backoff(sync_function, ticker)
+        if success:
+            print(f"   Success! {ticker} {category_name.lower()} written.")
+            successes.append(ticker)
+        else:
+            print(f"   WARNING: Failed to sync {category_name.lower()} for {ticker}.")
+            failures.append(ticker)
+        time.sleep(delay)
+        
+    print(f"\n--- {category_name} Summary ---")
+    print(f"Successes: {len(successes)}")
+    print(f"Failures: {len(failures)}")
+    if failures:
+        print(f"Failed Tickers: {failures}")
+    return successes, failures
+
 def main():
     print("1. Creating Database Tables...")
     try:
-        # This will create the stock_eod_data table if it doesn't exist
         Base.metadata.create_all(engine)
         print("   Success: Database tables verified/created.")
     except Exception as e:
@@ -25,86 +67,41 @@ def main():
         sys.exit(1)
 
     print("\n2. Scraping and Syncing market index...")
-    idx_success = sync_market_index()
-    if idx_success:
+    if sync_market_index():
         print("   Success! Market index data synchronized.")
     else:
         print("   ERROR: Failed to sync market index.")
 
-    print("\n2.5 Scraping and Syncing Macro Indicators...")
+    print("\n3. Scraping and Syncing Macro Indicators...")
     macro_scraper = MacroScraper()
-    macro_success = macro_scraper.sync_macro()
-    if macro_success:
+    if macro_scraper.sync_macro():
         print("   Success! Macro indicators synchronized.")
     else:
         print("   WARNING: Failed to sync macro indicators.")
 
-    print("\n3. Scraping and Syncing data to PostgreSQL...")
-    scraper = PSXScraper()
     active_tickers = get_active_tickers()
+    print(f"\nLoaded {len(active_tickers)} active tickers from database.")
     
-    eod_failures = []
-    for ticker in active_tickers:
-        print(f"   Syncing {ticker}...")
-        try:
-            success = scraper.sync_ticker(ticker)
-            if success:
-                print(f"   Success! {ticker} data written.")
-            else:
-                print(f"   WARNING: Failed to sync {ticker}.")
-                eod_failures.append(ticker)
-        except Exception as e:
-            print(f"   ERROR: Exception syncing {ticker}: {e}")
-            eod_failures.append(ticker)
-        time.sleep(1) # Rate limiting
-
-    if eod_failures:
-        print(f"\n   EOD scraping completed with {len(eod_failures)} failures: {eod_failures}")
-    else:
-        print(f"\n   All EOD scraping tasks completed successfully.")
-    print("\n4. Scraping and Syncing Dividends to PostgreSQL...")
+    # EOD Data
+    scraper = PSXScraper()
+    eod_succ, eod_fail = sync_category("EOD Data", active_tickers, scraper.sync_ticker)
+    
+    # Dividends
     div_scraper = DividendScraper()
-    div_failures = []
-    for ticker in active_tickers:
-        print(f"   Syncing dividends for {ticker}...")
-        try:
-            div_success = div_scraper.sync_dividends(ticker)
-            if div_success:
-                print(f"   Success! {ticker} dividends written.")
-            else:
-                print(f"   WARNING: Failed to sync dividends for {ticker}.")
-                div_failures.append(ticker)
-        except Exception as e:
-            print(f"   ERROR: Exception syncing dividends for {ticker}: {e}")
-            div_failures.append(ticker)
-        time.sleep(1) # Rate limiting
-        
-    if div_failures:
-        print(f"\n   Dividend scraping completed with {len(div_failures)} failures: {div_failures}")
-    else:
-        print(f"\n   All Dividend scraping tasks completed successfully.")
-
-    print("\n5. Scraping and Syncing Fundamentals to PostgreSQL...")
+    div_succ, div_fail = sync_category("Dividends", active_tickers, div_scraper.sync_dividends)
+    
+    # Fundamentals
     fund_scraper = FundamentalsScraper()
-    fund_failures = []
-    for ticker in active_tickers:
-        print(f"   Syncing fundamentals for {ticker}...")
-        try:
-            fund_success = fund_scraper.sync_fundamentals(ticker)
-            if fund_success:
-                print(f"   Success! {ticker} fundamentals written.")
-            else:
-                print(f"   WARNING: Failed to sync fundamentals for {ticker} (or missing data).")
-                fund_failures.append(ticker)
-        except Exception as e:
-            print(f"   ERROR: Exception syncing fundamentals for {ticker}: {e}")
-            fund_failures.append(ticker)
-        time.sleep(1) # Rate limiting
-        
-    if fund_failures:
-        print(f"\n   Fundamentals scraping completed with {len(fund_failures)} failures: {fund_failures}")
-    else:
-        print(f"\n   All Fundamentals scraping tasks completed successfully.")
+    fund_succ, fund_fail = sync_category("Fundamentals", active_tickers, fund_scraper.sync_fundamentals)
+    
+    print("\n=======================================================")
+    print("               COMPLETENESS REPORT                     ")
+    print("=======================================================")
+    print(f"Total Tickers Target: {len(active_tickers)}")
+    print(f"EOD Completed:        {len(eod_succ)} / {len(active_tickers)}")
+    print(f"Dividends Completed:  {len(div_succ)} / {len(active_tickers)}")
+    print(f"Fundamentals Comp:    {len(fund_succ)} / {len(active_tickers)}")
+    print("=======================================================\n")
 
 if __name__ == '__main__':
     main()

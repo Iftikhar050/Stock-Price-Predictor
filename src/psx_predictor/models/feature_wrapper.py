@@ -38,6 +38,8 @@ def prepare_data(ticker: str, ticker_sectors: dict = None):
         raise FileNotFoundError(f"File not found: {csv_path}. Run build_features.py first.")
         
     df = pd.read_csv(csv_path)
+    if df.empty:
+        raise ValueError(f"Empty feature data for {ticker}")
     
     # 1. Create Target Variable (Next Day's Return)
     df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']

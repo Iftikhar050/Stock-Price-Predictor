@@ -54,7 +54,9 @@ class MacroScraper:
             # For SBP policy rate, since it changes infrequently and requires custom scraping from SBP,
             # we will set it to the current 22.0% (or historical approx) for Phase 1. 
             # In a full production env, we'd add an SBP-specific scraper here.
+            logger.warning("Using hardcoded flat placeholder (22.0) for sbp_policy_rate. This is NOT real historical data.")
             macro_df['sbp_policy_rate'] = 22.0 
+            macro_df['is_synthetic_rate'] = True
             
             # Sort and fill
             macro_df = macro_df.sort_values('date').reset_index(drop=True)

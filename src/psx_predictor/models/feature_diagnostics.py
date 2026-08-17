@@ -72,6 +72,7 @@ def run_diagnostics():
     print("\n--- Variance Inflation Factor (VIF) ---")
     print("Calculating VIF (this may take a moment)...")
     # Drop NaNs or infinite values if any exist
+    X_all = X_all.apply(pd.to_numeric, errors='coerce')
     X_all.replace([np.inf, -np.inf], np.nan, inplace=True)
     X_all.dropna(inplace=True)
     
