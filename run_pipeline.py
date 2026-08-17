@@ -145,12 +145,23 @@ def execute_full_pipeline():
             from src.psx_predictor.models.feature_wrapper import get_ticker_sectors
             ticker_sectors = get_ticker_sectors()
             
-            # wrapper function to pass ticker_sectors to feature_fn
-            def _feature_fn(ticker, start, end):
-                return feature_fn(ticker, start, end, ticker_sectors=ticker_sectors)
+            # wrapper functions to pass ticker_sectors and cast/drop features appropriately
+            def _baseline_feature_fn(ticker, start, end):
+                X, y, dates, close = feature_fn(ticker, start, end, ticker_sectors=None)
+                if 'ticker' in X.columns:
+                    X = X.drop(columns=['ticker'])
+                if 'sector' in X.columns:
+                    X = X.drop(columns=['sector'])
+                return X, y, dates, close
+
+            def _xgb_feature_fn(ticker, start, end):
+                X, y, dates, close = feature_fn(ticker, start, end, ticker_sectors=ticker_sectors)
+                X['ticker'] = X['ticker'].astype('category')
+                X['sector'] = X['sector'].astype('category')
+                return X, y, dates, close
 
             # Baseline
-            baseline_results = run_walk_forward(baseline_factory, _feature_fn, windows, tickers)
+            baseline_results = run_walk_forward(baseline_factory, _baseline_feature_fn, windows, tickers)
             baseline_id = uuid.uuid4().hex
             register_run(
                 run_id=baseline_id,
@@ -161,7 +172,7 @@ def execute_full_pipeline():
                 model_path=os.path.join(ROOT_DIR, "models", BASELINE_MODEL_FILENAME),
             )
             # Ridge
-            ridge_results = run_walk_forward(ridge_factory, _feature_fn, windows, tickers)
+            ridge_results = run_walk_forward(ridge_factory, _baseline_feature_fn, windows, tickers)
             ridge_id = uuid.uuid4().hex
             register_run(
                 run_id=ridge_id,
@@ -172,7 +183,7 @@ def execute_full_pipeline():
                 model_path=os.path.join(ROOT_DIR, "models", RIDGE_MODEL_FILENAME),
             )
             # XGBoost
-            xgb_results = run_walk_forward(xgboost_factory, _feature_fn, windows, tickers)
+            xgb_results = run_walk_forward(xgboost_factory, _xgb_feature_fn, windows, tickers)
             xgb_id = uuid.uuid4().hex
             register_run(
                 run_id=xgb_id,
