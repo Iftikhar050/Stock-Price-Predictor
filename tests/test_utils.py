@@ -28,12 +28,12 @@ class TestUtils(unittest.TestCase):
         cutoff_str, valid_tickers = choose_global_cutoff(test_trading_days=5, min_train_trading_days=10)
         
         # With 10 dates, len(all_dates) = 10.
-        # Fallback index = 10 - 10 // 5 = 10 - 2 = 8
+        # Fallback index = 10 // 5 = 2
         # Since dates are descending (index 0 is newest, 9 is oldest), 
-        # index 8 is the second oldest date.
+        # index 2 is the 3rd newest date.
         # This leaves 8 dates before or on the cutoff (older), and 2 dates after the cutoff (newer).
         # This is an 80/20 train/test split.
-        expected_cutoff = mock_dates[8][0]
+        expected_cutoff = mock_dates[2][0]
         
         self.assertEqual(cutoff_str, expected_cutoff.strftime('%Y-%m-%d'))
         

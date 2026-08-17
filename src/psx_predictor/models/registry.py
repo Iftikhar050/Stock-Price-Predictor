@@ -40,15 +40,34 @@ def register_run(
     run_folder = _run_dir(run_id)
     os.makedirs(run_folder, exist_ok=True)
 
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Expected model artifact not found: {model_path}")
+
     # Save raw results
     results_path = os.path.join(run_folder, "results.parquet")
     results_df.to_parquet(results_path, index=False)
 
     # Compute summary statistics
     summary = {}
-    overall = results_df.mean(numeric_only=True).to_dict()
+    
+    numeric_cols = results_df.select_dtypes(include='number').columns
+    overall = {}
+    for col in numeric_cols:
+        overall[f"{col}_mean"] = results_df[col].mean()
+        overall[f"{col}_std"] = results_df[col].std()
+        
+    overall["worst_window_mape"] = results_df.groupby("window_idx")["mape"].mean().max()
+    overall["worst_window_directional_accuracy"] = results_df.groupby("window_idx")["directional_accuracy"].mean().min()
+    
     summary["overall_mean"] = overall
-    ticker_means = results_df.groupby("ticker").mean(numeric_only=True).to_dict(orient="index")
+    
+    ticker_means = {}
+    for ticker, group in results_df.groupby("ticker"):
+        ticker_means[ticker] = {}
+        for col in numeric_cols:
+            ticker_means[ticker][f"{col}_mean"] = group[col].mean()
+            ticker_means[ticker][f"{col}_std"] = group[col].std()
+            
     summary["ticker_mean"] = ticker_means
     summary_path = os.path.join(run_folder, "summary.json")
     with open(summary_path, "w") as f:

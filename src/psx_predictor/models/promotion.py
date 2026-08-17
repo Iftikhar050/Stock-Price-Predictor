@@ -45,19 +45,20 @@ def evaluate_promotion_candidate(run_meta: dict) -> bool:
     ticker_means = summary.get("ticker_mean", {})
 
     required_keys = [
-        "directional_accuracy",
         "directional_accuracy_mean",
         "directional_accuracy_std",
-        "mape",
         "mape_mean",
-        "naive_directional_accuracy",
-        "naive_mape",
+        "mape_std",
+        "naive_directional_accuracy_mean",
+        "naive_mape_mean",
+        "worst_window_mape",
+        "worst_window_directional_accuracy",
     ]
     if not all(k in overall for k in required_keys):
         logger.warning(f"Summary for run {run_meta.get('run_id')} missing required metrics.")
         return False
 
-    improvement = overall["directional_accuracy_mean"] - overall["naive_directional_accuracy"]
+    improvement = overall["directional_accuracy_mean"] - overall["naive_directional_accuracy_mean"]
     if improvement < DIRECTIONAL_ACC_MARGIN:
         logger.info(f"Run {run_meta['run_id']} fails DA margin: {improvement:.2f}% < {DIRECTIONAL_ACC_MARGIN}%")
         return False
@@ -66,8 +67,12 @@ def evaluate_promotion_candidate(run_meta: dict) -> bool:
         logger.info(f"Run {run_meta['run_id']} exceeds MAPE limit: {overall['mape_mean']:.2f}% > {MAX_MAPE}%")
         return False
 
-    if overall["mape"] > MAX_WORST_WINDOW_MAPE:
-        logger.info(f"Run {run_meta['run_id']} worst‑window MAPE too high: {overall['mape']:.2f}% > {MAX_WORST_WINDOW_MAPE}%")
+    if overall["worst_window_mape"] > MAX_WORST_WINDOW_MAPE:
+        logger.info(f"Run {run_meta['run_id']} worst‑window MAPE too high: {overall['worst_window_mape']:.2f}% > {MAX_WORST_WINDOW_MAPE}%")
+        return False
+        
+    if overall["worst_window_directional_accuracy"] < overall["naive_directional_accuracy_mean"]:
+        logger.info(f"Run {run_meta['run_id']} worst‑window directional accuracy worse than naive mean: {overall['worst_window_directional_accuracy']:.2f}% < {overall['naive_directional_accuracy_mean']:.2f}%")
         return False
 
     if ticker_means:

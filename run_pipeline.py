@@ -15,6 +15,9 @@ from src.psx_predictor.models.registry import register_run, load_all_runs
 from src.psx_predictor.models.promotion import select_best_model_overall
 from src.psx_predictor.data.build_features import FEATURE_SET_VERSION
 from src.psx_predictor.db.repository import get_active_tickers
+from src.psx_predictor.models.train_baseline import MODEL_FILENAME as BASELINE_MODEL_FILENAME
+from src.psx_predictor.models.train_regression import MODEL_FILENAME as RIDGE_MODEL_FILENAME
+from src.psx_predictor.models.train_xgboost import MODEL_FILENAME as XGBOOST_MODEL_FILENAME
 import uuid
 import shutil
 import json
@@ -139,8 +142,15 @@ def execute_full_pipeline():
         if not windows:
             logger.warning("No walk‑forward windows generated; skipping evaluation.")
         else:
+            from src.psx_predictor.models.feature_wrapper import get_ticker_sectors
+            ticker_sectors = get_ticker_sectors()
+            
+            # wrapper function to pass ticker_sectors to feature_fn
+            def _feature_fn(ticker, start, end):
+                return feature_fn(ticker, start, end, ticker_sectors=ticker_sectors)
+
             # Baseline
-            baseline_results = run_walk_forward(baseline_factory, feature_fn, windows, tickers)
+            baseline_results = run_walk_forward(baseline_factory, _feature_fn, windows, tickers)
             baseline_id = uuid.uuid4().hex
             register_run(
                 run_id=baseline_id,
@@ -148,10 +158,10 @@ def execute_full_pipeline():
                 feature_set_version=FEATURE_SET_VERSION,
                 ticker_list=tickers,
                 results_df=baseline_results,
-                model_path=os.path.join(ROOT_DIR, "models", "baseline.pkl"),
+                model_path=os.path.join(ROOT_DIR, "models", BASELINE_MODEL_FILENAME),
             )
             # Ridge
-            ridge_results = run_walk_forward(ridge_factory, feature_fn, windows, tickers)
+            ridge_results = run_walk_forward(ridge_factory, _feature_fn, windows, tickers)
             ridge_id = uuid.uuid4().hex
             register_run(
                 run_id=ridge_id,
@@ -159,10 +169,10 @@ def execute_full_pipeline():
                 feature_set_version=FEATURE_SET_VERSION,
                 ticker_list=tickers,
                 results_df=ridge_results,
-                model_path=os.path.join(ROOT_DIR, "models", "ridge.pkl"),
+                model_path=os.path.join(ROOT_DIR, "models", RIDGE_MODEL_FILENAME),
             )
             # XGBoost
-            xgb_results = run_walk_forward(xgboost_factory, feature_fn, windows, tickers)
+            xgb_results = run_walk_forward(xgboost_factory, _feature_fn, windows, tickers)
             xgb_id = uuid.uuid4().hex
             register_run(
                 run_id=xgb_id,
@@ -170,7 +180,7 @@ def execute_full_pipeline():
                 feature_set_version=FEATURE_SET_VERSION,
                 ticker_list=tickers,
                 results_df=xgb_results,
-                model_path=os.path.join(ROOT_DIR, "models", "xgboost.pkl"),
+                model_path=os.path.join(ROOT_DIR, "models", XGBOOST_MODEL_FILENAME),
             )
             # Promotion – select best qualifying model
             best_run = select_best_model_overall()

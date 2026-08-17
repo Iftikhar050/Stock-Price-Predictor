@@ -8,6 +8,7 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 import joblib
 
+MODEL_FILENAME = "lr_model.pkl"
 # Add the project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -25,30 +26,9 @@ REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
 from src.psx_predictor.db.repository import get_active_tickers
 from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.models.feature_wrapper import prepare_data
 
-def prepare_data(ticker: str):
-    """Loads the engineered features and creates the target variable."""
-    file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
-    if not os.path.exists(file_path):
-        logger.error(f"File not found: {file_path}. Run build_features.py first.")
-        raise FileNotFoundError(file_path)
-        
-    df = pd.read_csv(file_path)
-    
-    # 1. Create Target Variable (Next Day's Return)
-    df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
-    df.dropna(subset=['target_return_t1'], inplace=True)
-    
-    # 2. Select Features (X) and Target (y)
-    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
-    feature_cols = [col for col in df.columns if col not in exclude_cols]
-    
-    X = df[feature_cols]
-    y = df['target_return_t1']
-    dates = df['date']
-    current_close = df['close']
-    
-    return X, y, dates, current_close
+
 
 def train_and_evaluate():
     """Builds and evaluates the Ridge Regression model."""
@@ -63,6 +43,8 @@ def train_and_evaluate():
     for ticker in valid_tickers:
         try:
             X, y, dates, current_close = prepare_data(ticker)
+            if 'ticker' in X.columns:
+                X = X.drop(columns=['ticker'])
         except Exception:
             continue
             
@@ -115,7 +97,7 @@ def train_and_evaluate():
     
     # Save Model
     os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, "lr_model.pkl")
+    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
     joblib.dump(model, model_path)
     logger.info(f"Saved trained model artifact to {model_path}")
     

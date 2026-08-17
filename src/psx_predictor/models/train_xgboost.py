@@ -8,6 +8,7 @@ from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 import joblib
 
+MODEL_FILENAME = "xgboost_model.pkl"
 # Add the project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -28,39 +29,9 @@ from src.psx_predictor.models.utils import choose_global_cutoff
 from src.psx_predictor.db.connection import engine
 from sqlalchemy import text
 import datetime
+from src.psx_predictor.models.feature_wrapper import prepare_data, get_ticker_sectors
 
-def get_ticker_sectors():
-    query = text("SELECT ticker, sector FROM stock_metadata")
-    with engine.connect() as conn:
-        res = conn.execute(query).fetchall()
-    return {row[0]: row[1] for row in res}
 
-def prepare_data(ticker: str, ticker_sectors: dict):
-    """Loads the engineered features and creates the target variable."""
-    file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
-    if not os.path.exists(file_path):
-        logger.error(f"File not found: {file_path}. Run build_features.py first.")
-        raise FileNotFoundError(file_path)
-        
-    df = pd.read_csv(file_path)
-    
-    # 1. Create Target Variable (Next Day's Return)
-    df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
-    df.dropna(subset=['target_return_t1'], inplace=True)
-    
-    # 2. Select Features (X) and Target (y)
-    exclude_cols = ['date', 'created_at', 'target_return_t1', 'close'] # Keep 'ticker'
-    feature_cols = [col for col in df.columns if col not in exclude_cols]
-    
-    X = df[feature_cols].copy()
-    
-    X['sector'] = X['ticker'].map(ticker_sectors)
-    
-    y = df['target_return_t1']
-    dates = pd.to_datetime(df['date'])
-    current_close = df['close']
-    
-    return X, y, dates, current_close
 
 def train_and_evaluate():
     """Builds and evaluates the XGBoost model."""
@@ -151,7 +122,7 @@ def train_and_evaluate():
     
     # Save Model
     os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, "xgboost_model.pkl")
+    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
     joblib.dump(model, model_path)
     joblib.dump(list(X_train['ticker'].cat.categories), os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
     joblib.dump(list(X_train['sector'].cat.categories), os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))

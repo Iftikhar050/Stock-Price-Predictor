@@ -123,8 +123,7 @@ def run_walk_forward(
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
             # Naïve persistence baseline (next day's return = 0 change)
-            naive_preds = (close_test.shift(1) - close_test) / close_test
-            naive_preds = naive_preds.fillna(0)
+            naive_preds = np.zeros(len(y_test))
             mae_val = mae(y_test, preds)
             rmse_val = np.sqrt(rmse(y_test, preds))
             mape_val = mape(y_test, preds)

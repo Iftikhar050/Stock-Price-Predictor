@@ -28,7 +28,7 @@ def choose_global_cutoff(test_trading_days: int = 250, min_train_trading_days: i
         
     if len(all_dates) < test_trading_days + min_train_trading_days:
         logger.warning("Not enough global trading days to satisfy the split requirements securely. Using default.")
-        cutoff_date = all_dates[len(all_dates) - len(all_dates) // 5] if all_dates else datetime(2023, 1, 1).date()
+        cutoff_date = all_dates[len(all_dates) // 5] if all_dates else datetime(2023, 1, 1).date()
     else:
         # The cutoff date is the date exactly `test_trading_days` from the latest available date
         cutoff_date = all_dates[test_trading_days]

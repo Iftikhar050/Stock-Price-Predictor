@@ -1,8 +1,8 @@
 {
-    "timestamp": "2026-08-15T23:17:11.140096",
-    "global_cutoff_date": "2025-08-25",
-    "test_trading_days_requested": 250,
-    "min_train_trading_days_requested": 500,
-    "valid_tickers_count": 30,
+    "timestamp": "2026-08-17T12:24:31.908618",
+    "global_cutoff_date": "2023-01-08",
+    "test_trading_days_requested": 5,
+    "min_train_trading_days_requested": 10,
+    "valid_tickers_count": 1,
     "excluded_tickers": []
 }
