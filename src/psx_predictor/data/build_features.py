@@ -491,8 +491,17 @@ def build_features(ticker: str) -> pd.DataFrame:
 from src.psx_predictor.db.repository import get_active_tickers
 
 if __name__ == '__main__':
-    # When run directly, run the pipeline for all active tickers
     tickers = get_active_tickers()
     logger.info(f"Building features for {len(tickers)} active tickers...")
+    
+    # A.2.3: One-time startup/build-time assertion for energy sector
+    with engine.connect() as conn:
+        all_sectors = conn.execute(text("SELECT DISTINCT sector FROM stock_metadata WHERE is_active=true")).fetchall()
+        energy_count = sum(1 for (s,) in all_sectors if s and any(energy_kw in s.lower() for energy_kw in ['oil & gas', 'refinery', 'power generation']))
+        if energy_count == 0:
+            logger.warning("ASSERTION FAILED: Zero active tickers matched the energy-sector condition for the oil_return_pct feature gate!")
+        else:
+            logger.info(f"Verified {energy_count} sectors matched the energy-sector condition.")
+            
     for ticker in tickers:
         build_features(ticker)

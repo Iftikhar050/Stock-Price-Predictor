@@ -183,6 +183,7 @@ def upsert_macro_indicators(df: pd.DataFrame) -> bool:
     
     update_dict = {
         'sbp_policy_rate': stmt.excluded.sbp_policy_rate,
+        'is_synthetic_rate': stmt.excluded.is_synthetic_rate,
         'pkr_usd_rate': stmt.excluded.pkr_usd_rate,
         'brent_oil_price': stmt.excluded.brent_oil_price
     }
