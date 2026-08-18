@@ -20,8 +20,14 @@ class MacroScraper:
             pkr_data = yf.download("PKR=X", period="max", progress=False)
             oil_data = yf.download("BZ=F", period="max", progress=False)
             
-            if pkr_data.empty and oil_data.empty:
-                logger.warning("Failed to fetch both PKR and Oil data.")
+            # Global Indices
+            sp500_data = yf.download("^GSPC", period="max", progress=False)
+            nasdaq_data = yf.download("^IXIC", period="max", progress=False)
+            dxy_data = yf.download("DX-Y.NYB", period="max", progress=False)
+            us10y_data = yf.download("^TNX", period="max", progress=False)
+            
+            if pkr_data.empty and oil_data.empty and sp500_data.empty:
+                logger.warning("Failed to fetch macro data.")
                 return False
                 
             # Clean and merge
@@ -38,18 +44,19 @@ class MacroScraper:
                 
             pkr_df = clean_yf(pkr_data, 'pkr_usd_rate')
             oil_df = clean_yf(oil_data, 'brent_oil_price')
+            sp500_df = clean_yf(sp500_data, 'sp500_close')
+            nasdaq_df = clean_yf(nasdaq_data, 'nasdaq_close')
+            dxy_df = clean_yf(dxy_data, 'dxy_close')
+            us10y_df = clean_yf(us10y_data, 'us10y_yield')
             
-            if pkr_df.empty and oil_df.empty:
+            dataframes = [df for df in [pkr_df, oil_df, sp500_df, nasdaq_df, dxy_df, us10y_df] if not df.empty]
+            
+            if not dataframes:
                 return False
                 
-            if not pkr_df.empty and not oil_df.empty:
-                macro_df = pd.merge(pkr_df, oil_df, on='date', how='outer')
-            elif not pkr_df.empty:
-                macro_df = pkr_df
-                macro_df['brent_oil_price'] = None
-            else:
-                macro_df = oil_df
-                macro_df['pkr_usd_rate'] = None
+            macro_df = dataframes[0]
+            for df in dataframes[1:]:
+                macro_df = pd.merge(macro_df, df, on='date', how='outer')
                 
             # For SBP policy rate, since it changes infrequently and requires custom scraping from SBP,
             # we will set it to the current 22.0% (or historical approx) for Phase 1. 

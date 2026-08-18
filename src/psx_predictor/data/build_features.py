@@ -289,7 +289,7 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     Queries macro_indicators, merges it, computes returns, conditionally includes oil.
     """
     logger.info(f"Merging macro indicators for {ticker} (Sector: {sector})...")
-    query = text("SELECT date, sbp_policy_rate, pkr_usd_rate, brent_oil_price FROM macro_indicators ORDER BY date ASC")
+    query = text("SELECT date, sbp_policy_rate, pkr_usd_rate, brent_oil_price, sp500_close, nasdaq_close, dxy_close, us10y_yield FROM macro_indicators ORDER BY date ASC")
     
     with engine.connect() as conn:
         macro_df = pd.read_sql(query, conn)
@@ -306,8 +306,13 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     macro_df['pkr_usd_change_pct'] = macro_df['pkr_usd_rate'].pct_change()
     macro_df['oil_return_pct'] = macro_df['brent_oil_price'].pct_change()
     
-    df = pd.merge(df, macro_df[['date', 'sbp_policy_rate', 'pkr_usd_change_pct', 'oil_return_pct']], on='date', how='left')
+    macro_df['sp500_return_pct'] = macro_df['sp500_close'].pct_change()
+    macro_df['nasdaq_return_pct'] = macro_df['nasdaq_close'].pct_change()
+    macro_df['dxy_change_pct'] = macro_df['dxy_close'].pct_change()
     
+    cols_to_merge = ['date', 'sbp_policy_rate', 'pkr_usd_change_pct', 'oil_return_pct', 
+                     'sp500_return_pct', 'nasdaq_return_pct', 'dxy_change_pct', 'us10y_yield']
+    df = pd.merge(df, macro_df[cols_to_merge], on='date', how='left')
     df['sbp_policy_rate'] = df['sbp_policy_rate'].ffill().bfill().fillna(0.0)
     
     rate_changes = df['sbp_policy_rate'].diff() != 0
@@ -318,6 +323,11 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     df.drop(columns=['rate_change_date'], inplace=True)
     
     df['pkr_usd_change_pct'] = df['pkr_usd_change_pct'].fillna(0.0)
+    
+    df['sp500_return_pct'] = df['sp500_return_pct'].fillna(0.0)
+    df['nasdaq_return_pct'] = df['nasdaq_return_pct'].fillna(0.0)
+    df['dxy_change_pct'] = df['dxy_change_pct'].fillna(0.0)
+    df['us10y_yield'] = df['us10y_yield'].ffill().bfill().fillna(0.0)
     
     if sector and any(s in sector.lower() for s in ['oil & gas', 'refinery', 'power generation']):
         df['oil_return_pct'] = df['oil_return_pct'].fillna(0.0)

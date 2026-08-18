@@ -165,6 +165,11 @@ class MacroIndicators(Base):
     pkr_usd_rate: Mapped[float] = mapped_column(Float, nullable=True)
     brent_oil_price: Mapped[float] = mapped_column(Float, nullable=True)
     
+    sp500_close: Mapped[float] = mapped_column(Float, nullable=True)
+    nasdaq_close: Mapped[float] = mapped_column(Float, nullable=True)
+    dxy_close: Mapped[float] = mapped_column(Float, nullable=True)
+    us10y_yield: Mapped[float] = mapped_column(Float, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
         default=lambda: datetime.now(timezone.utc)
