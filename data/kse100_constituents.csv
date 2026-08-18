@@ -1,100 +1,100 @@
-ticker,company_name,sector
-ABOT,Abbott,Pharmaceuticals
-AICL,Adamjee Insurance,Insurance
-AGP,AGP Limited,Pharmaceuticals
-AIRLINK,Air Link Communication,Technology & Communication
-ABL,Allied Bank,Commercial Banks
-AHCL,Arif Habib Corp,Investment Banks / Investment Companies / Securities Companies
-AKBL,Askari Bank,Commercial Banks
-ATLH,Atlas Honda,Automobile Assembler
-APL,Attock Petroleum,Oil & Gas Marketing
-ATRL,Attock Refinery,Refinery
-AVN,Avanceon,Technology & Communication
-BAHL,Bank AL Habib,Commercial Banks
-BAFL,Bank Alfalah,Commercial Banks
-BOP,Bank of Punjab,Commercial Banks
-BNWM,Bannu Woollen Mills,Woollen
-BWCL,Bestway Cement,Cement
-CHCC,Cherat Cement,Cement
-CPHL,Citi Pharma,Pharmaceuticals
-CNERGY,Cnergyico,Refinery
-COLG,Colgate-Palmolive Pakistan,Food & Personal Care Products
-DGKC,DG Cement,Cement
-DHPL,DH,Investment Banks / Investment Companies / Securities Companies
-DCR,Dolmen City,Real Estate Investment Trust
-ENGROH,Engro Holdings,Investment Banks / Investment Companies / Securities Companies
-EFERT,Engro Fertilizers,Fertilizer
-FATIMA,Fatima Fertilizer Company,Fertilizer
-FCCL,Fauji Cement,Cement
-FFC,Fauji Fertilizer Company,Fertilizer
-FFL,Fauji Foods,Food & Personal Care Products
-FABL,Faysal Bank,Commercial Banks
-HALEON,Haleon Pakistan,Pharmaceuticals
-FHAM,First Habib Modarba,Modarabas
-GADT,Gadoon Textile Mills,Textile Spinning
-GAL,Ghandhara Automobiles,Automobile Assembler
-GHNI,Ghandhara Industries,Automobile Assembler
-GHGL,Ghani Glass,Glass & Ceramics
-GLAXO,GSK,Pharmaceuticals
-HBL,HBL,Commercial Banks
-HMB,HabibMetro,Commercial Banks
-HGFA,HBL Growth Fund,Close-End Mutual Funds
-HINOON,Highnoon,Pharmaceuticals
-HCAR,Honda Atlas,Automobile Assembler
-HUBC,Hubco,Power Generation
-HUMNL,Hum Network,Technology & Communication
-IBFL,Ibrahim Fibre,Synthetic & Rayon
-JDWS,JDW Sugar Mills,Sugar & Allied Industries
-INDU,Indus Motor,Automobile Assembler
-ILP,Interloop Limited,Textile Composite
-INIL,International Industries Limited,Engineering
-ISL,International Steels Limited,Engineering
-JVDC,Javedan,Property
-KEL,K-Electric,Power Generation
-KOHC,Kohat Cement,Cement
-KTML,Kohinoor Textile,Textile Composite
-KAPCO,Kot Addu Power,Power Generation
-LOTCHEM,Lotte Chemical,Chemical
-LUCK,Lucky Cement,Cement
-LCI,Lucky Core Industries,Chemical
-MLCF,Maple Leaf Cement,Cement
-MARI,Mari Energies,Oil & Gas Exploration
-MCB,MCB Bank,Commercial Banks
-MEBL,Meezan Bank,Commercial Banks
-MEHT,Mehmood Textile Mills,Textile Composite
-MTL,Millat Tractors,Automobile Assembler
-MUREB,Murree Brewery,Food & Personal Care Products
-NBP,National Bank,Commercial Banks
-NATF,National Foods,Food & Personal Care Products
-NESTLE,Nestlé Pakistan,Food & Personal Care Products
-OGDC,OGDC,Oil & Gas Exploration
-PKGS,Packages Limited,"Paper, Board & Packaging"
-PAEL,PEL,Cable & Electrical Goods
-PGLC,Pak-Gulf Leasing,Leasing Companies
-PABC,Pakistan Aluminium Beverage Cans,Miscellaneous
-PIBTL,PIBTL,Transport
-POWER,Power Cement,Cement
-POL,Pakistan Oilfields,Oil & Gas Exploration
-PPL,Pakistan Petroleum,Oil & Gas Exploration
-PSEL,Pakistan Services,Miscellaneous
-PSO,Pakistan State Oil,Oil & Gas Marketing
-PSX,Pakistan Stock Exchange,Investment Banks / Investment Companies / Securities Companies
-PTC,PTCL,Technology & Communication
-PAKT,Pakistan Tobacco Company,Tobacco
-PIOC,Pioneer Cement,Cement
-RMPL,Rafhan Maize,Food & Personal Care Products
-SAZEW,Sazgar,Automobile Assembler
-SEARL,Searle,Pharmaceuticals
-SRVI,Servis,Leather & Tanneries
-SHFA,Shifa,Miscellaneous
-WAFI,Wafi,Oil & Gas Marketing
-SCBPL,Standard Chartered,Commercial Banks
-SNGP,Sui Northern,Oil & Gas Marketing
-SSGC,Sui Southern,Oil & Gas Marketing
-SYS,Systems Limited,Technology & Communication
-TGL,Tariq Glass,Glass & Ceramics
-THALL,Thal Limited,Automobile Parts & Accessories
-TRG,TRG Pakistan,Technology & Communication
-UPFL,Unilever Foods,Food & Personal Care Products
-UBL,UBL,Commercial Banks
-YOUW,Yousuf Weaving Mills,Textile Weaving
+ticker,company_name,sector,fetched_at
+ABOT,Abbott,Pharmaceuticals,2026-08-18
+AICL,Adamjee Insurance,Insurance,2026-08-18
+AGP,AGP Limited,Pharmaceuticals,2026-08-18
+AIRLINK,Air Link Communication,Technology & Communication,2026-08-18
+ABL,Allied Bank,Commercial Banks,2026-08-18
+AHCL,Arif Habib Corp,Investment Banks / Investment Companies / Securities Companies,2026-08-18
+AKBL,Askari Bank,Commercial Banks,2026-08-18
+ATLH,Atlas Honda,Automobile Assembler,2026-08-18
+APL,Attock Petroleum,Oil & Gas Marketing Companies,2026-08-18
+ATRL,Attock Refinery,Refinery,2026-08-18
+AVN,Avanceon,Technology & Communication,2026-08-18
+BAHL,Bank AL Habib,Commercial Banks,2026-08-18
+BAFL,Bank Alfalah,Commercial Banks,2026-08-18
+BOP,Bank of Punjab,Commercial Banks,2026-08-18
+BNWM,Bannu Woollen Mills,Woollen,2026-08-18
+BWCL,Bestway Cement,Cement,2026-08-18
+CHCC,Cherat Cement,Cement,2026-08-18
+CPHL,Citi Pharma,Pharmaceuticals,2026-08-18
+CNERGY,Cnergyico,Refinery,2026-08-18
+COLG,Colgate-Palmolive Pakistan,Food & Personal Care Products,2026-08-18
+DGKC,DG Cement,Cement,2026-08-18
+DHPL,DH,Investment Banks / Investment Companies / Securities Companies,2026-08-18
+DCR,Dolmen City,Real Estate Investment Trust,2026-08-18
+ENGROH,Engro Holdings,Investment Banks / Investment Companies / Securities Companies,2026-08-18
+EFERT,Engro Fertilizers,Fertilizer,2026-08-18
+FATIMA,Fatima Fertilizer Company,Fertilizer,2026-08-18
+FCCL,Fauji Cement,Cement,2026-08-18
+FFC,Fauji Fertilizer Company,Fertilizer,2026-08-18
+FFL,Fauji Foods,Food & Personal Care Products,2026-08-18
+FABL,Faysal Bank,Commercial Banks,2026-08-18
+HALEON,Haleon Pakistan,Pharmaceuticals,2026-08-18
+FHAM,First Habib Modarba,Modarabas,2026-08-18
+GADT,Gadoon Textile Mills,Textile Spinning,2026-08-18
+GAL,Ghandhara Automobiles,Automobile Assembler,2026-08-18
+GHNI,Ghandhara Industries,Automobile Assembler,2026-08-18
+GHGL,Ghani Glass,Glass & Ceramics,2026-08-18
+GLAXO,GSK,Pharmaceuticals,2026-08-18
+HBL,HBL,Commercial Banks,2026-08-18
+HMB,HabibMetro,Commercial Banks,2026-08-18
+HGFA,HBL Growth Fund,Close-End Mutual Funds,2026-08-18
+HINOON,Highnoon,Pharmaceuticals,2026-08-18
+HCAR,Honda Atlas,Automobile Assembler,2026-08-18
+HUBC,Hubco,Power Generation & Distribution,2026-08-18
+HUMNL,Hum Network,Technology & Communication,2026-08-18
+IBFL,Ibrahim Fibre,Synthetic & Rayon,2026-08-18
+JDWS,JDW Sugar Mills,Sugar & Allied Industries,2026-08-18
+INDU,Indus Motor,Automobile Assembler,2026-08-18
+ILP,Interloop Limited,Textile Composite,2026-08-18
+INIL,International Industries Limited,Engineering,2026-08-18
+ISL,International Steels Limited,Engineering,2026-08-18
+JVDC,Javedan,Property,2026-08-18
+KEL,K-Electric,Power Generation & Distribution,2026-08-18
+KOHC,Kohat Cement,Cement,2026-08-18
+KTML,Kohinoor Textile,Textile Composite,2026-08-18
+KAPCO,Kot Addu Power,Power Generation & Distribution,2026-08-18
+LOTCHEM,Lotte Chemical,Chemical,2026-08-18
+LUCK,Lucky Cement,Cement,2026-08-18
+LCI,Lucky Core Industries,Chemical,2026-08-18
+MLCF,Maple Leaf Cement,Cement,2026-08-18
+MARI,Mari Energies,Oil & Gas Exploration Companies,2026-08-18
+MCB,MCB Bank,Commercial Banks,2026-08-18
+MEBL,Meezan Bank,Commercial Banks,2026-08-18
+MEHT,Mehmood Textile Mills,Textile Composite,2026-08-18
+MTL,Millat Tractors,Automobile Assembler,2026-08-18
+MUREB,Murree Brewery,Food & Personal Care Products,2026-08-18
+NBP,National Bank,Commercial Banks,2026-08-18
+NATF,National Foods,Food & Personal Care Products,2026-08-18
+NESTLE,Nestlé Pakistan,Food & Personal Care Products,2026-08-18
+OGDC,OGDC,Oil & Gas Exploration Companies,2026-08-18
+PKGS,Packages Limited,"Paper, Board & Packaging",2026-08-18
+PAEL,PEL,Cable & Electrical Goods,2026-08-18
+PGLC,Pak-Gulf Leasing,Leasing Companies,2026-08-18
+PABC,Pakistan Aluminium Beverage Cans,Miscellaneous,2026-08-18
+PIBTL,PIBTL,Transport,2026-08-18
+POWER,Power Cement,Cement,2026-08-18
+POL,Pakistan Oilfields,Oil & Gas Exploration Companies,2026-08-18
+PPL,Pakistan Petroleum,Oil & Gas Exploration Companies,2026-08-18
+PSEL,Pakistan Services,Miscellaneous,2026-08-18
+PSO,Pakistan State Oil,Oil & Gas Marketing Companies,2026-08-18
+PSX,Pakistan Stock Exchange,Investment Banks / Investment Companies / Securities Companies,2026-08-18
+PTC,PTCL,Technology & Communication,2026-08-18
+PAKT,Pakistan Tobacco Company,Tobacco,2026-08-18
+PIOC,Pioneer Cement,Cement,2026-08-18
+RMPL,Rafhan Maize,Food & Personal Care Products,2026-08-18
+SAZEW,Sazgar,Automobile Assembler,2026-08-18
+SEARL,Searle,Pharmaceuticals,2026-08-18
+SRVI,Servis,Leather & Tanneries,2026-08-18
+SHFA,Shifa,Miscellaneous,2026-08-18
+WAFI,Wafi,Oil & Gas Marketing Companies,2026-08-18
+SCBPL,Standard Chartered,Commercial Banks,2026-08-18
+SNGP,Sui Northern,Oil & Gas Marketing Companies,2026-08-18
+SSGC,Sui Southern,Oil & Gas Marketing Companies,2026-08-18
+SYS,Systems Limited,Technology & Communication,2026-08-18
+TGL,Tariq Glass,Glass & Ceramics,2026-08-18
+THALL,Thal Limited,Automobile Parts & Accessories,2026-08-18
+TRG,TRG Pakistan,Technology & Communication,2026-08-18
+UPFL,Unilever Foods,Food & Personal Care Products,2026-08-18
+UBL,UBL,Commercial Banks,2026-08-18
+YOUW,Yousuf Weaving Mills,Textile Weaving,2026-08-18

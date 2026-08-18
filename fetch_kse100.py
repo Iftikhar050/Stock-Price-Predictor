@@ -39,7 +39,8 @@ def fetch_kse100():
             data.append({
                 'ticker': ticker,
                 'company_name': company,
-                'sector': sector
+                'sector': sector,
+                'fetched_at': pd.Timestamp.now().strftime('%Y-%m-%d')
             })
             
     df = pd.DataFrame(data)

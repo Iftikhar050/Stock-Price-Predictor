@@ -11,6 +11,7 @@ This document outlines the architecture and phased approach for scaling the `Sto
   - Re-architected model ingestion (XGBoost & LSTM) to support native categorical/embedding representations of ticker and sector.
   - Proved validity through ablation studies showing Top-4 feature importance for the new market-context variables (Market Return, Sector Return, Dividend Yield).
   - **Decision Log (Market Index):** The current synthetic KSE-100 proxy is a stopgap due to anti-scraping on the PSX DPS. The real fix to be implemented is pulling the official `^KSE` index from Yahoo Finance (or Investing.com if Yahoo lacks full historical depth) to provide truly exogenous market signal without self-referential ticker leakage.
+  - **Decision Log (KSE-100 Constituents):** `data/kse100_constituents.csv` currently relies on a Wikipedia table scrape. The PSX rebalances the KSE-100 semi-annually. This file should be re-fetched and re-synced into `stock_metadata` at least every 6 months to ensure accurate constituents. Note that the Wikipedia table occasionally drops a ticker due to community edits, yielding 99 rows instead of 100. This is an understood limitation.
 
 ## Phase 2: Live Scraper Refactoring (Completed)
 - **Accomplishments:**
@@ -26,3 +27,4 @@ This document outlines the architecture and phased approach for scaling the `Sto
   - **Compute Scaling:** Analyzed standard pandas vectorized feature engineering. It successfully handles 30+ tickers and ~15 years of data in just 25 seconds, eliminating the need for Dask/PySpark overhead.
   - **Inference Pipeline:** Updated FastAPI endpoints to query the dynamic `active_tickers` database table on boot.
   - **Orchestration:** Implemented a master `run_pipeline.py` script. Powered by Python's `schedule`, this script automates the daily sequence: Scrape -> Feature Eng -> Train -> API Hot-Reload without any human intervention.
+  - **Note on Storage Architecture:** Registry outputs (backtest runs, metrics, feature CSVs) are stored under `src/models/registry/`, whereas final trained model artifacts (e.g., `baseline_rf_model.pkl`) live in the root `models/` directory. Be careful not to confuse the two `models`-named directories.
