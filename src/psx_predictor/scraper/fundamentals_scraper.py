@@ -22,6 +22,7 @@ class FundamentalsScraper:
             
             qf = stock.quarterly_financials
             bs = stock.quarterly_balance_sheet
+            cf = stock.quarterly_cash_flow if hasattr(stock, 'quarterly_cash_flow') else stock.quarterly_cashflow
             
             if qf is None or qf.empty:
                 logger.warning(f"No quarterly financials found for {ticker}")
@@ -32,7 +33,8 @@ class FundamentalsScraper:
             # Align dates by taking all unique dates from both
             qf_dates = set(qf.columns) if not qf.empty else set()
             bs_dates = set(bs.columns) if not bs.empty else set()
-            all_dates = sorted(list(qf_dates.union(bs_dates)))
+            cf_dates = set(cf.columns) if not cf.empty else set()
+            all_dates = sorted(list(qf_dates.union(bs_dates).union(cf_dates)))
             
             for d in all_dates:
                 # Helper to safely extract from dataframe
@@ -72,6 +74,17 @@ class FundamentalsScraper:
                 net_income = get_val(qf, "Net Income Common Stockholders", d) or get_val(qf, "Net Income", d)
                 if net_income is not None and equity and equity > 0:
                     roe = net_income / equity
+                    
+                # New Metrics
+                revenue = get_val(qf, "Total Revenue", d)
+                total_assets = get_val(bs, "Total Assets", d)
+                operating_cash_flow = get_val(cf, "Operating Cash Flow", d)
+                free_cash_flow = get_val(cf, "Free Cash Flow", d)
+                
+                # Valuation Extensions
+                ebitda = get_val(qf, "EBITDA", d) or get_val(qf, "Normalized EBITDA", d)
+                total_cash = get_val(bs, "Cash And Cash Equivalents", d) or get_val(bs, "Cash Financial", d)
+                shares_outstanding = get_val(bs, "Ordinary Shares Number", d) or get_val(qf, "Basic Average Shares", d)
                 
                 # PE Ratio is usually dynamic based on price, but info has current PE.
                 # Since we are getting historical, we'll leave it None and let build_features handle it.
@@ -85,8 +98,17 @@ class FundamentalsScraper:
                     if roe is None: roe = info.get("returnOnEquity")
                     if debt_to_equity is None: debt_to_equity = info.get("debtToEquity")
                     if book_value is None: book_value = info.get("bookValue")
+                    if revenue is None: revenue = info.get("totalRevenue")
+                    if net_income is None: net_income = info.get("netIncomeToCommon")
+                    if free_cash_flow is None: free_cash_flow = info.get("freeCashflow")
+                    if operating_cash_flow is None: operating_cash_flow = info.get("operatingCashflow")
+                    if total_assets is None: total_assets = info.get("totalAssets")
+                    if total_debt is None: total_debt = info.get("totalDebt")
+                    if ebitda is None: ebitda = info.get("ebitda")
+                    if total_cash is None: total_cash = info.get("totalCash")
+                    if shares_outstanding is None: shares_outstanding = info.get("sharesOutstanding")
                 
-                if eps is None and pe_ratio is None and roe is None and debt_to_equity is None and book_value is None:
+                if eps is None and pe_ratio is None and roe is None and debt_to_equity is None and book_value is None and revenue is None and net_income is None and ebitda is None:
                     continue
                     
                 rows.append({
@@ -96,7 +118,16 @@ class FundamentalsScraper:
                     "pe_ratio": float(pe_ratio) if pe_ratio is not None else None,
                     "roe": float(roe) if roe is not None else None,
                     "debt_to_equity": float(debt_to_equity) if debt_to_equity is not None else None,
-                    "book_value_per_share": float(book_value) if book_value is not None else None
+                    "book_value_per_share": float(book_value) if book_value is not None else None,
+                    "revenue": float(revenue) if revenue is not None else None,
+                    "net_income": float(net_income) if net_income is not None else None,
+                    "free_cash_flow": float(free_cash_flow) if free_cash_flow is not None else None,
+                    "operating_cash_flow": float(operating_cash_flow) if operating_cash_flow is not None else None,
+                    "total_assets": float(total_assets) if total_assets is not None else None,
+                    "total_debt": float(total_debt) if total_debt is not None else None,
+                    "ebitda": float(ebitda) if ebitda is not None else None,
+                    "total_cash": float(total_cash) if total_cash is not None else None,
+                    "shares_outstanding": float(shares_outstanding) if shares_outstanding is not None else None
                 })
                 
             if not rows:

@@ -1,14 +1,10 @@
 {
-    "timestamp": "2026-08-17T18:39:55.716676",
+    "timestamp": "2026-08-20T17:55:20.342580",
     "global_cutoff_date": "2025-08-25",
     "test_trading_days_requested": 250,
     "min_train_trading_days_requested": 500,
-    "valid_tickers_count": 98,
+    "valid_tickers_count": 102,
     "excluded_tickers": [
-        "DHPL",
-        "ENGROH",
-        "GAL",
-        "HGFA",
-        "WAFI"
+        "HGFA"
     ]
 }

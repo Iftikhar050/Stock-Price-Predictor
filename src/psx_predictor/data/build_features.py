@@ -243,7 +243,7 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     Computes dynamic pe_ratio (close / eps_trailing).
     """
     logger.info(f"Merging fundamentals data for {ticker}...")
-    query = text("SELECT report_date as date, eps, roe, debt_to_equity, book_value_per_share FROM stock_fundamentals WHERE ticker = :ticker ORDER BY date ASC")
+    query = text("SELECT report_date as date, eps, roe, debt_to_equity, book_value_per_share, revenue, net_income, free_cash_flow, operating_cash_flow, total_assets, total_debt, ebitda, total_cash, shares_outstanding FROM stock_fundamentals WHERE ticker = :ticker ORDER BY date ASC")
     
     with engine.connect() as conn:
         fund_df = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
@@ -256,6 +256,24 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         df['debt_to_equity'] = 0.0
         df['book_value_per_share'] = 0.0
         df['eps_growth_yoy'] = 0.0
+        df['revenue'] = 0.0
+        df['net_income'] = 0.0
+        df['free_cash_flow'] = 0.0
+        df['operating_cash_flow'] = 0.0
+        df['total_assets'] = 0.0
+        df['total_debt'] = 0.0
+        df['ebitda'] = 0.0
+        df['total_cash'] = 0.0
+        df['shares_outstanding'] = 0.0
+        df['pb_ratio'] = np.nan
+        df['profit_margin'] = 0.0
+        df['roa'] = 0.0
+        df['peg_ratio'] = np.nan
+        df['ev'] = np.nan
+        df['ev_ebitda'] = np.nan
+        df['ev_sales'] = np.nan
+        df['pe_percentile_1y'] = np.nan
+        df['pe_percentile_3y'] = np.nan
         return df
         
     if len(fund_df) < 4:
@@ -274,13 +292,56 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     
     df = pd.merge(df, fund_df, on='date', how='left')
     
-    cols_to_fill = ['eps_trailing', 'roe', 'debt_to_equity', 'book_value_per_share', 'eps_growth_yoy']
-    df[cols_to_fill] = df[cols_to_fill].ffill().fillna(0.0)
+    cols_to_fill = ['eps_trailing', 'roe', 'debt_to_equity', 'book_value_per_share', 'eps_growth_yoy', 'revenue', 'net_income', 'free_cash_flow', 'operating_cash_flow', 'total_assets', 'total_debt', 'ebitda', 'total_cash', 'shares_outstanding']
+    df[cols_to_fill] = df[cols_to_fill].ffill().fillna(0.0).astype(float)
     
+    # Calculate Ratios
     df['pe_ratio'] = np.nan
-    mask = (df['eps_trailing'] != 0) & (df['eps_trailing'].notna())
-    if mask.any():
-        df.loc[mask, 'pe_ratio'] = df.loc[mask, 'close'] / df.loc[mask, 'eps_trailing']
+    mask_eps = (df['eps_trailing'] != 0) & (df['eps_trailing'].notna())
+    if mask_eps.any():
+        df.loc[mask_eps, 'pe_ratio'] = df.loc[mask_eps, 'close'] / df.loc[mask_eps, 'eps_trailing']
+        
+    df['peg_ratio'] = np.nan
+    mask_peg = mask_eps & (df['eps_growth_yoy'] != 0) & (df['eps_growth_yoy'].notna())
+    if mask_peg.any():
+        df.loc[mask_peg, 'peg_ratio'] = df.loc[mask_peg, 'pe_ratio'] / (df.loc[mask_peg, 'eps_growth_yoy'] * 100)
+        
+    df['pb_ratio'] = np.nan
+    mask_bv = (df['book_value_per_share'] != 0) & (df['book_value_per_share'].notna())
+    if mask_bv.any():
+        df.loc[mask_bv, 'pb_ratio'] = df.loc[mask_bv, 'close'] / df.loc[mask_bv, 'book_value_per_share']
+        
+    df['profit_margin'] = 0.0
+    mask_rev = (df['revenue'] != 0) & (df['revenue'].notna())
+    if mask_rev.any():
+        df.loc[mask_rev, 'profit_margin'] = df.loc[mask_rev, 'net_income'] / df.loc[mask_rev, 'revenue']
+        
+    df['roa'] = 0.0
+    mask_assets = (df['total_assets'] != 0) & (df['total_assets'].notna())
+    if mask_assets.any():
+        df.loc[mask_assets, 'roa'] = df.loc[mask_assets, 'net_income'] / df.loc[mask_assets, 'total_assets']
+        
+    df['ev'] = np.nan
+    mask_shares = (df['shares_outstanding'] != 0) & (df['shares_outstanding'].notna())
+    if mask_shares.any():
+        df.loc[mask_shares, 'ev'] = (df.loc[mask_shares, 'close'] * df.loc[mask_shares, 'shares_outstanding']) + df.loc[mask_shares, 'total_debt'] - df.loc[mask_shares, 'total_cash']
+        
+    df['ev_ebitda'] = np.nan
+    mask_ebitda = (df['ebitda'] != 0) & (df['ebitda'].notna()) & df['ev'].notna()
+    if mask_ebitda.any():
+        df.loc[mask_ebitda, 'ev_ebitda'] = df.loc[mask_ebitda, 'ev'] / df.loc[mask_ebitda, 'ebitda']
+        
+    df['ev_sales'] = np.nan
+    mask_ev_rev = (df['revenue'] != 0) & (df['revenue'].notna()) & df['ev'].notna()
+    if mask_ev_rev.any():
+        df.loc[mask_ev_rev, 'ev_sales'] = df.loc[mask_ev_rev, 'ev'] / df.loc[mask_ev_rev, 'revenue']
+        
+    # Percentiles
+    df['pe_percentile_1y'] = df['pe_ratio'].rolling(window=252, min_periods=60).apply(lambda x: pd.Series(x).rank(pct=True).iloc[-1], raw=False)
+    df['pe_percentile_3y'] = df['pe_ratio'].rolling(window=756, min_periods=252).apply(lambda x: pd.Series(x).rank(pct=True).iloc[-1], raw=False)
+    
+    val_cols = ['pe_ratio', 'peg_ratio', 'pb_ratio', 'profit_margin', 'roa', 'ev', 'ev_ebitda', 'ev_sales', 'pe_percentile_1y', 'pe_percentile_3y']
+    df[val_cols] = df[val_cols].fillna(0.0)
     
     return df
 

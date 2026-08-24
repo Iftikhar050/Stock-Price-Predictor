@@ -147,6 +147,17 @@ class StockFundamentals(Base):
     debt_to_equity: Mapped[float] = mapped_column(Float, nullable=True)
     book_value_per_share: Mapped[float] = mapped_column(Float, nullable=True)
     
+    revenue: Mapped[float] = mapped_column(Float, nullable=True)
+    net_income: Mapped[float] = mapped_column(Float, nullable=True)
+    free_cash_flow: Mapped[float] = mapped_column(Float, nullable=True)
+    operating_cash_flow: Mapped[float] = mapped_column(Float, nullable=True)
+    total_assets: Mapped[float] = mapped_column(Float, nullable=True)
+    total_debt: Mapped[float] = mapped_column(Float, nullable=True)
+    
+    ebitda: Mapped[float] = mapped_column(Float, nullable=True)
+    total_cash: Mapped[float] = mapped_column(Float, nullable=True)
+    shares_outstanding: Mapped[float] = mapped_column(Float, nullable=True)
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 
         default=lambda: datetime.now(timezone.utc)

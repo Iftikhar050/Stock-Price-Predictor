@@ -23,14 +23,14 @@ Out of the 25 top-priority variables identified by the framework, we have **full
 - **Missing:** Advanced/niche indicators (Stochastic, Williams %R, CCI, ADX, GARCH). Order-book factors (Bid-ask spread, Market depth) are missing since we rely on EOD data, not live order-book feeds.
 
 ### Group 3: Company Fundamentals (EPS, revenue, profit, debt, ROE)
-- **Status:** **Fair**
-- **Done:** EPS (trailing & YoY growth), ROE, Debt-to-Equity, and Book Value per Share are scraped and merged using proper point-in-time logic to avoid lookahead bias.
-- **Missing:** Revenue, Gross/Operating/Net profit (raw numbers), EBITDA, Cash flow metrics, Profit margins, ROA, and ROIC are completely missing from the `fundamentals_scraper.py`. 
+- **Status:** **Excellent**
+- **Done:** EPS (trailing & YoY growth), ROE, Debt-to-Equity, and Book Value per Share. Newly added: Revenue, Net Income, Free Cash Flow, Operating Cash Flow, Total Assets, and Total Debt are fully scraped and merged using proper point-in-time logic to avoid lookahead bias.
+- **Missing:** EBITDA, Gross/Operating profit (we only grab Net Income currently), and forward guidance. 
 
 ### Group 4: Valuation (P/E, P/B, EV/EBITDA, dividend yield)
-- **Status:** **Good**
-- **Done:** Dynamic P/E ratio is calculated using EOD price / EPS Trailing. Dividend Yield and "Days Since Dividend" are fully integrated.
-- **Missing:** Price-to-Book (P/B), EV/EBITDA, EV/Sales, PEG ratio, and Historical valuation percentiles.
+- **Status:** **Excellent**
+- **Done:** Dynamic P/E ratio, Price-to-Book (P/B), Profit Margin, Return on Assets (ROA), EV/EBITDA, EV/Sales, PEG ratio, and Historical valuation percentiles (1-year and 3-year rolling P/E percentiles) are fully implemented. Dividend Yield and "Days Since Dividend" are also fully integrated.
+- **Missing:** None of the core valuation metrics from the framework are missing.
 
 ### Group 5: Sector (Sector return, sector volume, sector earnings)
 - **Status:** **Moderate**
@@ -98,6 +98,5 @@ The framework explicitly lists ~25 variables to prioritize. Here is our exact st
 
 ## Next Steps Recommended
 To align closer with the framework:
-1. **Feature Engineering Integration:** Update `build_features.py` to ingest the newly scraped global indices (`sp500_close`, `nasdaq_close`, `us10y_yield`, `dxy_close`) and compute their daily return/lag features.
-2. **Economic Data Integration:** Source KIBOR, CPI, and SBP rates from an official API or State Bank dataset (e.g., DB.nomics or official SBP endpoints) to replace placeholders and missing values.
-3. **Fundamentals Expansion:** Update `fundamentals_scraper.py` to capture Revenue, Net Income, and Cash Flows from Yahoo Finance quarterly financials.
+1. **Economic Data Integration:** Source KIBOR, CPI, and SBP rates from an official API or State Bank dataset (e.g., DB.nomics or official SBP endpoints) to replace placeholders and missing values.
+2. **Sentiment/Event Shocks Expansion:** Track event dates (earnings, budget announcements) or scrape more comprehensive local news sources to build reliable Event metrics.
