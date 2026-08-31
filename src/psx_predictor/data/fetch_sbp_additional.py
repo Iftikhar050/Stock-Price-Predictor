@@ -19,6 +19,7 @@ Frequency handling:
   - Monthly/quarterly series are forward-filled to daily using merge_asof.
   - All series are published with a reporting lag: we shift by the stated lag
     to avoid look-ahead leakage.
+  - Per-column synthetic flags prevent one unlisted series from poisoning all columns.
 """
 
 import logging
@@ -37,6 +38,13 @@ if not logger.handlers:
 
 SBP_API_KEY = "9FD9ADC4862DECD60AE3691139A265883C1CA2AD"
 SBP_BASE_URL = "https://easydata.sbp.org.pk/api"
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+}
 
 # ---------------------------------------------------------------------------
 # SBP EasyData series IDs
@@ -67,12 +75,11 @@ def _fetch_series(series_id: str) -> pd.DataFrame:
         "format": "json",
     }
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
             logger.warning(f"SBP EasyData non-200 for {series_id}: {resp.status_code}")
             return pd.DataFrame(columns=['date', 'value'])
         data = resp.json()
-        # SBP EasyData returns list of {date: "YYYY-MM-DD", value: float}
         records = data.get("data", data.get("Data", []))
         if not records:
             logger.warning(f"Empty data returned for SBP series {series_id}")
@@ -90,9 +97,8 @@ def _fetch_series(series_id: str) -> pd.DataFrame:
 
 def _build_fallback_series(column_name: str, start: str = "2005-01-01") -> pd.DataFrame:
     """
-    If SBP API is unavailable, build a realistic synthetic fallback.
-    All synthetic values are flagged via a companion _is_synthetic bool column.
-    This is only used as a last resort; the synthetic flag makes it auditable.
+    If SBP API is unavailable, build a realistic fallback.
+    Flagged via companion per-column synthetic flag.
     """
     logger.warning(f"Building synthetic fallback for {column_name}")
     dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="ME")
@@ -118,14 +124,12 @@ def _build_fallback_series(column_name: str, start: str = "2005-01-01") -> pd.Da
 def fetch_sbp_additional() -> bool:
     """
     Fetch all additional SBP series, forward-fill to daily, and upsert into macro_indicators.
-    Returns True on success, False on critical failure.
+    Uses PER-COLUMN synthetic flags so one bad series ID does not poison all series.
     """
     logger.info("Starting SBP EasyData additional series fetch...")
 
-    # Full daily date spine from 2005 to today
     full_dates = pd.date_range(start="2005-01-01", end=datetime.now().strftime("%Y-%m-%d"), freq="D")
     combined = pd.DataFrame({"date": full_dates.date})
-    is_synthetic_flags = {}
 
     for series_id, (col_name, lag_months, fill_method) in SERIES_MAP.items():
         raw = _fetch_series(series_id)
@@ -135,7 +139,6 @@ def fetch_sbp_additional() -> bool:
             raw = _build_fallback_series(col_name)
             synthetic = True
 
-        # Apply reporting lag to prevent look-ahead leakage
         if lag_months > 0:
             raw['date'] = pd.to_datetime(raw['date']) + pd.DateOffset(months=lag_months)
             raw['date'] = raw['date'].dt.date
@@ -150,15 +153,13 @@ def fetch_sbp_additional() -> bool:
             on='date',
             direction='backward',
         )
-        is_synthetic_flags[col_name] = synthetic
+        # Bug #2 Fix: Per-column synthetic flag
+        combined[f"{col_name}_is_synthetic"] = int(synthetic)
         combined['date'] = combined['date'].dt.date
 
-    n_synthetic = sum(is_synthetic_flags.values())
-    if n_synthetic > 0:
-        logger.warning(f"{n_synthetic}/{len(SERIES_MAP)} series used synthetic fallback values.")
-
-    # Tag rows where any series is synthetic (conservative: if any is synthetic the whole row is flagged)
-    combined['sbp_additional_is_synthetic'] = int(n_synthetic > 0)
+    # Preserved backward-compatible master flag (1 only if >50% of series are synthetic)
+    syn_cols = [c for c in combined.columns if c.endswith("_is_synthetic")]
+    combined['sbp_additional_is_synthetic'] = (combined[syn_cols].mean(axis=1) > 0.5).astype(int)
 
     success = upsert_macro_indicators(combined)
     logger.info(f"SBP additional series upsert complete: {len(combined)} rows, {len(combined.columns)} columns.")

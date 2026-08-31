@@ -52,3 +52,6 @@ dateparser==1.2.0
 schedule==1.2.2
 statsmodels>=0.14.0
 torch>=2.1.0
+transformers>=4.40.0
+pytrends>=4.9.2
+feedparser>=6.0.10

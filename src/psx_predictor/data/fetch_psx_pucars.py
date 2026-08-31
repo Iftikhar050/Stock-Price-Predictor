@@ -139,8 +139,13 @@ def fetch_pucars_announcements(ticker: str) -> bool:
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, 'html.parser')
-            # Extract announcement elements or tables
-            rows = soup.select("table.announcementsTable tbody tr") or soup.select(".announcement-item")
+            # Extract announcement elements across layout variations
+            rows = (
+                soup.select("table.announcementsTable tbody tr")
+                or soup.select("table.tbl tbody tr")
+                or soup.select(".announcement-item")
+                or soup.select("table tr")
+            )
             for row in rows:
                 cols = row.find_all("td")
                 if len(cols) >= 2:

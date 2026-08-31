@@ -165,7 +165,13 @@ def export_raw_text_files_for_ticker(ticker: str):
             master_df.to_csv(master_path, index=False)
             logger.info(f"Updated {master_path} with date-matched raw text announcement and news columns (Now {len(master_df.columns)} columns)!")
         except Exception as e:
-            logger.error(f"Error saving {master_path}: {e}")
+            logger.warning(f"Could not overwrite {master_path} ({e}). Saving to fallback file.")
+            fallback_master = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master_updated.csv")
+            try:
+                master_df.to_csv(fallback_master, index=False)
+                logger.info(f"Saved master dataset to fallback: {fallback_master}")
+            except Exception as e2:
+                logger.error(f"Error saving to fallback {fallback_master}: {e2}")
 
 def export_all_raw_text_datasets():
     for t in ['MEBL', 'PSO']:

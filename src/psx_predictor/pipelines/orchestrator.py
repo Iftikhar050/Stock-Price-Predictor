@@ -51,7 +51,7 @@ def run_full_data_pipeline(tickers: Optional[List[str]] = None) -> bool:
     logger.info("\n--- Phase 4.5/5: PSX Market Stats & Search Trends ---")
     try:
         from src.psx_predictor.data.fetch_psx_market_stats import sync_psx_market_stats
-        sync_psx_market_stats(lookback_days=730)
+        sync_psx_market_stats(lookback_days=7)
         logger.info(" PSX Market Stats sync completed.")
     except Exception as e:
         logger.warning(f" PSX Market Stats sync skipped: {e}")

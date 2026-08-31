@@ -4,9 +4,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import (
-    StockEODData, StockNews, StockNewsSentiment, StockFundamentals,
+    Base, StockEODData, StockNews, StockNewsSentiment, StockFundamentals,
     MacroIndicators, CorporateEvent, TopicSentimentDaily
 )
+
+# Auto-create any missing tables/constraints in PostgreSQL
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as _e:
+    pass
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
