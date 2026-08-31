@@ -3,7 +3,10 @@ import pandas as pd
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
-from src.psx_predictor.db.models import StockEODData, StockNews, StockNewsSentiment, StockFundamentals, MacroIndicators
+from src.psx_predictor.db.models import (
+    StockEODData, StockNews, StockNewsSentiment, StockFundamentals,
+    MacroIndicators, CorporateEvent, TopicSentimentDaily
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -55,20 +58,15 @@ def upsert_stock_data(df: pd.DataFrame) -> bool:
         logger.error(f"DataFrame is missing required columns: {missing}")
         return False
 
-    # Convert DataFrame to list of dictionaries for bulk insert
-    # Ensure NaN/NaT are handled gracefully, though pandas to_dict usually handles it
     records = df.to_dict(orient='records')
-
-    # Construct the PostgreSQL-specific insert statement
     stmt = insert(StockEODData).values(records)
     
-    # Define the ON CONFLICT action
-    # We conflict on the primary key: (ticker, date)
     update_dict = {
         'open': stmt.excluded.open,
         'high': stmt.excluded.high,
         'low': stmt.excluded.low,
         'close': stmt.excluded.close,
+        'adjusted_close': stmt.excluded.adjusted_close,
         'volume': stmt.excluded.volume
     }
     
@@ -78,8 +76,6 @@ def upsert_stock_data(df: pd.DataFrame) -> bool:
     )
 
     try:
-        # engine.begin() acts as a context manager that automatically starts
-        # a transaction and commits at the end, rolling back on exceptions.
         with engine.begin() as conn:
             result = conn.execute(upsert_stmt)
             logger.info(f"Successfully upserted data into stock_eod_data. Rows affected: {result.rowcount}")
@@ -101,9 +97,6 @@ def upsert_stock_news(df: pd.DataFrame) -> bool:
     records = df.to_dict(orient='records')
     stmt = insert(StockNews).values(records)
     
-    # URL and Ticker are not a composite PK, so if we wanted to avoid duplicate inserts on the DB level,
-    # we would need a unique constraint on (url, ticker). For now, we trust the deduplicator.
-    # However, to be safe, we can do a DO NOTHING on conflict if we add a unique constraint later.
     try:
         with engine.begin() as conn:
             conn.execute(stmt)
@@ -143,6 +136,7 @@ def upsert_news_sentiment(df: pd.DataFrame) -> bool:
 def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
     """
     Upserts fundamental data into stock_fundamentals.
+    Only updates columns that are explicitly provided in df.columns.
     """
     if df is None or df.empty:
         return False
@@ -150,14 +144,14 @@ def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
     records = df.to_dict(orient='records')
     stmt = insert(StockFundamentals).values(records)
     
-    update_dict = {
-        'eps': stmt.excluded.eps,
-        'pe_ratio': stmt.excluded.pe_ratio,
-        'roe': stmt.excluded.roe,
-        'debt_to_equity': stmt.excluded.debt_to_equity,
-        'book_value_per_share': stmt.excluded.book_value_per_share
-    }
-    
+    update_dict = {}
+    for col in df.columns:
+        if col not in ['ticker', 'report_date'] and hasattr(stmt.excluded, col):
+            update_dict[col] = getattr(stmt.excluded, col)
+            
+    if not update_dict:
+        return False
+
     upsert_stmt = stmt.on_conflict_do_update(
         index_elements=['ticker', 'report_date'],
         set_=update_dict
@@ -174,19 +168,30 @@ def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
 def upsert_macro_indicators(df: pd.DataFrame) -> bool:
     """
     Upserts macro data into macro_indicators.
+    Only updates columns that are explicitly provided in df.columns to prevent overwriting other sources.
+    Filters out any extra DataFrame columns not defined on the MacroIndicators model.
     """
     if df is None or df.empty:
         return False
 
-    records = df.to_dict(orient='records')
+    valid_table_cols = set(MacroIndicators.__table__.columns.keys())
+    valid_cols = [c for c in df.columns if c in valid_table_cols]
+    if not valid_cols or 'date' not in valid_cols:
+        logger.warning("No valid MacroIndicators table columns found in DataFrame.")
+        return False
+
+    clean_df = df[valid_cols]
+    records = clean_df.to_dict(orient='records')
     stmt = insert(MacroIndicators).values(records)
     
-    update_dict = {
-        'sbp_policy_rate': stmt.excluded.sbp_policy_rate,
-        'is_synthetic_rate': stmt.excluded.is_synthetic_rate,
-        'pkr_usd_rate': stmt.excluded.pkr_usd_rate,
-        'brent_oil_price': stmt.excluded.brent_oil_price
-    }
+    update_dict = {}
+    for col in valid_cols:
+        if col != 'date' and hasattr(stmt.excluded, col):
+            update_dict[col] = getattr(stmt.excluded, col)
+            
+    if not update_dict:
+        logger.warning("No updateable columns found in DataFrame.")
+        return False
     
     upsert_stmt = stmt.on_conflict_do_update(
         index_elements=['date'],
@@ -201,3 +206,68 @@ def upsert_macro_indicators(df: pd.DataFrame) -> bool:
         logger.error(f"Database error upserting macro indicators: {e}")
         return False
 
+
+def upsert_corporate_events(df: pd.DataFrame) -> bool:
+    """
+    Upserts structured corporate event records into the corporate_events table.
+    Deduplicates on (symbol, published_at, title) via ON CONFLICT DO UPDATE.
+    """
+    if df is None or df.empty:
+        logger.warning("No corporate events to upsert.")
+        return False
+
+    required = {'symbol', 'published_at', 'trading_date', 'title'}
+    if not required.issubset(set(df.columns)):
+        missing = required - set(df.columns)
+        logger.error(f"Corporate events DataFrame missing columns: {missing}")
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(CorporateEvent).values(records)
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(stmt)
+        logger.info(f"Inserted {len(records)} corporate event records.")
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting corporate events: {e}")
+        return False
+
+
+def upsert_topic_sentiment(df: pd.DataFrame) -> bool:
+    """
+    Upserts daily aggregated topic sentiment into topic_sentiment_daily.
+    PK: (date, topic).
+    """
+    if df is None or df.empty:
+        return False
+
+    required = {'date', 'topic', 'sentiment_score', 'article_count'}
+    if not required.issubset(set(df.columns)):
+        missing = required - set(df.columns)
+        logger.error(f"Topic sentiment DataFrame missing columns: {missing}")
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(TopicSentimentDaily).values(records)
+
+    update_dict = {
+        'sentiment_score': stmt.excluded.sentiment_score,
+        'article_count': stmt.excluded.article_count,
+        'sentiment_std': stmt.excluded.sentiment_std,
+    }
+
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['date', 'topic'],
+        set_=update_dict
+    )
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        logger.info(f"Upserted {len(records)} topic sentiment records.")
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting topic sentiment: {e}")
+        return False

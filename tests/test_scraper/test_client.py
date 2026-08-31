@@ -3,33 +3,34 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 from src.psx_predictor.scraper.client import PSXScraper
 
-MOCK_HTML = """
-<table>
-    <thead>
-        <tr><th>DATE</th><th>OPEN</th><th>HIGH</th><th>LOW</th><th>CLOSE</th><th>VOLUME</th></tr>
-    </thead>
-    <tbody>
-        <tr><td>Jan 3, 2025</td><td>481.99</td><td>496.00</td><td>474.01</td><td>485.38</td><td>4,496,408</td></tr>
-    </tbody>
-</table>
-"""
+def create_mock_yf_df():
+    data = {
+        'Date': [pd.Timestamp('2025-01-03')],
+        'Open': [481.99],
+        'High': [496.00],
+        'Low': [474.01],
+        'Close': [485.38],
+        'Volume': [4496408]
+    }
+    df = pd.DataFrame(data)
+    df.set_index('Date', inplace=True)
+    return df
 
-@patch('requests.Session.post')
-def test_fetch_raw_data_success(mock_post):
-    mock_response = MagicMock()
-    mock_response.text = MOCK_HTML
-    mock_response.raise_for_status.return_value = None
-    mock_post.return_value = mock_response
+@patch('yfinance.download')
+def test_fetch_raw_data_success(mock_download):
+    mock_df = create_mock_yf_df()
+    mock_download.return_value = mock_df
 
     scraper = PSXScraper()
     data = scraper.fetch_raw_data("PSO")
     
     assert data is not None
-    assert "<table>" in data
+    assert not data.empty
 
 def test_clean_and_format():
     scraper = PSXScraper()
-    df = scraper.clean_and_format(MOCK_HTML, "PSO")
+    raw_df = create_mock_yf_df()
+    df = scraper.clean_and_format(raw_df, "PSO")
     
     assert not df.empty
     assert df.iloc[0]['ticker'] == "PSO"
@@ -43,7 +44,7 @@ def test_clean_and_format():
 @patch('src.psx_predictor.scraper.client.upsert_stock_data')
 @patch('src.psx_predictor.scraper.client.PSXScraper.fetch_raw_data')
 def test_sync_ticker(mock_fetch, mock_upsert):
-    mock_fetch.return_value = MOCK_HTML
+    mock_fetch.return_value = create_mock_yf_df()
     mock_upsert.return_value = True
     
     scraper = PSXScraper()
@@ -51,3 +52,4 @@ def test_sync_ticker(mock_fetch, mock_upsert):
     
     assert success is True
     mock_upsert.assert_called_once()
+

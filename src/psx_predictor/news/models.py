@@ -14,6 +14,14 @@ class Article(BaseModel):
     ticker: Optional[str] = Field(None, description="The stock ticker this article relates to (can be populated later)")
     sentiment_score: Optional[float] = Field(None, description="The compound sentiment score (-1.0 to 1.0)")
 
+    # Topic classification (populated by macro_event_classifier)
+    topic_category: Optional[str] = Field(None, description="Canonical topic: CORPORATE, POLITICAL, GEOPOLITICAL, MACRO_ECONOMIC, SECTOR_SPECIFIC, REGULATORY")
+
+    # FinBERT probability triplet (populated by HybridSentimentEngine)
+    finbert_pos: Optional[float] = Field(None, description="FinBERT positive probability [0-1]")
+    finbert_neg: Optional[float] = Field(None, description="FinBERT negative probability [0-1]")
+    finbert_neu: Optional[float] = Field(None, description="FinBERT neutral probability [0-1]")
+
 class CompanyMetadata(BaseModel):
     """Metadata mapping for a single stock ticker to assist with news matching."""
     ticker: str = Field(..., description="The stock symbol (e.g., 'OGDC')")

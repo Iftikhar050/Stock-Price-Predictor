@@ -179,11 +179,21 @@ async def get_prediction(payload: PredictionRequest):
         
             # 1. Random Forest Inference (Requires only the last day)
             latest_day_features = df[feature_cols].iloc[-1:]
-            rf_return = ml_models["rf_predictor"].predict(latest_day_features)[0]
+            rf_model = ml_models["rf_predictor"]
+            if hasattr(rf_model, 'feature_names_in_'):
+                rf_features = latest_day_features.reindex(columns=rf_model.feature_names_in_, fill_value=0.0)
+            else:
+                rf_features = latest_day_features
+            rf_return = rf_model.predict(rf_features)[0]
             rf_prediction = current_close_price * (1 + rf_return)
         
             # 1a. Linear Regression Inference
-            lr_return = ml_models["lr_predictor"].predict(latest_day_features)[0]
+            lr_model = ml_models["lr_predictor"]
+            if hasattr(lr_model, 'feature_names_in_'):
+                lr_features = latest_day_features.reindex(columns=lr_model.feature_names_in_, fill_value=0.0)
+            else:
+                lr_features = latest_day_features
+            lr_return = lr_model.predict(lr_features)[0]
             lr_prediction = current_close_price * (1 + lr_return)
 
             # 1b. XGBoost Inference
@@ -197,10 +207,15 @@ async def get_prediction(payload: PredictionRequest):
         
             ticker_categories = ml_models["xgb_ticker_categories"]
             sector_categories = ml_models["xgb_sector_categories"]
+            
+            xgb_model = ml_models["xgb_predictor"]
+            if hasattr(xgb_model, 'feature_names_in_'):
+                latest_day_features_xgb = latest_day_features_xgb.reindex(columns=xgb_model.feature_names_in_, fill_value=0.0)
+
             latest_day_features_xgb['ticker'] = pd.Categorical(latest_day_features_xgb['ticker'], categories=ticker_categories)
             latest_day_features_xgb['sector'] = pd.Categorical(latest_day_features_xgb['sector'], categories=sector_categories)
         
-            xgb_return = ml_models["xgb_predictor"].predict(latest_day_features_xgb)[0]
+            xgb_return = xgb_model.predict(latest_day_features_xgb)[0]
             xgb_prediction = current_close_price * (1 + xgb_return)
         
             # 2. LSTM Inference (Requires sequence of last 30 days)
@@ -208,8 +223,18 @@ async def get_prediction(payload: PredictionRequest):
             if len(df) < lookback:
                 raise HTTPException(status_code=400, detail="Not enough historical data for LSTM.")
             
-            recent_30_features = df[feature_cols].tail(lookback).values
-            scaled_features = ml_models["feature_scaler"].transform(recent_30_features)
+            scaler = ml_models["feature_scaler"]
+            expected_scaler_n = getattr(scaler, 'n_features_in_', len(feature_cols))
+            scaler_cols = getattr(scaler, 'feature_names_in_', None)
+            
+            recent_30_df = df[feature_cols].tail(lookback)
+            if scaler_cols is not None:
+                recent_30_df = recent_30_df.reindex(columns=scaler_cols, fill_value=0.0)
+            elif expected_scaler_n < len(feature_cols):
+                recent_30_df = recent_30_df.iloc[:, :expected_scaler_n]
+                
+            recent_30_features = recent_30_df.values
+            scaled_features = scaler.transform(recent_30_features)
         
             tensor_input = torch.tensor(scaled_features, dtype=torch.float32).unsqueeze(0) # Shape: (1, 30, 19)
         
@@ -247,23 +272,38 @@ async def get_prediction(payload: PredictionRequest):
             df_sub = df.iloc[subset_start:].copy()
         
             # Vectorized inference for traditional models
-            rf_preds_return = pd.Series(ml_models["rf_predictor"].predict(df_sub[feature_cols]), index=df_sub.index)
+            if hasattr(rf_model, 'feature_names_in_'):
+                df_sub_rf = df_sub[feature_cols].reindex(columns=rf_model.feature_names_in_, fill_value=0.0)
+            else:
+                df_sub_rf = df_sub[feature_cols]
+            rf_preds_return = pd.Series(rf_model.predict(df_sub_rf), index=df_sub.index)
             df_sub['rf_pred'] = (df_sub['close'] * (1 + rf_preds_return)).shift(1)
         
-            lr_preds_return = pd.Series(ml_models["lr_predictor"].predict(df_sub[feature_cols]), index=df_sub.index)
+            if hasattr(lr_model, 'feature_names_in_'):
+                df_sub_lr = df_sub[feature_cols].reindex(columns=lr_model.feature_names_in_, fill_value=0.0)
+            else:
+                df_sub_lr = df_sub[feature_cols]
+            lr_preds_return = pd.Series(lr_model.predict(df_sub_lr), index=df_sub.index)
             df_sub['lr_pred'] = (df_sub['close'] * (1 + lr_preds_return)).shift(1)
         
             df_xgb = df_sub[feature_cols].copy()
             df_xgb.insert(0, 'ticker', ticker.upper())
             df_xgb['sector'] = sector
+            if hasattr(xgb_model, 'feature_names_in_'):
+                df_xgb = df_xgb.reindex(columns=xgb_model.feature_names_in_, fill_value=0.0)
             df_xgb['ticker'] = pd.Categorical(df_xgb['ticker'], categories=ticker_categories)
             df_xgb['sector'] = pd.Categorical(df_xgb['sector'], categories=sector_categories)
         
-            xgb_preds_return = pd.Series(ml_models["xgb_predictor"].predict(df_xgb), index=df_xgb.index)
+            xgb_preds_return = pd.Series(xgb_model.predict(df_xgb), index=df_xgb.index)
             df_sub['xgb_pred'] = (df_sub['close'] * (1 + xgb_preds_return)).shift(1)
         
             # Batch sequence generation for LSTM
-            all_features_scaled = ml_models["feature_scaler"].transform(df_sub[feature_cols].values)
+            df_sub_scaler = df_sub[feature_cols]
+            if scaler_cols is not None:
+                df_sub_scaler = df_sub_scaler.reindex(columns=scaler_cols, fill_value=0.0)
+            elif expected_scaler_n < len(feature_cols):
+                df_sub_scaler = df_sub_scaler.iloc[:, :expected_scaler_n]
+            all_features_scaled = scaler.transform(df_sub_scaler.values)
             lstm_sequences = []
             lstm_valid_indices = []
             for i in range(lookback, len(df_sub)):
@@ -640,3 +680,5 @@ async def get_market_performers():
     }
     psx_cache[cache_key] = (time.time(), result)
     return result
+# Trigger uvicorn model reload
+

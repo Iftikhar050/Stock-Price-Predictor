@@ -12,6 +12,7 @@ BASE_FEATURES_DIR = os.path.abspath(
 
 import os
 import pandas as pd
+import numpy as np
 from sqlalchemy import text
 from src.psx_predictor.db.connection import engine
 
@@ -37,13 +38,14 @@ def prepare_data(ticker: str, ticker_sectors: dict = None):
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"File not found: {csv_path}. Run build_features.py first.")
         
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path).copy()
     if df.empty:
         raise ValueError(f"Empty feature data for {ticker}")
     
     # 1. Create Target Variable (Next Day's Return)
     df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
     df.dropna(subset=['target_return_t1'], inplace=True)
+    df = df.copy()
     
     # 2. Select Features (X) and Target (y)
     exclude_cols = ['date', 'created_at', 'target_return_t1', 'close']
@@ -54,6 +56,12 @@ def prepare_data(ticker: str, ticker_sectors: dict = None):
     # Only add sector if we have mapping (e.g. for xgboost)
     if ticker_sectors is not None:
         X['sector'] = X['ticker'].map(ticker_sectors)
+
+    # Clean numeric columns to remove inf / nan / float32 overflow
+    num_cols = X.select_dtypes(include=['number']).columns
+    if len(num_cols) > 0:
+        X[num_cols] = X[num_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+        X[num_cols] = X[num_cols].clip(lower=-1e9, upper=1e9)
         
     y = df['target_return_t1']
     dates = pd.to_datetime(df['date'])

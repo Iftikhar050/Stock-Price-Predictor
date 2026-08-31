@@ -33,7 +33,11 @@ def test_predict_valid_ticker(mocker):
         "xgb_predictor": MockModel(),
         "lstm_predictor": MockLSTM(),
         "feature_scaler": MockScaler(),
-        "target_scaler": MockScaler()
+        "target_scaler": MockScaler(),
+        "xgb_ticker_categories": ["PSO", "MEBL"],
+        "xgb_sector_categories": ["Oil & Gas", "Banking"],
+        "ticker_to_id": {"PSO": 0, "MEBL": 1},
+        "sector_to_id": {"Oil & Gas": 0, "Banking": 1}
     })
     
     mocker.patch("os.path.exists", return_value=True)
