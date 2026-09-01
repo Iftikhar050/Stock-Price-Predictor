@@ -110,6 +110,10 @@ def calculate_bollinger_bands(df: pd.DataFrame, col: str = 'close', window: int 
     bb_upper = bb_middle + (rolling_std * 2)
     bb_lower = bb_middle - (rolling_std * 2)
     
+    df['bollinger_mavg'] = bb_middle
+    df['bollinger_hband'] = bb_upper
+    df['bollinger_lband'] = bb_lower
+    df['bollinger_width'] = ((bb_upper - bb_lower) / bb_middle.replace(0, np.nan)).fillna(0.0)
     df['bb_middle_dist'] = (df[col] / bb_middle) - 1.0
     df['bb_upper_dist'] = (df[col] / bb_upper) - 1.0
     df['bb_lower_dist'] = (df[col] / bb_lower) - 1.0
@@ -404,6 +408,13 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         'pb_ratio_relative_to_sector'
     ]
     df[val_cols] = df[val_cols].fillna(0.0)
+
+    bank_tickers = ['MEBL', 'MCB', 'UBL', 'HBL', 'NBP', 'BAFL', 'BAHL']
+    bank_cols = ['net_interest_margin', 'casa_ratio', 'casa_deposits', 'total_advances', 'total_deposits',
+                 'npl_ratio', 'provisioning_coverage', 'capital_adequacy_ratio', 'adr_ratio', 'idr_ratio']
+    if ticker.upper() not in bank_tickers:
+        for bc in bank_cols:
+            df[bc] = np.nan
     
     return df
 
@@ -517,7 +528,6 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         flows_df['date'] = pd.to_datetime(flows_df['date'])
         flow_cols = ['fipi_net_usd_m', 'lipi_mutual_funds_net', 'lipi_banks_net',
                      'lipi_insurance_net', 'lipi_companies_net', 'lipi_individuals_net']
-        # Drop existing columns before merge to prevent _x/_y suffix collision (P0-E fix)
         existing_flow_cols = [c for c in flow_cols if c in df.columns]
         if existing_flow_cols:
             df.drop(columns=existing_flow_cols, inplace=True)
@@ -525,6 +535,35 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         for fc in flow_cols:
             if fc in df.columns:
                 df[fc] = df[fc].ffill().bfill().fillna(0.0)
+
+    # Dynamic Market Breadth across all 103 stocks in DB
+    try:
+        query_breadth = text("""
+            SELECT date,
+                   SUM(CASE WHEN close > open THEN 1 ELSE 0 END)::float / COUNT(*) as advancing_stocks_pct,
+                   SUM(CASE WHEN close < open THEN 1 ELSE 0 END)::float / COUNT(*) as declining_stocks_pct,
+                   SUM(CASE WHEN close > open THEN 1 ELSE 0 END)::float / NULLIF(SUM(CASE WHEN close < open THEN 1 ELSE 0 END), 0) as market_breadth_ratio,
+                   SUM(volume) as market_total_volume,
+                   SUM(close * volume) as market_total_traded_value
+            FROM stock_eod_data
+            GROUP BY date
+            ORDER BY date ASC
+        """)
+        with engine.connect() as conn:
+            breadth_df = pd.read_sql(query_breadth, conn)
+        if not breadth_df.empty:
+            breadth_df['date'] = pd.to_datetime(breadth_df['date'])
+            breadth_df['market_breadth_ratio'] = breadth_df['market_breadth_ratio'].fillna(1.0)
+            b_cols = ['advancing_stocks_pct', 'declining_stocks_pct', 'market_breadth_ratio', 'market_total_volume', 'market_total_traded_value']
+            existing_b_cols = [c for c in b_cols if c in df.columns]
+            if existing_b_cols:
+                df.drop(columns=existing_b_cols, inplace=True)
+            df = pd.merge(df, breadth_df, on='date', how='left')
+            for bc in b_cols:
+                if bc in df.columns:
+                    df[bc] = df[bc].ffill().bfill().fillna(0.0)
+    except Exception as e_mb:
+        logger.warning(f"Could not compute daily market breadth: {e_mb}")
     
     # Calculate Relative Strength
     if 'daily_return' not in df.columns:
@@ -927,6 +966,8 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = load_data(ticker)
     if df.empty:
         return df
+    
+    df['date'] = pd.to_datetime(df['date'])
         
     if 'adjusted_close' not in df.columns or df['adjusted_close'].isna().all():
         logger.info("adjusted_close column missing or all null; populating with fallback close.")
@@ -1161,14 +1202,20 @@ def build_features(ticker: str) -> pd.DataFrame:
     df.to_csv(final_path, index=False)
     logger.info(f"Saved finalized feature dataset ready for ML to {final_path}")
     
-    if ticker.upper() in ['MEBL', 'PSO']:
-        master_filename = f"{ticker.upper()}_master.csv"
-        master_path = os.path.join(PROCESSED_DIR, master_filename)
+    # Always export dedicated master CSV with attached raw text announcements & news
+    master_filename = f"{ticker.upper()}_master.csv"
+    master_path = os.path.join(PROCESSED_DIR, master_filename)
+    try:
+        df.to_csv(master_path, index=False)
+        logger.info(f"Saved dedicated master dataset: {master_path}")
         try:
-            df.to_csv(master_path, index=False)
-            logger.info(f"Saved dedicated master dataset: {master_path}")
-        except Exception as e:
-            logger.error(f"Error saving {master_path}: {e}")
+            from src.psx_predictor.data.export_raw_text_datasets import export_raw_text_files_for_ticker
+            export_raw_text_files_for_ticker(ticker.upper())
+            logger.info(f"Successfully attached date-matched raw text PUCARS & news to {master_path}")
+        except Exception as e_exp:
+            logger.warning(f"Could not attach raw text datasets to {master_path}: {e_exp}")
+    except Exception as e:
+        logger.error(f"Error saving {master_path}: {e}")
 
     # 6. Execute Data Quality Gate
     try:

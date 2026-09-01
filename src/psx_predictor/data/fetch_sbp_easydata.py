@@ -53,9 +53,9 @@ def fetch_sbp_indicators():
     
     update_sql = text("""
         INSERT INTO macro_indicators (
-            date, sbp_policy_rate, kibor_3m, kibor_6m, kibor_1y, tbill_3m, pib_10y, sbp_reserves, m2_money, created_at
+            date, sbp_policy_rate, kibor_3m, kibor_6m, kibor_1y, tbill_3m, pib_10y, sbp_reserves, m2_money, is_synthetic_rate, created_at
         ) VALUES (
-            :date, :policy_rate, :kibor_3m, :kibor_6m, :kibor_1y, :tbill_3m, :pib_10y, :sbp_reserves, :m2_money, NOW()
+            :date, :policy_rate, :kibor_3m, :kibor_6m, :kibor_1y, :tbill_3m, :pib_10y, :sbp_reserves, :m2_money, FALSE, NOW()
         )
         ON CONFLICT (date) DO UPDATE SET
             sbp_policy_rate = EXCLUDED.sbp_policy_rate,
@@ -65,7 +65,8 @@ def fetch_sbp_indicators():
             tbill_3m = EXCLUDED.tbill_3m,
             pib_10y = EXCLUDED.pib_10y,
             sbp_reserves = EXCLUDED.sbp_reserves,
-            m2_money = EXCLUDED.m2_money;
+            m2_money = EXCLUDED.m2_money,
+            is_synthetic_rate = FALSE;
     """)
     
     with engine.connect() as conn:

@@ -241,7 +241,33 @@ def generate_news_sentiment_features(
         base_df[search_col] = 0.0
         base_df["search_volume_spike_flag"] = 0
 
-    # ── 7. Fill NaNs ──────────────────────────────────────────────────────
+    # ── 7. Sentiment coverage era column ("backfilled" / "live" / "unavailable") ──
+    try:
+        query_sources = text(
+            "SELECT DISTINCT DATE(published_at) as date, source "
+            "FROM stock_news WHERE ticker = :ticker OR ticker = 'MACRO'"
+        )
+        with engine.connect() as conn:
+            source_df = pd.read_sql(query_sources, conn, params={"ticker": ticker.upper()})
+    except Exception as e:
+        logger.warning(f"Could not load article sources for era tagging: {e}")
+        source_df = pd.DataFrame()
+
+    era_map = {}
+    if not source_df.empty:
+        source_df["date"] = pd.to_datetime(source_df["date"])
+        for d, grp in source_df.groupby("date"):
+            sources = grp["source"].astype(str).str.lower().tolist()
+            if any(s.endswith("_archive_backfill") for s in sources):
+                era_map[d] = "backfilled"
+            elif any(s and not s.endswith("_archive_backfill") for s in sources):
+                era_map[d] = "live"
+            else:
+                era_map[d] = "unavailable"
+
+    base_df["sentiment_coverage_era"] = base_df["date"].map(era_map).fillna("unavailable")
+
+    # ── 8. Fill NaNs ──────────────────────────────────────────────────────
     numeric_cols = base_df.select_dtypes(include=[np.number]).columns
     base_df[numeric_cols] = base_df[numeric_cols].fillna(0.0)
 
@@ -250,3 +276,4 @@ def generate_news_sentiment_features(
         f"for {ticker} ({len(base_df)} rows)."
     )
     return base_df
+

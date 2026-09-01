@@ -251,9 +251,55 @@ def fetch_pucars_announcements(ticker: str) -> bool:
             f"(success: {success})."
         )
 
+    # Always ensure DB notices are synced into corporate_events table
+    sync_corporate_events_from_db()
     return True
 
 
+def sync_corporate_events_from_db() -> bool:
+    """
+    Reads all raw corporate announcements from corporate_announcements_pucars in DB,
+    classifies event types, and populates the corporate_events table.
+    """
+    logger.info("Syncing structured corporate events from DB announcements...")
+    query = text(
+        "SELECT ticker, announcement_date, category, headline_raw_text, document_url, sentiment_score "
+        "FROM corporate_announcements_pucars ORDER BY announcement_date ASC"
+    )
+    events = []
+    try:
+        with engine.connect() as conn:
+            records = conn.execute(query).fetchall()
+        for r in records:
+            ticker, ann_date, category, headline, url, sentiment = r[0], r[1], r[2], r[3], r[4], r[5]
+            event_type = _classify_event(headline, category or "")
+            if event_type:
+                ann_d = ann_date if isinstance(ann_date, date) else pd.to_datetime(ann_date).date()
+                pub_dt = datetime.combine(ann_d, datetime.min.time()).replace(tzinfo=timezone.utc)
+                trading_date = _apply_trading_day_cutoff(pub_dt)
+                events.append({
+                    "symbol": ticker.upper(),
+                    "published_at": pub_dt,
+                    "trading_date": trading_date,
+                    "event_type": event_type,
+                    "title": headline,
+                    "url": url or f"https://dps.psx.com.pk/company/{ticker.lower()}",
+                    "source": "PUCARS",
+                    "sentiment_score": sentiment or 0.0,
+                })
+        if events:
+            df_events = pd.DataFrame(events)
+            success = upsert_corporate_events(df_events)
+            logger.info(f"Upserted {len(df_events)} structured corporate events from DB announcements.")
+            return success
+        return False
+    except Exception as e:
+        logger.error(f"Error syncing corporate events from DB: {e}")
+        return False
+
+
 if __name__ == "__main__":
+    sync_corporate_events_from_db()
     for t in ["PSO", "MEBL"]:
         fetch_pucars_announcements(t)
+

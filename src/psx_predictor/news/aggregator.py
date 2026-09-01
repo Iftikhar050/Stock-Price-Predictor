@@ -48,6 +48,15 @@ class NewsAggregator:
             GoogleNewsCollector(period="7d"),  # Use 7d initially to populate history
         ]
 
+        # Add historical backfill collector (Dawn, Business Recorder, Profit)
+        try:
+            from .collectors.archive_backfill_collector import ArchiveBackfillCollector
+            self.archive_collector = ArchiveBackfillCollector()
+            self.collectors.append(self.archive_collector)
+        except Exception as e:
+            logger.warning(f"ArchiveBackfillCollector init warning: {e}")
+            self.archive_collector = None
+
         # Try to add local news collector (requires feedparser)
         try:
             from .collectors.local_news_collector import LocalNewsCollector
@@ -102,6 +111,14 @@ class NewsAggregator:
 
         # ── 1b. Collect unfiltered articles for macro/political classification ──
         macro_articles: List[Article] = []
+        if self.archive_collector:
+            try:
+                unfiltered_backfill = self.archive_collector.fetch_all_unfiltered_backfill()
+                macro_articles.extend(unfiltered_backfill)
+                logger.info(f"Collected {len(unfiltered_backfill)} macro backfill articles.")
+            except Exception as e:
+                logger.error(f"Unfiltered archive backfill news collection failed: {e}")
+
         if self.local_collector:
             try:
                 unfiltered = self.local_collector.fetch_all_unfiltered()
