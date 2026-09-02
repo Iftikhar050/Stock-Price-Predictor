@@ -149,57 +149,6 @@ def fetch_nepra_electricity() -> Optional[pd.DataFrame]:
         return None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Fallbacks for Unreachable Scrapes (Individual per-series flags)
-# ─────────────────────────────────────────────────────────────────────────────
-def _synthetic_cement(start="2005-01-01") -> pd.DataFrame:
-    dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="MS")
-    n = len(dates)
-    np.random.seed(1001)
-    trend = np.linspace(2800, 4500, n)
-    months = dates.month.to_numpy()
-    seasonal = 300 * np.sin(2 * np.pi * (months - 3) / 12)
-    noise = np.random.normal(0, 80, n)
-    values = np.clip(trend + seasonal + noise, 1000, None)
-    return pd.DataFrame({"date": dates.date, "cement_dispatches_mt": values})
-
-
-def _synthetic_auto(start="2005-01-01") -> pd.DataFrame:
-    dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="MS")
-    n = len(dates)
-    np.random.seed(1002)
-    trend = np.linspace(12000, 20000, n)
-    months = dates.month.to_numpy()
-    seasonal = 2000 * np.sin(2 * np.pi * (months - 4) / 12)
-    noise = np.random.normal(0, 800, n)
-    covid_mask = (dates >= pd.Timestamp("2020-03-01")) & (dates <= pd.Timestamp("2020-06-01"))
-    values = np.clip(trend + seasonal + noise, 1000, None)
-    values[covid_mask] *= 0.3
-    return pd.DataFrame({"date": dates.date, "auto_sales_total": values})
-
-
-def _synthetic_electricity(start="2005-01-01") -> pd.DataFrame:
-    dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="MS")
-    n = len(dates)
-    np.random.seed(1003)
-    trend = np.linspace(6000, 13000, n)
-    months = dates.month.to_numpy()
-    seasonal = 2500 * np.sin(2 * np.pi * (months - 5) / 12)
-    noise = np.random.normal(0, 300, n)
-    values = np.clip(trend + seasonal + noise, 2000, None)
-    return pd.DataFrame({"date": dates.date, "electricity_gen_gwh": values})
-
-
-def _synthetic_wheat(start="2005-01-01") -> pd.DataFrame:
-    dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="MS")
-    n = len(dates)
-    np.random.seed(1004)
-    values = np.zeros(n)
-    for i, d in enumerate(dates):
-        if d.month in [4, 5, 6]:
-            annual_base = 6500 + np.random.normal(0, 500)
-            values[i] = annual_base / 3
-    return pd.DataFrame({"date": dates.date, "wheat_procurement_mt": values})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -212,10 +161,10 @@ def fetch_pakistan_activity() -> bool:
     logger.info("Fetching Pakistan real economy activity data...")
 
     series_data = [
-        ("cement_dispatches_mt", fetch_apcma_cement, _synthetic_cement),
-        ("auto_sales_total", fetch_pama_auto, _synthetic_auto),
-        ("electricity_gen_gwh", fetch_nepra_electricity, _synthetic_electricity),
-        ("wheat_procurement_mt", lambda: None, _synthetic_wheat),
+        ("cement_dispatches_mt", fetch_apcma_cement),
+        ("auto_sales_total", fetch_pama_auto),
+        ("electricity_gen_gwh", fetch_nepra_electricity),
+        ("wheat_procurement_mt", lambda: None),
     ]
 
     full_dates = pd.date_range(start="2005-01-01", end=datetime.now().strftime("%Y-%m-%d"), freq="D")
@@ -226,13 +175,13 @@ def fetch_pakistan_activity() -> bool:
         df['date'] = (pd.to_datetime(df['date']) + pd.DateOffset(months=1)).dt.date
         return df
 
-    for col_name, live_fn, synthetic_fn in series_data:
+    for col_name, live_fn in series_data:
         df = live_fn()
         is_syn = False
 
         if df is None or df.empty:
-            df = synthetic_fn()
-            is_syn = True
+            df = pd.DataFrame({"date": full_dates.date, col_name: [pd.NA] * len(full_dates)})
+            is_syn = False # Missing data is NOT synthetic data
 
         df = lag_monthly(df)
         df['date'] = pd.to_datetime(df['date'])

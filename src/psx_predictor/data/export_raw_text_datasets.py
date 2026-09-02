@@ -85,7 +85,7 @@ def export_raw_text_files_for_ticker(ticker: str):
         text_cols_to_drop = [c for c in master_df.columns if c.startswith('raw_pucars_') or c.startswith('raw_news_') or c in ['pucars_sentiment_daily', 'news_sentiment_daily', 'latest_raw_pucars_headline', 'latest_raw_pucars_body', 'latest_raw_news_headline']]
         master_df.drop(columns=text_cols_to_drop, inplace=True, errors='ignore')
         
-        # Process PUCARS Announcements
+        # Process PUCARS Announcements (EXACT DATE MATCHING ONLY)
         if not pucars_df.empty:
             pucars_merge = pucars_df.copy()
             pucars_merge['date'] = to_naive_dt(pucars_merge['announcement_date'])
@@ -93,8 +93,8 @@ def export_raw_text_files_for_ticker(ticker: str):
             
             # Exact daily announcement match
             pucars_daily = pucars_merge.groupby('date').agg({
-                'headline_raw_text': lambda x: ' | '.join(x.astype(str)),
-                'body_raw_text': lambda x: ' | '.join(x.astype(str)),
+                'headline_raw_text': lambda x: ' | '.join(x.dropna().astype(str)),
+                'body_raw_text': lambda x: ' | '.join(x.dropna().astype(str)),
                 'category': 'first',
                 'sentiment_score': 'mean'
             }).reset_index().rename(columns={
@@ -105,38 +105,26 @@ def export_raw_text_files_for_ticker(ticker: str):
             })
             pucars_daily['date'] = to_naive_dt(pucars_daily['date'])
             
-            # As-of chronological announcement match (most recent announcement on or before date)
-            pucars_asof = pucars_merge[['date', 'headline_raw_text', 'body_raw_text', 'category']].rename(columns={
-                'headline_raw_text': 'raw_pucars_headline_asof',
-                'body_raw_text': 'raw_pucars_body_asof',
-                'category': 'raw_pucars_category_asof'
-            })
-            pucars_asof['date'] = to_naive_dt(pucars_asof['date'])
-            
-            master_df = pd.merge_asof(
-                master_df.sort_values('date'),
-                pucars_asof.sort_values('date'),
-                on='date',
-                direction='backward'
-            )
             master_df = pd.merge(master_df, pucars_daily, on='date', how='left')
             
             master_df['raw_pucars_headline_daily'] = master_df['raw_pucars_headline_daily'].fillna("")
             master_df['raw_pucars_body_daily'] = master_df['raw_pucars_body_daily'].fillna("")
             master_df['raw_pucars_category_daily'] = master_df['raw_pucars_category_daily'].fillna("")
             master_df['pucars_sentiment_daily'] = master_df['pucars_sentiment_daily'].fillna(0.0)
-            master_df['raw_pucars_headline_asof'] = master_df['raw_pucars_headline_asof'].fillna("")
-            master_df['raw_pucars_body_asof'] = master_df['raw_pucars_body_asof'].fillna("")
-            master_df['raw_pucars_category_asof'] = master_df['raw_pucars_category_asof'].fillna("")
+        else:
+            master_df['raw_pucars_headline_daily'] = ""
+            master_df['raw_pucars_body_daily'] = ""
+            master_df['raw_pucars_category_daily'] = ""
+            master_df['pucars_sentiment_daily'] = 0.0
         
-        # Process News Articles
+        # Process News Articles (EXACT DATE MATCHING ONLY)
         if not news_df.empty:
             news_merge = news_df.copy()
             news_merge['date'] = to_naive_dt(news_merge['date'])
             news_merge = news_merge.sort_values('date')
             
             news_daily = news_merge.groupby('date').agg({
-                'headline': lambda x: ' | '.join(x.astype(str)),
+                'headline': lambda x: ' | '.join(x.dropna().astype(str)),
                 'sentiment_score': 'mean'
             }).reset_index().rename(columns={
                 'headline': 'raw_news_headline_daily',
@@ -144,20 +132,13 @@ def export_raw_text_files_for_ticker(ticker: str):
             })
             news_daily['date'] = to_naive_dt(news_daily['date'])
             
-            news_asof = news_merge[['date', 'headline']].rename(columns={'headline': 'raw_news_headline_asof'})
-            news_asof['date'] = to_naive_dt(news_asof['date'])
-            
-            master_df = pd.merge_asof(
-                master_df.sort_values('date'),
-                news_asof.sort_values('date'),
-                on='date',
-                direction='backward'
-            )
             master_df = pd.merge(master_df, news_daily, on='date', how='left')
             
             master_df['raw_news_headline_daily'] = master_df['raw_news_headline_daily'].fillna("")
             master_df['news_sentiment_daily'] = master_df['news_sentiment_daily'].fillna(0.0)
-            master_df['raw_news_headline_asof'] = master_df['raw_news_headline_asof'].fillna("")
+        else:
+            master_df['raw_news_headline_daily'] = ""
+            master_df['news_sentiment_daily'] = 0.0
 
         master_df['date'] = master_df['date'].dt.strftime('%Y-%m-%d')
         

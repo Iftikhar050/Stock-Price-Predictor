@@ -164,7 +164,7 @@ def generate_news_sentiment_features(
                 raw_col = f"{col_prefix}_3d"
                 base_df[raw_col] = (
                     base_df[raw_col]
-                    .fillna(method="ffill", limit=3)
+                    .ffill(limit=3)
                     .fillna(0.0)
                 )
             else:
@@ -276,4 +276,3 @@ def generate_news_sentiment_features(
         f"for {ticker} ({len(base_df)} rows)."
     )
     return base_df
-

@@ -231,7 +231,7 @@ class MacroIndicators(Base):
     date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     
     sbp_policy_rate: Mapped[float] = mapped_column(Float, nullable=True)
-    is_synthetic_rate: Mapped[bool] = mapped_column(default=True, doc="Flag to indicate this is a hardcoded placeholder SBP policy rate, not real historical data.")
+    is_synthetic_rate: Mapped[bool] = mapped_column(default=False, doc="Flag to indicate this is a hardcoded placeholder SBP policy rate, not real historical data.")
     pkr_usd_rate: Mapped[float] = mapped_column(Float, nullable=True)
     brent_oil_price: Mapped[float] = mapped_column(Float, nullable=True)
     

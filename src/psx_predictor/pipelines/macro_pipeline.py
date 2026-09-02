@@ -5,7 +5,7 @@ import logging
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(ROOT_DIR)
 
-from src.psx_predictor.data.fetch_sbp_easydata import fetch_sbp_indicators
+from src.psx_predictor.scraper.sbp_easydata_scraper import SbpEasyDataScraper
 from src.psx_predictor.scraper.imf_scraper import ImfScraper
 from src.psx_predictor.data.fetch_pbs_stats import fetch_pbs_stats
 from src.psx_predictor.scraper.macro_scraper import MacroScraper
@@ -30,7 +30,8 @@ def run_macro_pipeline() -> bool:
     # 1. State Bank of Pakistan (SBP) Rates & Reserves
     logger.info("\n[Step 1/4] Syncing State Bank of Pakistan (SBP) Rates & Fixed Income...")
     try:
-        res1 = fetch_sbp_indicators()
+        scraper = SbpEasyDataScraper()
+        res1 = scraper.sync_sbp_data()
         logger.info(f" SBP Indicators sync: {'Success' if res1 else 'Failed'}")
     except Exception as e:
         logger.error(f" Error syncing SBP indicators: {e}")

@@ -132,11 +132,8 @@ class SbpEasyDataScraper:
             else:
                 combined[f"{col}_is_missing"] = False
 
-        # Dynamic is_synthetic_rate reflects whether sbp_policy_rate was actually fetched live
-        if "sbp_policy_rate" in fetched_cols:
-            combined["is_synthetic_rate"] = False
-        else:
-            combined["is_synthetic_rate"] = True
+        # Since we removed all synthesis loops, the data is never synthetic.
+        combined["is_synthetic_rate"] = False
 
         return combined
 

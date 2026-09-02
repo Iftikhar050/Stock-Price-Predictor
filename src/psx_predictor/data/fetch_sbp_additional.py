@@ -95,31 +95,6 @@ def _fetch_series(series_id: str) -> pd.DataFrame:
         return pd.DataFrame(columns=['date', 'value'])
 
 
-def _build_fallback_series(column_name: str, start: str = "2005-01-01") -> pd.DataFrame:
-    """
-    If SBP API is unavailable, build a realistic fallback.
-    Flagged via companion per-column synthetic flag.
-    """
-    logger.warning(f"Building synthetic fallback for {column_name}")
-    dates = pd.date_range(start=start, end=datetime.now().strftime("%Y-%m-%d"), freq="ME")
-    np.random.seed(abs(hash(column_name)) % (2**32))
-
-    defaults = {
-        "private_sector_credit_growth": (10.0, 5.0),
-        "banking_deposits_growth": (12.0, 4.0),
-        "sbp_omo_net_outstanding": (500.0, 200.0),
-        "t_bill_cutoff_3m": (10.0, 3.0),
-        "t_bill_cutoff_6m": (10.5, 3.0),
-        "forward_usd_pkr_3m": (280.0, 50.0),
-        "reer_index": (100.0, 10.0),
-        "external_debt_total_usd_bn": (100.0, 20.0),
-    }
-    mean, std = defaults.get(column_name, (50.0, 10.0))
-    vals = np.random.normal(mean, std, len(dates)).clip(0)
-
-    df = pd.DataFrame({"date": dates.date, "value": vals})
-    return df
-
 
 def fetch_sbp_additional() -> bool:
     """
@@ -136,10 +111,10 @@ def fetch_sbp_additional() -> bool:
         synthetic = False
 
         if raw.empty or len(raw) < 10:
-            raw = _build_fallback_series(col_name)
-            synthetic = True
-
-        if lag_months > 0:
+            synthetic = False
+            raw = pd.DataFrame({'date': full_dates.date, 'value': [pd.NA] * len(full_dates)})
+            
+        if lag_months > 0 and not raw['value'].isna().all():
             raw['date'] = pd.to_datetime(raw['date']) + pd.DateOffset(months=lag_months)
             raw['date'] = raw['date'].dt.date
 

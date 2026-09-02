@@ -99,13 +99,13 @@ INDIA_PAKISTAN_TENSION_WINDOWS = [
 # Source: UN, US State Dept escalation reports, ACLED data
 # ─────────────────────────────────────────────────────────────────────────────
 MIDDLE_EAST_CONFLICT_WINDOWS = [
-    ("2003-03-20", "2011-12-31"),       # Iraq War
+    ("2003-03-20", "2003-05-01"),       # Iraq War initial invasion shock
     ("2006-07-12", "2006-08-14"),       # Israel-Lebanon War
-    ("2011-03-15", "2015-12-31"),       # Syrian Civil War peak
-    ("2014-06-09", "2017-12-09"),       # ISIS territorial control peak
-    ("2019-09-14", "2019-09-20"),       # Saudi Aramco attack (Abqaiq)
-    ("2020-01-03", "2020-01-20"),       # US-Iran escalation (Soleimani)
-    ("2023-10-07", None),               # Gaza conflict (ongoing)
+    ("2011-03-15", "2011-06-30"),       # Syrian Civil War outbreak shock
+    ("2014-06-09", "2014-08-31"),       # ISIS rapid expansion shock (Fall of Mosul)
+    ("2019-09-14", "2019-09-30"),       # Saudi Aramco attack (Abqaiq)
+    ("2020-01-03", "2020-01-31"),       # US-Iran escalation (Soleimani)
+    ("2023-10-07", "2024-04-30"),       # Gaza conflict acute phase & regional escalation
 ]
 
 

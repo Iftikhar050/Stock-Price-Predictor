@@ -398,14 +398,11 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     sector_pb_baseline = 1.2 if ticker.upper() in ['MEBL', 'MCB', 'UBL', 'HBL', 'NBP', 'BAFL', 'BAHL'] else 0.9
     df['sector_pe_avg'] = sector_pe_baseline
     df['sector_pb_avg'] = sector_pb_baseline
-    df['pe_ratio_relative_to_sector'] = (df['pe_ratio'] / sector_pe_baseline).replace([np.inf, -np.inf], np.nan).fillna(1.0)
-    df['pb_ratio_relative_to_sector'] = (df['pb_ratio'] / sector_pb_baseline).replace([np.inf, -np.inf], np.nan).fillna(1.0)
 
     val_cols = [
         'pe_ratio', 'peg_ratio', 'pb_ratio', 'profit_margin', 'roa', 'ev', 'ev_ebitda', 'ev_sales',
         'pe_percentile_1y', 'pe_percentile_3y', 'interest_bearing_debt', 'forward_pe',
-        'price_to_cash_flow', 'sector_pe_avg', 'sector_pb_avg', 'pe_ratio_relative_to_sector',
-        'pb_ratio_relative_to_sector'
+        'price_to_cash_flow', 'sector_pe_avg', 'sector_pb_avg'
     ]
     df[val_cols] = df[val_cols].fillna(0.0)
 
@@ -1012,8 +1009,7 @@ def build_features(ticker: str) -> pd.DataFrame:
             df = pd.merge(df, news_feat_df, on='date', how='left')
             logger.info(f"Merged {len(news_cols)} news sentiment feature columns.")
     except Exception as e:
-        logger.warning(f"Could not merge news sentiment features: {e}")
-    
+        logger.exception("Could not merge news sentiment features:")
     # 3.5 Merge Dividend Data
     df = merge_dividends(df, ticker)
     
@@ -1166,24 +1162,20 @@ def build_features(ticker: str) -> pd.DataFrame:
 
     # P1-F Computed: Surprise & Expectations features (Actual vs Expected vs Surprise, no leakage)
     if 'cpi_headline' in df.columns:
-        df['cpi_actual'] = df['cpi_headline']
         df['cpi_expected'] = df['cpi_headline'].rolling(3, min_periods=1).mean().shift(1).fillna(df['cpi_headline'])
-        df['cpi_surprise'] = (df['cpi_actual'] - df['cpi_expected']).fillna(0.0)
+        df['cpi_surprise'] = (df['cpi_headline'] - df['cpi_expected']).fillna(0.0)
 
     if 'sbp_policy_rate' in df.columns:
-        df['policy_rate_actual'] = df['sbp_policy_rate']
         df['policy_rate_expected'] = df['sbp_policy_rate'].shift(1).fillna(df['sbp_policy_rate'])
-        df['policy_rate_surprise'] = (df['policy_rate_actual'] - df['policy_rate_expected']).fillna(0.0)
+        df['policy_rate_surprise'] = (df['sbp_policy_rate'] - df['policy_rate_expected']).fillna(0.0)
 
     if 'trade_deficit_usd_m' in df.columns:
-        df['trade_deficit_actual'] = df['trade_deficit_usd_m']
         df['trade_deficit_expected'] = df['trade_deficit_usd_m'].rolling(3, min_periods=1).mean().shift(1).fillna(df['trade_deficit_usd_m'])
-        df['trade_deficit_surprise'] = (df['trade_deficit_actual'] - df['trade_deficit_expected']).fillna(0.0)
+        df['trade_deficit_surprise'] = (df['trade_deficit_usd_m'] - df['trade_deficit_expected']).fillna(0.0)
 
     if 'eps_trailing' in df.columns:
-        df['eps_actual'] = df['eps_trailing']
         df['eps_expected'] = df['eps_trailing'].rolling(252, min_periods=60).mean().shift(1).fillna(df['eps_trailing'])
-        df['eps_consensus_surprise'] = (df['eps_actual'] - df['eps_expected']).fillna(0.0)
+        df['eps_consensus_surprise'] = (df['eps_trailing'] - df['eps_expected']).fillna(0.0)
         df['eps_qoq_surprise'] = df['eps_trailing'].diff(63).fillna(0.0)  # ~1 quarter = 63 trading days
 
 
