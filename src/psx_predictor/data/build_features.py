@@ -442,8 +442,10 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     raw_level_cols = ['pkr_usd_rate', 'brent_oil_price', 'us10y_yield'] + \
                      [f"{col}_close" if col not in ['gold', 'copper', 'coal', 'cotton', 'gas'] else f"{col}_price" for col in pct_cols]
                      
-    for c in raw_level_cols:
-        if c in macro_df.columns:
+    # Forward fill ALL columns in macro_df because macro variables (like KIBOR, Remittances, etc)
+    # are reported sparsely (weekly/monthly/quarterly) and must carry forward to daily stock dates.
+    for c in macro_df.columns:
+        if c != 'date' and c != 'id':
             macro_df[c] = macro_df[c].ffill().bfill()
             
     macro_df['pkr_usd_change_pct'] = macro_df['pkr_usd_rate'].pct_change()
