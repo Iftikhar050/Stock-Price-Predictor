@@ -60,15 +60,24 @@ def fetch_search_trends(ticker: str, start_date: str = "2015-01-01") -> pd.DataF
     try:
         pytrends = TrendReq(hl='en-US', tz=300, timeout=(10, 25))
 
-        # Company interest
-        pytrends.build_payload(terms[:1], cat=0, timeframe=f"{start_date} {datetime.today().strftime('%Y-%m-%d')}", geo='PK')
-        time.sleep(1)  # be polite to Google
-        df_company = pytrends.interest_over_time()
+        for attempt in range(3):
+            try:
+                # Company interest
+                pytrends.build_payload(terms[:1], cat=0, timeframe=f"{start_date} {datetime.today().strftime('%Y-%m-%d')}", geo='PK')
+                time.sleep(1)  # be polite to Google
+                df_company = pytrends.interest_over_time()
 
-        # Market interest
-        pytrends.build_payload(market_terms[:1], cat=0, timeframe=f"{start_date} {datetime.today().strftime('%Y-%m-%d')}", geo='PK')
-        time.sleep(1)
-        df_market = pytrends.interest_over_time()
+                # Market interest
+                pytrends.build_payload(market_terms[:1], cat=0, timeframe=f"{start_date} {datetime.today().strftime('%Y-%m-%d')}", geo='PK')
+                time.sleep(1)
+                df_market = pytrends.interest_over_time()
+                break # Success
+            except Exception as e:
+                logger.warning(f"Attempt {attempt + 1} failed for {ticker}: {e}")
+                time.sleep(5 * (attempt + 1))
+        else:
+            logger.error(f"Failed to fetch Google Trends for {ticker} after 3 attempts.")
+            return pd.DataFrame()
 
         if df_company.empty and df_market.empty:
             logger.warning(f"Google Trends returned empty data for {ticker}.")
@@ -98,8 +107,9 @@ def fetch_search_trends(ticker: str, start_date: str = "2015-01-01") -> pd.DataF
         return result
 
     except Exception as e:
-        logger.error(f"Error fetching Google Trends for {ticker}: {e}")
+        logger.exception(f"Error fetching Google Trends for {ticker}:")
         return pd.DataFrame()
+
 
 
 def sync_search_trends_to_db(ticker: str) -> bool:

@@ -190,8 +190,15 @@ def generate_news_sentiment_features(
     if not events_df.empty:
         events_df["date"] = pd.to_datetime(events_df["date"])
 
+        # Filter invalid event types
+        events_df = events_df.dropna(subset=["event_type"])
+        events_df = events_df[
+            (events_df["event_type"] != "") & 
+            (events_df["event_type"].astype(str).str.lower() != "nan")
+        ]
+
         # Pivot event types into binary columns
-        event_types = events_df["event_type"].dropna().unique()
+        event_types = events_df["event_type"].unique()
         for etype in event_types:
             col_name = etype if etype.endswith("_event") else f"{etype}_event"
             if col_name not in base_df.columns:

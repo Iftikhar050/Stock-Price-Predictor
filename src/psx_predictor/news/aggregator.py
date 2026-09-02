@@ -113,7 +113,7 @@ class NewsAggregator:
         macro_articles: List[Article] = []
         if self.archive_collector:
             try:
-                unfiltered_backfill = self.archive_collector.fetch_all_unfiltered_backfill()
+                unfiltered_backfill = self.archive_collector.fetch_macro_news()
                 macro_articles.extend(unfiltered_backfill)
                 logger.info(f"Collected {len(unfiltered_backfill)} macro backfill articles.")
             except Exception as e:

@@ -56,23 +56,26 @@ REAL_SERIES = {
 
 class SbpEasyDataScraper:
     def __init__(self, api_key: str = ""):
-        self.api_key = api_key or os.environ.get("SBP_API_KEY", "")
+        self.api_key = api_key or os.environ.get("SBP_API_KEY", "9FD9ADC4862DECD60AE3691139A265883C1CA2AD")
 
     def _fetch_one(self, series_key: str) -> pd.DataFrame:
         """
         Calls SBP EasyData API endpoint for a single time-series independently.
         Returns DataFrame with ['date', series_key] or empty DataFrame on failure.
         """
-        if not self.api_key:
-            logger.debug(f"No API key provided; skipping live endpoint call for {series_key}")
-            return pd.DataFrame(columns=["date", series_key])
-
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+            
         url = f"{SBP_BASE_URL}/{series_key}"
         try:
-            resp = requests.get(url, headers=headers, timeout=30)
+            import cloudscraper
+            scraper = cloudscraper.create_scraper()
+            resp = scraper.get(url, headers=headers, timeout=30)
             if resp.status_code != 200:
-                logger.warning(f"SBP EasyData API returned status {resp.status_code} for series {series_key}")
+                logger.error(f"SBP EasyData API returned status {resp.status_code} for series {series_key}. Response: {resp.text[:500]}")
                 return pd.DataFrame(columns=["date", series_key])
             
             payload = resp.json()
@@ -92,7 +95,7 @@ class SbpEasyDataScraper:
             return df[["date", "value"]].rename(columns={"value": series_key})
 
         except Exception as e:
-            logger.warning(f"SBP series {series_key} fetch failed: {e}")
+            logger.exception(f"SBP series {series_key} fetch failed with exception:")
             return pd.DataFrame(columns=["date", series_key])
 
     def fetch_sbp_data(self) -> pd.DataFrame:

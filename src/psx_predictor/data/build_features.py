@@ -376,7 +376,7 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df['pe_percentile_3y'] = df['pe_ratio'].rolling(756, min_periods=252).rank(pct=True).fillna(0.5)
 
     # Priority 1: Missing Fundamentals & Sector-Relative Valuation
-    df['interest_bearing_debt'] = df['total_debt'].fillna(0.0) if 'total_debt' in df.columns else 0.0
+    # (Removed interest_bearing_debt duplication)
 
     growth_est = df['eps_growth_yoy'].clip(-0.3, 0.5) if 'eps_growth_yoy' in df.columns else 0.10
     fwd_eps = df['eps_trailing'] * (1.0 + growth_est)
@@ -401,7 +401,7 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
     val_cols = [
         'pe_ratio', 'peg_ratio', 'pb_ratio', 'profit_margin', 'roa', 'ev', 'ev_ebitda', 'ev_sales',
-        'pe_percentile_1y', 'pe_percentile_3y', 'interest_bearing_debt', 'forward_pe',
+        'pe_percentile_1y', 'pe_percentile_3y', 'forward_pe',
         'price_to_cash_flow', 'sector_pe_avg', 'sector_pb_avg'
     ]
     df[val_cols] = df[val_cols].fillna(0.0)
@@ -428,8 +428,8 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
         
     if macro_df.empty:
         logger.warning(f"No macro data found.")
-        df['sbp_policy_rate'] = 0.0
-        df['days_since_rate_change'] = 0.0
+        df['sbp_policy_rate'] = np.nan
+        df['days_since_rate_change'] = np.nan
         df['pkr_usd_change_pct'] = 0.0
         df['oil_return_pct'] = 0.0
         return df
@@ -470,7 +470,14 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     
     for col in macro_cols:
         if col in df.columns:
-            df[col] = df[col].ffill().bfill().fillna(0.0)
+            # Convert to numeric, errors='coerce' to turn parsing errors into NaNs
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # ffill/bfill for continuity, but DO NOT fillna(0.0) if entirely missing.
+            # Only fillna(0.0) for return/change percentages.
+            df[col] = df[col].ffill().bfill()
+            if col.endswith('_pct') or col.endswith('_change'):
+                df[col] = df[col].fillna(0.0)
     
     if sector and any(s in sector.lower() for s in ['oil & gas', 'refinery', 'power generation']):
         df['oil_return_pct'] = df['oil_return_pct'].fillna(0.0)
@@ -1115,7 +1122,14 @@ def build_features(ticker: str) -> pd.DataFrame:
     # 4. Handle Missing Values
     # Fill remaining rolling percentile/macro/event NaNs in numeric columns with 0.0
     numeric_cols = df.select_dtypes(include=[np.number]).columns
-    df[numeric_cols] = df[numeric_cols].fillna(0.0)
+    exclude_fill = [
+        'sbp_policy_rate', 'kibor_3m', 'kibor_6m', 'kibor_1y', 'tbill_3m', 'tbill_6m', 'tbill_1y',
+        'pib_3y', 'pib_5y', 'pib_10y', 'm2_money_supply', 'currency_in_circulation',
+        'commercial_bank_reserves', 'total_fx_reserves', 'monthly_remittances',
+        'remittances_saudi', 'remittances_uae', 'remittances_usa', 'remittances_uk'
+    ]
+    fill_cols = [c for c in numeric_cols if c not in exclude_fill and not c.startswith('search_trend_')]
+    df[fill_cols] = df[fill_cols].fillna(0.0)
     non_num = [c for c in df.columns if c != 'date' and c not in numeric_cols]
     if non_num:
         df[non_num] = df[non_num].fillna("")
@@ -1123,6 +1137,10 @@ def build_features(ticker: str) -> pd.DataFrame:
     initial_len = len(df)
     df.dropna(subset=['close', 'date'], inplace=True)
     df = df.reset_index(drop=True)
+    
+    # Drop redundant duplicated columns
+    df.drop(columns=['imf_primary_balance_pct_gdp', 'interest_bearing_debt'], errors='ignore', inplace=True)
+    
     logger.info(f"Retained {len(df)} records for {ticker}.")
 
 
@@ -1147,8 +1165,11 @@ def build_features(ticker: str) -> pd.DataFrame:
 
     # P0-B Computed: Reserve changes and coverage
     if 'sbp_reserves' in df.columns:
+        df['sbp_reserves'] = pd.to_numeric(df['sbp_reserves'], errors='coerce')
         df['reserve_changes'] = df['sbp_reserves'].diff().fillna(0.0)
     if 'total_fx_reserves' in df.columns and 'imports_usd_m' in df.columns:
+        df['total_fx_reserves'] = pd.to_numeric(df['total_fx_reserves'], errors='coerce')
+        df['imports_usd_m'] = pd.to_numeric(df['imports_usd_m'], errors='coerce')
         monthly_imports = (df['imports_usd_m'] / 30.4).replace(0, np.nan)
         df['reserve_import_coverage'] = (df['total_fx_reserves'] / monthly_imports).fillna(0.0)
 
@@ -1221,7 +1242,16 @@ def build_features(ticker: str) -> pd.DataFrame:
 from src.psx_predictor.db.repository import get_active_tickers
 
 if __name__ == '__main__':
-    tickers = get_active_tickers()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ticker', type=str, help='Ticker to process')
+    args = parser.parse_args()
+
+    if args.ticker:
+        tickers = [args.ticker]
+    else:
+        tickers = get_active_tickers()
+        
     logger.info(f"Building features for {len(tickers)} active tickers...")
     
     # A.2.3: One-time startup/build-time assertion for energy sector

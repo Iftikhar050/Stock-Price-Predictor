@@ -81,6 +81,7 @@ HISTORICAL_ARCHIVE_DATA = [
 
     # 2024 Archive Records
     {"date": "2024-01-29", "headline": "State Bank keeps interest rate unchanged at 22 percent expecting inflation deceleration", "portal": "dawn", "ticker": "MACRO"},
+    {"date": "2024-02-09", "headline": "Pakistan election results delayed amid rigging allegations and political turmoil", "portal": "dawn", "ticker": "MACRO"},
     {"date": "2024-06-10", "headline": "SBP initiates monetary easing with 150bps policy rate cut to 20.5 percent", "portal": "dawn", "ticker": "MACRO"},
     {"date": "2024-07-29", "headline": "SBP reduces policy rate by 100bps to 19.5 percent as inflation falls below 12 percent", "portal": "dawn", "ticker": "MACRO"},
     {"date": "2024-09-12", "headline": "SBP aggressively cuts interest rate by 200bps to 17.5 percent", "portal": "dawn", "ticker": "MACRO"},
@@ -89,6 +90,7 @@ HISTORICAL_ARCHIVE_DATA = [
 
     # 2025 Archive Records
     {"date": "2025-01-27", "headline": "SBP monetary policy committee cuts rate by 100bps to 12 percent", "portal": "dawn", "ticker": "MACRO"},
+    {"date": "2025-02-15", "headline": "India-Pakistan border tension escalates following cross-border firing incident", "portal": "dawn", "ticker": "MACRO"},
     {"date": "2025-03-10", "headline": "PSO reports strong quarterly earnings driven by non-fuel retail and jet fuel market share", "portal": "profit", "ticker": "PSO"},
     {"date": "2025-05-15", "headline": "Meezan Bank deposits touch historic benchmark as Islamic banking share reaches 25 percent", "portal": "profit", "ticker": "MEBL"},
     {"date": "2025-09-18", "headline": "SBP maintains policy rate at 11 percent supporting economic growth momentum", "portal": "dawn", "ticker": "MACRO"},
@@ -147,7 +149,7 @@ class ArchiveBackfillCollector(BaseCollector):
         logger.info(f"[{self.source_name}] Collected {len(articles)} backfill articles for {ticker}")
         return articles
 
-    def fetch_all_unfiltered_backfill(self) -> List[Article]:
+    def fetch_macro_news(self) -> List[Article]:
         """
         Fetches unfiltered macro news articles tagged with source="*_archive_backfill".
         """
