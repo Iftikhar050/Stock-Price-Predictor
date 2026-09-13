@@ -2,29 +2,33 @@ import os
 import sys
 import logging
 import pandas as pd
-import numpy as np
 import requests
 import bs4
-from datetime import datetime
-from sqlalchemy import text
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(ROOT_DIR)
-
-from src.psx_predictor.db.connection import engine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("OCACEnergyFetcher")
 
 def fetch_ocac_petroleum_sales() -> bool:
     """
-    Fetches monthly OCAC petroleum sales dispatches (MS, HSD, FO volumes)
-    and updates macro_indicators table in PostgreSQL.
+    Attempts to fetch monthly OCAC petroleum sales dispatches (MS, HSD, FO
+    volumes), circular debt, and refinery margin from the OCAC portal.
+
+    There is no synthetic fallback here. If the live page is unreachable, has
+    moved (confirmed 404 as of this writing - OCAC appears to have
+    restructured their statistics pages), or its table structure can't be
+    matched to the target columns, this returns False and writes nothing -
+    petroleum_sales_volume/circular_debt_level/refinery_margin stay NULL
+    rather than being filled with np.random noise dressed up as data.
+    Finding OCAC's current statistics URL and real table layout is tracked as
+    open follow-up work, not something to guess at here.
     """
     logger.info("Fetching OCAC Pakistan petroleum sales dispatches...")
     url = "https://www.ocac.org.pk/sales-of-petroleum-products/"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-    
+
     records = []
     try:
         r = requests.get(url, headers=headers, timeout=10)
@@ -41,49 +45,25 @@ def fetch_ocac_petroleum_sales() -> bool:
                 except Exception:
                     continue
         else:
-            logger.warning(f"OCAC portal HTTP {r.status_code}")
+            logger.warning(f"OCAC portal HTTP {r.status_code} - no data available, leaving columns unchanged.")
     except Exception as e:
-        logger.warning(f"Error scraping OCAC portal: {e}")
+        logger.warning(f"Error scraping OCAC portal: {e} - leaving columns unchanged.")
 
-    # Fallback to historical baseline if portal is unavailable
     if not records:
-        logger.info("Building historical monthly petroleum sales and circular debt timeline...")
-        dates = pd.date_range('2008-01-01', '2026-08-31', freq='ME')
-        circ_debt = np.linspace(200.0, 2600.0, len(dates)) + np.random.normal(0, 15, len(dates))
-        petro_sales = 1.5 + 0.3 * np.sin(np.linspace(0, 10*np.pi, len(dates))) + np.random.normal(0, 0.05, len(dates))
-        
-        df_base = pd.DataFrame({
-            'date': dates,
-            'petroleum_sales_volume': np.clip(petro_sales, 0.8, None),
-            'circular_debt_level': np.clip(circ_debt, 150.0, None),
-            'refinery_margin': np.random.uniform(4.0, 18.0, len(dates))
-        })
-        
-        upsert_query = text("""
-            UPDATE macro_indicators
-            SET petroleum_sales_volume = :petroleum_sales_volume,
-                circular_debt_level = :circular_debt_level,
-                refinery_margin = :refinery_margin
-            WHERE date = :date
-        """)
-        
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE macro_indicators ADD COLUMN IF NOT EXISTS petroleum_sales_volume FLOAT;"))
-            conn.execute(text("ALTER TABLE macro_indicators ADD COLUMN IF NOT EXISTS circular_debt_level FLOAT;"))
-            conn.execute(text("ALTER TABLE macro_indicators ADD COLUMN IF NOT EXISTS refinery_margin FLOAT;"))
-            conn.commit()
-            
-            for idx, row in df_base.iterrows():
-                conn.execute(upsert_query, {
-                    'date': row['date'].strftime('%Y-%m-%d'),
-                    'petroleum_sales_volume': float(row['petroleum_sales_volume']),
-                    'circular_debt_level': float(row['circular_debt_level']),
-                    'refinery_margin': float(row['refinery_margin'])
-                })
-            conn.commit()
-        logger.info(f"Updated petroleum sales & circular debt metrics across {len(dates)} months in macro_indicators.")
-        return True
-    return True
+        logger.info(
+            "No OCAC petroleum sales data recovered from a live scrape. "
+            "petroleum_sales_volume / circular_debt_level / refinery_margin "
+            "will remain NULL for this run (no synthetic fallback)."
+        )
+        return False
+
+    # TODO: map `records` (raw scraped rows) to petroleum_sales_volume /
+    # circular_debt_level / refinery_margin and upsert via
+    # src.psx_predictor.db.repository.upsert_macro_indicators once a real,
+    # current OCAC table layout is confirmed. Intentionally not implemented
+    # against unverified table structure.
+    logger.warning(f"Scraped {len(records)} raw OCAC rows but column mapping to target fields is not yet implemented.")
+    return False
 
 if __name__ == "__main__":
     fetch_ocac_petroleum_sales()

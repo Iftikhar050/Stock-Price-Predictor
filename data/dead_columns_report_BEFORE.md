@@ -1,0 +1,293 @@
+# Universally Dead Columns Audit
+
+Computed across 107 master CSVs.
+
+## All-NaN in every ticker (8)
+
+- `advancing_stocks_pct`
+- `circular_debt_level`
+- `declining_stocks_pct`
+- `market_breadth_ratio`
+- `market_total_traded_value`
+- `market_total_volume`
+- `petroleum_sales_volume`
+- `refinery_margin`
+
+## Constant (non-NaN) in every ticker (71)
+
+- `adr_ratio`
+- `advance_decline_line`
+- `advancing_count`
+- `auto_sales_total`
+- `bonus_event`
+- `capital_adequacy_ratio`
+- `casa_deposits`
+- `casa_ratio`
+- `cement_dispatches_mt`
+- `current_account_balance`
+- `declining_count`
+- `electricity_gen_gwh`
+- `fipi_foreign_corporate_net`
+- `fipi_foreign_individual_net`
+- `fipi_overseas_pakistani_net`
+- `forward_usd_pkr_3m`
+- `free_float`
+- `free_float_pct`
+- `geopolitical_news_sentiment_3d`
+- `government_receivables`
+- `hit_lower_circuit`
+- `hit_upper_circuit`
+- `idr_ratio`
+- `imf_export_volume_growth`
+- `imf_govt_expenditure_pct_gdp`
+- `imf_govt_revenue_pct_gdp`
+- `imf_import_volume_growth`
+- `imf_investment_pct_gdp`
+- `imf_national_savings_pct_gdp`
+- `imf_net_financial_position`
+- `imf_quota_sdrs`
+- `imf_sdr_allocation_bal`
+- `imf_sdr_holdings_bal`
+- `imf_total_loans_outstanding`
+- `imf_tranche_disbursements`
+- `insider_buy_shares_30d`
+- `insider_net_flow_30d`
+- `insider_sell_shares_30d`
+- `institutional_holding_pct`
+- `is_synthetic_rate`
+- `lipi_banks_net`
+- `lipi_companies_net`
+- `lipi_individuals_net`
+- `lipi_insurance_net`
+- `lipi_mutual_funds_net`
+- `m2_money`
+- `macro_news_sentiment_3d`
+- `major_contract_event`
+- `market_number_of_trades`
+- `net_interest_margin`
+- `new_highs`
+- `new_lows`
+- `npl_ratio`
+- `pakistan_activity_is_synthetic`
+- `palm_oil_price`
+- `plant_shutdown_event`
+- `political_news_sentiment_3d`
+- `provisioning_coverage`
+- `sbp_additional_is_synthetic`
+- `sbp_omo_net_outstanding`
+- `sector_breadth`
+- `sector_news_sentiment_3d`
+- `sector_news_sentiment_count`
+- `sponsor_holding_pct`
+- `stock_relative_strength_sector`
+- `ticker`
+- `total_advances`
+- `total_deposits`
+- `trade_deficit`
+- `unchanged_count`
+- `wheat_procurement_mt`
+
+## Partially dead - real for some tickers, KEEP (202)
+
+- `acquisition_event` (dead in 106/107 tickers)
+- `article_count` (dead in 101/107 tickers)
+- `asset_growth` (dead in 91/107 tickers)
+- `book_value_per_share` (dead in 20/107 tickers)
+- `capacity_expansion_event` (dead in 106/107 tickers)
+- `corporate_news_sentiment_3d` (dead in 2/107 tickers)
+- `corr_stock_brent` (dead in 91/107 tickers)
+- `cpi_energy` (dead in 2/107 tickers)
+- `cpi_food` (dead in 2/107 tickers)
+- `cpi_housing` (dead in 2/107 tickers)
+- `current_ratio` (dead in 34/107 tickers)
+- `days_since_dividend` (dead in 8/107 tickers)
+- `days_since_last_event` (dead in 1/107 tickers)
+- `debt_to_equity` (dead in 24/107 tickers)
+- `dividend_event` (dead in 61/107 tickers)
+- `dividend_yield` (dead in 8/107 tickers)
+- `earnings_event` (dead in 2/107 tickers)
+- `ebitda` (dead in 34/107 tickers)
+- `election_flag` (dead in 2/107 tickers)
+- `eps_consensus_surprise` (dead in 17/107 tickers)
+- `eps_expected` (dead in 17/107 tickers)
+- `eps_growth_yoy` (dead in 87/107 tickers)
+- `eps_qoq_surprise` (dead in 17/107 tickers)
+- `eps_trailing` (dead in 17/107 tickers)
+- `ev` (dead in 17/107 tickers)
+- `ev_ebitda` (dead in 34/107 tickers)
+- `ev_sales` (dead in 18/107 tickers)
+- `event_sentiment_decay` (dead in 61/107 tickers)
+- `event_sentiment_score` (dead in 62/107 tickers)
+- `exports_usd_m` (dead in 2/107 tickers)
+- `fatf_greylist_flag` (dead in 1/107 tickers)
+- `forward_pe` (dead in 1/107 tickers)
+- `free_cash_flow` (dead in 20/107 tickers)
+- `geopolitical_news_sentiment_count` (dead in 2/107 tickers)
+- `government_stability_score` (dead in 2/107 tickers)
+- `gross_profit` (dead in 36/107 tickers)
+- `gross_profit_margin` (dead in 104/107 tickers)
+- `imf_gdp_usd_billions` (dead in 1/107 tickers)
+- `imports_usd_m` (dead in 2/107 tickers)
+- `insider_transaction_event` (dead in 106/107 tickers)
+- `inventory` (dead in 38/107 tickers)
+- `litigation_event` (dead in 106/107 tickers)
+- `lsm_growth` (dead in 2/107 tickers)
+- `macro_news_sentiment_count` (dead in 1/107 tickers)
+- `management_change_event` (dead in 34/107 tickers)
+- `market_cap` (dead in 17/107 tickers)
+- `merger_event` (dead in 105/107 tickers)
+- `middle_east_conflict_flag` (dead in 2/107 tickers)
+- `msci_fm_close` (dead in 1/107 tickers)
+- `net_income` (dead in 17/107 tickers)
+- `net_profit_margin` (dead in 102/107 tickers)
+- `news_sentiment_daily` (dead in 101/107 tickers)
+- `news_shock_flag` (dead in 101/107 tickers)
+- `news_shock_sentiment` (dead in 104/107 tickers)
+- `news_volume_daily` (dead in 101/107 tickers)
+- `news_volume_zscore_20d` (dead in 101/107 tickers)
+- `oil_return_pct` (dead in 91/107 tickers)
+- `operating_cash_flow` (dead in 25/107 tickers)
+- `operating_profit` (dead in 33/107 tickers)
+- `payout_ratio` (dead in 27/107 tickers)
+- `pb_percentile_3y` (dead in 20/107 tickers)
+- `pb_ratio` (dead in 20/107 tickers)
+- `pe_1y_avg` (dead in 17/107 tickers)
+- `pe_3y_avg` (dead in 17/107 tickers)
+- `pe_5y_avg` (dead in 17/107 tickers)
+- `pe_percentile_1y` (dead in 17/107 tickers)
+- `pe_percentile_3y` (dead in 17/107 tickers)
+- `pe_ratio` (dead in 17/107 tickers)
+- `peg_ratio` (dead in 76/107 tickers)
+- `political_news_sentiment_count` (dead in 2/107 tickers)
+- `political_uncertainty_score` (dead in 2/107 tickers)
+- `price_to_cash_flow` (dead in 9/107 tickers)
+- `profit_growth` (dead in 91/107 tickers)
+- `profit_margin` (dead in 2/107 tickers)
+- `pucars_sentiment_daily` (dead in 51/107 tickers)
+- `raw_news_headline_daily` (dead in 103/107 tickers)
+- `raw_pucars_body_daily` (dead in 1/107 tickers)
+- `raw_pucars_category_daily` (dead in 1/107 tickers)
+- `raw_pucars_headline_daily` (dead in 1/107 tickers)
+- `receivables` (dead in 21/107 tickers)
+- `red_sea_disruption_flag` (dead in 2/107 tickers)
+- `regulatory_approval_event` (dead in 96/107 tickers)
+- `reserve_import_coverage` (dead in 2/107 tickers)
+- `revenue` (dead in 18/107 tickers)
+- `revenue_growth` (dead in 92/107 tickers)
+- `rights_event` (dead in 106/107 tickers)
+- `roa` (dead in 4/107 tickers)
+- `roe` (dead in 20/107 tickers)
+- `roic` (dead in 37/107 tickers)
+- `search_trend_bwcl` (dead in 1/107 tickers)
+- `search_trend_chcc` (dead in 1/107 tickers)
+- `search_trend_cnergy` (dead in 1/107 tickers)
+- `search_trend_colg` (dead in 1/107 tickers)
+- `search_trend_cphl` (dead in 1/107 tickers)
+- `search_trend_dcr` (dead in 1/107 tickers)
+- `search_trend_dgkc` (dead in 1/107 tickers)
+- `search_trend_dhpl` (dead in 1/107 tickers)
+- `search_trend_efert` (dead in 1/107 tickers)
+- `search_trend_engro` (dead in 1/107 tickers)
+- `search_trend_engroh` (dead in 1/107 tickers)
+- `search_trend_epcl` (dead in 1/107 tickers)
+- `search_trend_fabl` (dead in 1/107 tickers)
+- `search_trend_fatima` (dead in 1/107 tickers)
+- `search_trend_fccl` (dead in 1/107 tickers)
+- `search_trend_ffc` (dead in 1/107 tickers)
+- `search_trend_ffl` (dead in 1/107 tickers)
+- `search_trend_fham` (dead in 1/107 tickers)
+- `search_trend_gadt` (dead in 1/107 tickers)
+- `search_trend_gal` (dead in 1/107 tickers)
+- `search_trend_gatm` (dead in 1/107 tickers)
+- `search_trend_ghgl` (dead in 1/107 tickers)
+- `search_trend_ghni` (dead in 1/107 tickers)
+- `search_trend_glaxo` (dead in 1/107 tickers)
+- `search_trend_haleon` (dead in 1/107 tickers)
+- `search_trend_hbl` (dead in 1/107 tickers)
+- `search_trend_hcar` (dead in 1/107 tickers)
+- `search_trend_hgfa` (dead in 1/107 tickers)
+- `search_trend_hinoon` (dead in 1/107 tickers)
+- `search_trend_hmb` (dead in 1/107 tickers)
+- `search_trend_hubc` (dead in 1/107 tickers)
+- `search_trend_humnl` (dead in 1/107 tickers)
+- `search_trend_ibfl` (dead in 1/107 tickers)
+- `search_trend_ilp` (dead in 1/107 tickers)
+- `search_trend_indu` (dead in 1/107 tickers)
+- `search_trend_inil` (dead in 1/107 tickers)
+- `search_trend_isl` (dead in 1/107 tickers)
+- `search_trend_jdws` (dead in 1/107 tickers)
+- `search_trend_jvdc` (dead in 1/107 tickers)
+- `search_trend_kapco` (dead in 1/107 tickers)
+- `search_trend_kel` (dead in 1/107 tickers)
+- `search_trend_kohc` (dead in 1/107 tickers)
+- `search_trend_ktml` (dead in 1/107 tickers)
+- `search_trend_lci` (dead in 1/107 tickers)
+- `search_trend_lotchem` (dead in 1/107 tickers)
+- `search_trend_luck` (dead in 1/107 tickers)
+- `search_trend_mari` (dead in 1/107 tickers)
+- `search_trend_mcb` (dead in 1/107 tickers)
+- `search_trend_meht` (dead in 1/107 tickers)
+- `search_trend_mlcf` (dead in 1/107 tickers)
+- `search_trend_mtl` (dead in 1/107 tickers)
+- `search_trend_mughal` (dead in 1/107 tickers)
+- `search_trend_mureb` (dead in 1/107 tickers)
+- `search_trend_natf` (dead in 1/107 tickers)
+- `search_trend_nbp` (dead in 1/107 tickers)
+- `search_trend_nestle` (dead in 1/107 tickers)
+- `search_trend_nml` (dead in 1/107 tickers)
+- `search_trend_nrl` (dead in 1/107 tickers)
+- `search_trend_ogdc` (dead in 1/107 tickers)
+- `search_trend_pabc` (dead in 1/107 tickers)
+- `search_trend_pael` (dead in 1/107 tickers)
+- `search_trend_pakt` (dead in 1/107 tickers)
+- `search_trend_pglc` (dead in 1/107 tickers)
+- `search_trend_pibtl` (dead in 1/107 tickers)
+- `search_trend_pioc` (dead in 1/107 tickers)
+- `search_trend_pkgs` (dead in 1/107 tickers)
+- `search_trend_pol` (dead in 1/107 tickers)
+- `search_trend_power` (dead in 1/107 tickers)
+- `search_trend_ppl` (dead in 1/107 tickers)
+- `search_trend_prl` (dead in 1/107 tickers)
+- `search_trend_psel` (dead in 1/107 tickers)
+- `search_trend_psx` (dead in 1/107 tickers)
+- `search_trend_ptc` (dead in 1/107 tickers)
+- `search_trend_rmpl` (dead in 1/107 tickers)
+- `search_trend_sazew` (dead in 1/107 tickers)
+- `search_trend_scbpl` (dead in 1/107 tickers)
+- `search_trend_searl` (dead in 1/107 tickers)
+- `search_trend_shfa` (dead in 1/107 tickers)
+- `search_trend_sngp` (dead in 1/107 tickers)
+- `search_trend_srvi` (dead in 1/107 tickers)
+- `search_trend_ssgc` (dead in 1/107 tickers)
+- `search_trend_sys` (dead in 1/107 tickers)
+- `search_trend_tgl` (dead in 1/107 tickers)
+- `search_trend_thall` (dead in 1/107 tickers)
+- `search_trend_trg` (dead in 1/107 tickers)
+- `search_trend_upfl` (dead in 1/107 tickers)
+- `search_trend_wafi` (dead in 1/107 tickers)
+- `search_trend_youw` (dead in 1/107 tickers)
+- `search_volume_spike_flag` (dead in 89/107 tickers)
+- `sector_pb_avg` (dead in 91/107 tickers)
+- `sector_pe_avg` (dead in 91/107 tickers)
+- `sent_lag_1` (dead in 3/107 tickers)
+- `sent_lag_2` (dead in 3/107 tickers)
+- `sent_lag_3` (dead in 3/107 tickers)
+- `sentiment_dispersion_7d` (dead in 104/107 tickers)
+- `sentiment_momentum_3d_vs_7d` (dead in 104/107 tickers)
+- `sentiment_score` (dead in 104/107 tickers)
+- `sentiment_score_3d_decay` (dead in 104/107 tickers)
+- `sentiment_score_7d_sma` (dead in 104/107 tickers)
+- `share_buyback_event` (dead in 105/107 tickers)
+- `shares_outstanding` (dead in 88/107 tickers)
+- `short_term_speculation_proxy` (dead in 102/107 tickers)
+- `sponsor_transaction_event` (dead in 106/107 tickers)
+- `total_assets` (dead in 20/107 tickers)
+- `total_cash` (dead in 20/107 tickers)
+- `total_debt` (dead in 24/107 tickers)
+- `total_fx_reserves` (dead in 1/107 tickers)
+- `trade_deficit_expected` (dead in 2/107 tickers)
+- `trade_deficit_surprise` (dead in 2/107 tickers)
+- `trade_deficit_usd_m` (dead in 2/107 tickers)
+- `turnover_ratio` (dead in 102/107 tickers)
+- `working_capital` (dead in 34/107 tickers)
+- `wpi_index` (dead in 2/107 tickers)

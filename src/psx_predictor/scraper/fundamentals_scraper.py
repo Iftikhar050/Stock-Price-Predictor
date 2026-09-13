@@ -85,7 +85,45 @@ class FundamentalsScraper:
                 ebitda = get_val(qf, "EBITDA", d) or get_val(qf, "Normalized EBITDA", d)
                 total_cash = get_val(bs, "Cash And Cash Equivalents", d) or get_val(bs, "Cash Financial", d)
                 shares_outstanding = get_val(bs, "Ordinary Shares Number", d) or get_val(qf, "Basic Average Shares", d)
-                
+
+                # Gross/Operating profit - standard income statement line items, available for any ticker
+                gross_profit = get_val(qf, "Gross Profit", d)
+                operating_profit = get_val(qf, "Operating Income", d)
+
+                # ROIC = NOPAT / Invested Capital. Only computed when the underlying
+                # tax and capital figures are actually reported - left null otherwise
+                # rather than guessing a tax rate.
+                roic = None
+                pretax_income = get_val(qf, "Pretax Income", d)
+                tax_provision = get_val(qf, "Tax Provision", d)
+                if operating_profit is not None and pretax_income and tax_provision is not None:
+                    effective_tax_rate = tax_provision / pretax_income
+                    nopat = operating_profit * (1 - effective_tax_rate)
+                    invested_capital = None
+                    if total_debt is not None and equity is not None:
+                        invested_capital = total_debt + equity - (total_cash or 0.0)
+                    if invested_capital and invested_capital > 0:
+                        roic = nopat / invested_capital
+
+                # Liquidity / working capital - standard balance sheet line items
+                current_assets = get_val(bs, "Current Assets", d)
+                current_liabilities = get_val(bs, "Current Liabilities", d)
+                current_ratio = None
+                working_capital = None
+                if current_assets is not None and current_liabilities is not None:
+                    working_capital = current_assets - current_liabilities
+                    if current_liabilities > 0:
+                        current_ratio = current_assets / current_liabilities
+
+                receivables = get_val(bs, "Receivables", d) or get_val(bs, "Accounts Receivable", d)
+                inventory = get_val(bs, "Inventory", d)
+
+                # Payout ratio = dividends paid / net income (dividends paid is reported as negative)
+                payout_ratio = None
+                dividends_paid = get_val(cf, "Cash Dividends Paid", d) or get_val(cf, "Common Stock Dividend Paid", d)
+                if dividends_paid is not None and net_income:
+                    payout_ratio = abs(dividends_paid) / net_income
+
                 # PE Ratio is usually dynamic based on price, but info has current PE.
                 # Since we are getting historical, we'll leave it None and let build_features handle it.
                 pe_ratio = None
@@ -127,7 +165,15 @@ class FundamentalsScraper:
                     "total_debt": float(total_debt) if total_debt is not None else None,
                     "ebitda": float(ebitda) if ebitda is not None else None,
                     "total_cash": float(total_cash) if total_cash is not None else None,
-                    "shares_outstanding": float(shares_outstanding) if shares_outstanding is not None else None
+                    "shares_outstanding": float(shares_outstanding) if shares_outstanding is not None else None,
+                    "gross_profit": float(gross_profit) if gross_profit is not None else None,
+                    "operating_profit": float(operating_profit) if operating_profit is not None else None,
+                    "roic": float(roic) if roic is not None else None,
+                    "current_ratio": float(current_ratio) if current_ratio is not None else None,
+                    "working_capital": float(working_capital) if working_capital is not None else None,
+                    "receivables": float(receivables) if receivables is not None else None,
+                    "inventory": float(inventory) if inventory is not None else None,
+                    "payout_ratio": float(payout_ratio) if payout_ratio is not None else None
                 })
                 
             if not rows:

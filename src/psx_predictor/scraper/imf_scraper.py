@@ -11,8 +11,19 @@ logger = logging.getLogger(__name__)
 
 class ImfScraper:
     """
-    Scraper for official IMF DataMapper API & SDMX REST services for Pakistan.
-    Syncs 20 IMF macroeconomic projections, fiscal targets, and loan balances into PostgreSQL.
+    Scraper for the official IMF DataMapper REST API for Pakistan.
+    Syncs 13 real IMF DataMapper macroeconomic/fiscal indicators into PostgreSQL.
+
+    SDR allocation/holdings, quota, loan-program disbursements, and net
+    financial position are NOT included here: they come from the IMF
+    Financial Data Query Tool (imf.org/external/np/fin/tad/query.aspx), a
+    form-based page with no confirmed JSON/REST endpoint, not the DataMapper
+    API this class actually calls - a previous version hardcoded 6 static
+    constants for them (values that were already off by an order of
+    magnitude vs. IMF's own published figures) and labeled the sync "20
+    indicators". They were removed rather than left wrong; wiring up a real
+    FDQT source is open follow-up work, not something to fake in the
+    meantime.
     """
     def __init__(self):
         self.headers = {
@@ -58,10 +69,14 @@ class ImfScraper:
                         df_yr['year'] = pd.to_numeric(df_yr['year_str'], errors='coerce')
                         df_yr = df_yr.dropna(subset=['year'])
                         
-                        # Merge onto daily dates using year match
+                        # Merge onto daily dates using year match. Forward-fill only:
+                        # a year's real figure must never be projected backward onto
+                        # earlier years that don't have it yet (look-ahead bias), and
+                        # an indicator with no data at all stays NaN rather than 0.0 -
+                        # a silent zero reads as "no fiscal deficit", not "unknown".
                         df_daily['year'] = pd.to_datetime(df_daily['date']).dt.year
                         df_daily = pd.merge(df_daily, df_yr[['year', col_name]], on='year', how='left')
-                        df_daily[col_name] = df_daily[col_name].ffill().bfill().fillna(0.0)
+                        df_daily[col_name] = df_daily[col_name].ffill()
                         df_daily.drop(columns=['year'], inplace=True, errors='ignore')
                         
                 return df_daily
@@ -70,32 +85,23 @@ class ImfScraper:
         return pd.DataFrame()
 
     def sync_imf_indicators(self):
-        """Syncs all 20 IMF indicators for Pakistan into macro_indicators."""
-        logger.info("Syncing 20 IMF macroeconomic & loan program indicators...")
+        """Syncs the 13 real IMF DataMapper indicators for Pakistan into macro_indicators.
+
+        Does not write imf_sdr_allocation_bal, imf_sdr_holdings_bal,
+        imf_total_loans_outstanding, imf_quota_sdrs, imf_tranche_disbursements,
+        imf_net_financial_position, or imf_primary_balance_pct_gdp - see the
+        class docstring for why. Those columns are left untouched (NULL if
+        never populated) rather than filled with a hardcoded guess.
+        """
+        logger.info("Syncing 13 real IMF DataMapper macroeconomic indicators...")
         df_imf = self.fetch_imf_datamapper()
-        
+
         if df_imf.empty or len(df_imf) == 0:
-            # Fallback range
-            dates = pd.date_range(start="2005-01-01", end=date.today().strftime("%Y-%m-%d"), freq="B")
-            df_imf = pd.DataFrame({"date": dates.date})
-            
-        # Add IMF Program Loan & SDR Balances
-        df_imf["imf_sdr_allocation_bal"] = 2038.0 # SDR Millions
-        df_imf["imf_sdr_holdings_bal"] = 850.0   # SDR Millions
-        df_imf["imf_total_loans_outstanding"] = 6500.0 # SDR Millions ($8.7B EFF facility)
-        df_imf["imf_quota_sdrs"] = 2031.0       # Pakistan IMF Quota
-        df_imf["imf_tranche_disbursements"] = 1000.0 # Tranche size ($1.0B)
-        df_imf["imf_net_financial_position"] = -5650.0 # Net position SDRs
-        
-        # Add Primary Balance if missing
-        if "imf_primary_balance_pct_gdp" not in df_imf.columns:
-            if "imf_govt_fiscal_balance_pct_gdp" in df_imf.columns:
-                df_imf["imf_primary_balance_pct_gdp"] = df_imf["imf_govt_fiscal_balance_pct_gdp"] + 3.5
-            else:
-                df_imf["imf_primary_balance_pct_gdp"] = 0.4
-                
+            logger.warning("IMF DataMapper returned no data - nothing to sync.")
+            return False
+
         upsert_macro_indicators(df_imf)
-        logger.info(f"Successfully synced {len(df_imf)} records of 20 IMF Pakistan indicators into PostgreSQL!")
+        logger.info(f"Successfully synced {len(df_imf)} records of real IMF Pakistan indicators into PostgreSQL!")
         return True
 
 if __name__ == "__main__":

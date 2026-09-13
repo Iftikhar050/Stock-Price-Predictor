@@ -10,7 +10,7 @@ A modern, full-stack AI application designed to predict stock prices for the Pak
 * **Live Market Performers & Pricing:** An auto-updating dashboard ranking the top active stocks, advancers, and decliners. Automatically polls live prices during market hours and displays a "Market Closed" indicator after hours.
 * **NLP News Sentiment Analysis:** Scrapes real-time financial news for each ticker from Google News, performs NLP sentiment analysis using VADER, and incorporates a 3-day sentiment decay into the ML dataset.
 * **Corporate Dividend Engine:** Scrapes historical cash payouts via Yahoo Finance to engineer `dividend_yield` and `days_since_dividend` features, drastically improving AI accuracy around ex-dividend dates.
-* **Automated Pipeline Orchestration:** A zero-touch cron-ready architecture (`run_pipeline.py`) continuously orchestrates EOD OHLCV scraping (via Yahoo Finance), NLP News aggregation, Dividend tracking, dynamic ML Feature Engineering, and model retraining.
+* **Automated Pipeline Orchestration:** A zero-touch cron-ready architecture (`scripts/run_pipeline.py`) continuously orchestrates EOD OHLCV scraping (via Yahoo Finance), NLP News aggregation, Dividend tracking, dynamic ML Feature Engineering, and model retraining.
 
 ## 🛠️ Technology Stack
 
@@ -48,7 +48,7 @@ uvicorn src.psx_predictor.api.main:app --reload
 
 The database scraping, feature engineering, and AI model training is entirely orchestrated through a single automated pipeline. In a new terminal, run:
 ```bash
-python run_pipeline.py --run-now
+python scripts/run_pipeline.py --run-now
 ```
 *(This will fetch the latest market data, build all technical features, train all 4 ML models, and automatically hot-reload the backend server you started above).*
 
@@ -70,12 +70,12 @@ The application will be available at `http://localhost:5173`.
 
 To fully sync the latest market data (EOD + News + Dividends), calculate features, and retrain the machine learning models, simply trigger the pipeline orchestrator:
 ```bash
-python run_pipeline.py --run-now
+python scripts/run_pipeline.py --run-now
 ```
 
 Alternatively, to automate this process so that the AI trains on the new market data every single day without human intervention, run:
 ```bash
-python run_pipeline.py
+python scripts/run_pipeline.py
 ```
 
 ## 📜 License

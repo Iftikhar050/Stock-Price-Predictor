@@ -16,7 +16,7 @@ def analyze_feature_importance():
     X_list, y_list = [], []
     
     for ticker in TICKERS:
-        file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
+        file_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
         if not os.path.exists(file_path):
             print(f"Skipping {ticker}, feature file not found.")
             continue
@@ -53,7 +53,31 @@ def analyze_feature_importance():
     print("\n--- Feature Importances ---")
     for idx, row in feat_imp.iterrows():
         print(f"{idx+1}. {row['Feature']:<25} : {row['Importance']*100:.2f}%")
-        
+
+    # RFE-style pruning recommendation: rather than eyeballing the chart,
+    # report which low-importance features could be dropped without giving
+    # up meaningful cumulative importance, following the same forward/
+    # backward feature-selection intent as both source papers (RFE in
+    # Chakravorty & Elsayed; forward feature selection in Shen/Jiang/Zhang).
+    # This is advisory only - it does NOT modify build_features.py or drop
+    # anything automatically, since a feature with near-zero pooled
+    # importance can still carry real signal for a specific sector/ticker
+    # subset (the same trap the earlier dead-column audit had to correct
+    # for) - review the list before acting on it.
+    feat_imp['cumulative_importance'] = feat_imp['Importance'].cumsum() / feat_imp['Importance'].sum()
+    cutoff_idx = (feat_imp['cumulative_importance'] >= 0.99).idxmax()
+    low_importance = feat_imp.iloc[cutoff_idx + 1:]
+    report_path = os.path.join(ROOT_DIR, "reports", "figures", "feature_importance_pruning_candidates.csv")
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    low_importance.to_csv(report_path, index=False)
+    print(
+        f"\n{len(low_importance)} of {len(feat_imp)} features sit below the "
+        f"99% cumulative-importance mark (pooled, all tickers) and are "
+        f"candidate prune targets - see {report_path}. Verify per-sector "
+        f"relevance before dropping anything (a feature can be globally "
+        f"low-importance yet still real signal for a specific sector)."
+    )
+
     # Plot
     plt.figure(figsize=(10, 8))
     plt.barh(feat_imp['Feature'][::-1], feat_imp['Importance'][::-1] * 100, color='skyblue')

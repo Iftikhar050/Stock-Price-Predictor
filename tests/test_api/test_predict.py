@@ -18,7 +18,7 @@ def test_predict_valid_ticker(mocker):
             return np.ones(len(x)) * 100.0
 
     class MockLSTM:
-        def __call__(self, x):
+        def __call__(self, x, x_cat):
             return torch.ones(x.shape[0], 1)
             
     class MockScaler:

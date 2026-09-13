@@ -57,6 +57,13 @@ def run_full_data_pipeline(tickers: Optional[List[str]] = None) -> bool:
         logger.warning(f" PSX Market Stats sync skipped: {e}")
 
     try:
+        from src.psx_predictor.scraper.psx_dps_market_scraper import PsxDpsMarketScraper
+        PsxDpsMarketScraper().fetch_circuit_breakers()
+        logger.info(" PSX circuit-breaker sync completed.")
+    except Exception as e:
+        logger.warning(f" PSX circuit-breaker sync skipped: {e}")
+
+    try:
         from src.psx_predictor.data.fetch_search_trends import sync_search_trends_to_db
         for ticker in tickers:
             sync_search_trends_to_db(ticker)

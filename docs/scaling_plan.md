@@ -26,5 +26,5 @@ This document outlines the architecture and phased approach for scaling the `Sto
 - **Accomplishments:**
   - **Compute Scaling:** Analyzed standard pandas vectorized feature engineering. It successfully handles 30+ tickers and ~15 years of data in just 25 seconds, eliminating the need for Dask/PySpark overhead.
   - **Inference Pipeline:** Updated FastAPI endpoints to query the dynamic `active_tickers` database table on boot.
-  - **Orchestration:** Implemented a master `run_pipeline.py` script. Powered by Python's `schedule`, this script automates the daily sequence: Scrape -> Feature Eng -> Train -> API Hot-Reload without any human intervention.
+  - **Orchestration:** Implemented a master `scripts/run_pipeline.py` script. Powered by Python's `schedule`, this script automates the daily sequence: Scrape -> Feature Eng -> Train -> API Hot-Reload without any human intervention.
   - **Note on Storage Architecture:** Registry outputs (backtest runs, metrics, feature CSVs) are stored under `src/models/registry/`, whereas final trained model artifacts (e.g., `baseline_rf_model.pkl`) live in the root `models/` directory. Be careful not to confuse the two `models`-named directories.

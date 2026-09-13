@@ -14,7 +14,10 @@ Usage:
 """
 from __future__ import annotations
 
+import glob
 import logging
+import os
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -23,6 +26,9 @@ import pandas as pd
 
 logger = logging.getLogger("QualityGate")
 logger.setLevel(logging.INFO)
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 
 
 @dataclass
@@ -268,3 +274,64 @@ def run_quality_checks(
         )
 
     return report
+
+
+def run_quality_checks_all_tickers() -> dict:
+    """
+    Runs run_quality_checks() against every data/processed/*_master.csv and
+    aggregates the results into one "which column is flagged, and in how many
+    tickers" summary.
+
+    build_features.py already runs the per-ticker check (logged at INFO as it
+    goes), but a regression that shows up in, say, 60 of 107 tickers is easy
+    to miss scattered across 107 separate log blocks. This is meant to be
+    called once, after a full pipeline run, so a genuine multi-ticker
+    regression is visible as one summary instead of requiring someone to
+    scroll back through the whole run's log.
+    """
+    paths = sorted(glob.glob(os.path.join(PROCESSED_DIR, "*_master.csv")))
+    failure_tickers: dict[str, set[str]] = defaultdict(set)
+    warning_tickers: dict[str, set[str]] = defaultdict(set)
+    n_total = 0
+    n_passed = 0
+
+    for path in paths:
+        ticker = os.path.basename(path).replace("_master.csv", "")
+        try:
+            df = pd.read_csv(path, low_memory=False)
+        except Exception as e:
+            logger.error(f"Quality gate summary: could not read {path}: {e}")
+            continue
+
+        n_total += 1
+        report = run_quality_checks(df, ticker=ticker, strict=False)
+        if report.passed:
+            n_passed += 1
+        for msg in report.failures:
+            failure_tickers[msg.split(":", 1)[0].strip()].add(ticker)
+        for msg in report.warnings:
+            warning_tickers[msg.split(":", 1)[0].strip()].add(ticker)
+
+    logger.info("=" * 70)
+    logger.info(f"QUALITY GATE SUMMARY: {n_passed}/{n_total} tickers passed with zero failures")
+    if failure_tickers:
+        logger.info("FAILURES, by column:")
+        for col, tickers in sorted(failure_tickers.items(), key=lambda kv: -len(kv[1])):
+            logger.info(f"  {col}: failed in {len(tickers)}/{n_total} tickers")
+    if warning_tickers:
+        logger.info("WARNINGS, by column (top 20 by ticker count):")
+        for col, tickers in sorted(warning_tickers.items(), key=lambda kv: -len(kv[1]))[:20]:
+            logger.info(f"  {col}: warned in {len(tickers)}/{n_total} tickers")
+    logger.info("=" * 70)
+
+    return {
+        "n_total": n_total,
+        "n_passed": n_passed,
+        "failures_by_column": {k: len(v) for k, v in failure_tickers.items()},
+        "warnings_by_column": {k: len(v) for k, v in warning_tickers.items()},
+    }
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    run_quality_checks_all_tickers()

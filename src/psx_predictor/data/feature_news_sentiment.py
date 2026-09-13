@@ -229,7 +229,7 @@ def generate_news_sentiment_features(
         with engine.connect() as conn:
             search_df = pd.read_sql(query_search, conn)
 
-        if not search_df.empty:
+        if not search_df.empty and search_df[search_col].abs().sum() > 0:
             search_df["date"] = pd.to_datetime(search_df["date"])
             base_df = pd.merge(base_df, search_df, on="date", how="left")
             base_df[search_col] = base_df[search_col].ffill().fillna(0.0)
@@ -240,13 +240,13 @@ def generate_news_sentiment_features(
             base_df["search_volume_spike_flag"] = (
                 (base_df[search_col] - s_mean) / s_std > 1.5
             ).astype(int)
-        else:
-            base_df[search_col] = 0.0
-            base_df["search_volume_spike_flag"] = 0
+        # else: no real Google Trends data exists for this ticker - leave
+        # search_col/search_volume_spike_flag unset rather than shipping an
+        # always-zero placeholder column (found 2026-09: 88 of 107 tickers had
+        # exactly this, one dead column per file, invisible to a same-name
+        # cross-ticker audit since each ticker's column has a unique name).
     except Exception as e:
         logger.info(f"Search trend column {search_col} not available: {e}")
-        base_df[search_col] = 0.0
-        base_df["search_volume_spike_flag"] = 0
 
     # ── 7. Sentiment coverage era column ("backfilled" / "live" / "unavailable") ──
     try:

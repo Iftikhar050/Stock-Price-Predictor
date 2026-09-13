@@ -124,7 +124,7 @@ def prepare_and_scale_data(lookback=30):
     feature_cols_len = 0
     
     for ticker in valid_tickers:
-        file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
+        file_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
         try:
             df = pd.read_csv(file_path)
         except Exception:

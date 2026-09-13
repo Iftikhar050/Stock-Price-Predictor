@@ -39,7 +39,7 @@ def test_reload_models_valid_key(mocker):
     mocker.patch("torch.load", return_value=mock_state_dict)
     
     mock_lstm = mocker.Mock()
-    mocker.patch("src.psx_predictor.api.main.LSTMModel", return_value=mock_lstm)
+    mocker.patch("src.psx_predictor.api.routers.predict.LSTMModel", return_value=mock_lstm)
     
     response = client.post("/api/reload_models", headers={"X-API-Key": "test-key"})
     assert response.status_code == 200

@@ -19,7 +19,7 @@ def run_diagnostics():
     X_list = []
     
     for ticker in TICKERS:
-        file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
+        file_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
         if not os.path.exists(file_path):
             continue
             

@@ -35,6 +35,58 @@ class PsxDpsScraper:
         except ValueError:
             return np.nan
 
+    def _reconcile_annual_scale(self, rev_val: float, net_val: float, eps_val: float, shares_val: float) -> tuple:
+        """
+        PSX's DPS annual-financials table doesn't render Sales/Profit-after-Tax at a
+        fixed, predictable order of magnitude - confirmed by live-scraping PSO/MEBL/FCCL
+        and cross-checking against their own displayed EPS: every fresh scrape currently
+        implies the raw Sales/Profit digits are short by ~1000x relative to what
+        (EPS * shares outstanding) says net income should be, and stored historical rows
+        show yet other scales for the same ticker/year. Rather than hardcode a multiplier
+        that will silently drift wrong again the next time PSX changes its rendering, use
+        EPS (a stable per-share ratio) and shares outstanding (scraped from this same
+        page's stats block) as a live anchor: derive the scale factor needed to match
+        them, snapped to the nearest power of 10, and apply it to both net_income and
+        revenue (reported in the same table, same row-set, so presumed to share whatever
+        scale convention that row-set used for this scrape).
+        """
+        if np.isnan(eps_val) or eps_val == 0 or np.isnan(shares_val) or shares_val <= 0:
+            return rev_val, net_val  # no stable anchor available - leave as scraped
+
+        expected_net = eps_val * shares_val
+
+        if np.isnan(net_val) or net_val == 0:
+            # Profit-after-Tax missing/zero on the page - derive it from the EPS anchor.
+            # No anchor exists for revenue's scale in this branch, so leave it untouched.
+            return rev_val, expected_net
+
+        ratio = expected_net / net_val
+        if 1 / 15.0 < abs(ratio) < 15.0:
+            return rev_val, net_val  # within a plausible band (share count drifts some year to year via bonus issues) - trust the scraped figure
+
+        scale = 10 ** round(np.log10(abs(ratio)))
+        net_val = net_val * scale
+        if not np.isnan(rev_val):
+            rev_val = rev_val * scale
+        return rev_val, net_val
+
+    @staticmethod
+    def _plausibility_gate(rev_val: float, net_val: float) -> tuple:
+        """
+        Final safety net independent of the EPS anchor above (covers rows where EPS
+        itself failed to parse): a real PSX-listed company's net profit margin is never
+        remotely close to +-100x of revenue. A handful of historical scrapes produced
+        single/double/triple-digit "revenue" values (e.g. 17, 25, 30, 100) alongside a
+        real-looking net_income in the tens of millions - obvious mis-parses, not a
+        scale issue. Null rather than keep a value nothing can anchor as real.
+        """
+        if np.isnan(rev_val) or np.isnan(net_val) or rev_val == 0:
+            return rev_val, net_val
+        margin = net_val / rev_val
+        if abs(margin) > 3.0:
+            return np.nan, net_val
+        return rev_val, net_val
+
     def scrape_company_financials(self, ticker: str) -> bool:
         url = f"https://dps.psx.com.pk/company/{ticker}"
         logger.info(f"Scraping official PSX DPS financial statements for {ticker} from {url}...")
@@ -125,13 +177,19 @@ class PsxDpsScraper:
                 peg_str = ratio_data.get('PEG', {}).get(yr)
                 gross_margin_str = ratio_data.get('Gross Profit Margin (%)', {}).get(yr)
                 net_margin_str = ratio_data.get('Net Profit Margin (%)', {}).get(yr)
-                
+
+                rev_val = self._parse_val(rev_str)
+                net_val = self._parse_val(net_str)
+                eps_val = self._parse_val(eps_str)
+                rev_val, net_val = self._reconcile_annual_scale(rev_val, net_val, eps_val, shares_val)
+                rev_val, net_val = self._plausibility_gate(rev_val, net_val)
+
                 rec = {
                     'ticker': ticker,
                     'report_date': rep_date,
-                    'revenue': self._parse_val(rev_str),
-                    'net_income': self._parse_val(net_str),
-                    'eps': self._parse_val(eps_str),
+                    'revenue': rev_val,
+                    'net_income': net_val,
+                    'eps': eps_val,
                     'eps_growth_yoy': self._parse_val(eps_growth_str) / 100.0 if eps_growth_str and not np.isnan(self._parse_val(eps_growth_str)) else np.nan,
                     'peg_ratio': self._parse_val(peg_str),
                     'gross_profit_margin': self._parse_val(gross_margin_str) / 100.0 if gross_margin_str and not np.isnan(self._parse_val(gross_margin_str)) else np.nan,

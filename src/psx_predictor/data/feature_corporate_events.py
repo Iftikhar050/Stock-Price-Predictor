@@ -128,13 +128,25 @@ def generate_event_features(ticker: str, trading_dates: pd.DatetimeIndex = None)
         base_df[col] = 0
     base_df['event_sentiment_score'] = 0.0
 
-    # Map category to event type and set binary flags (no leakage: only on announcement_date)
+    # Map category to event type and set binary flags (no leakage: an
+    # announcement is only ever moved FORWARD to the next trading day, never
+    # backward - e.g. a weekend announcement becomes visible on the following
+    # Monday, not silently dropped, which is what happened before).
+    sorted_index = base_df.index.sort_values()
     for _, row in pucars_df.iterrows():
         event_date = row['announcement_date']
         event_col = _map_category(row.get('category', '')) or _map_category(row.get('headline_raw_text', ''))
-        if event_date in base_df.index and event_col and event_col in base_df.columns:
-            base_df.loc[event_date, event_col] = 1
-            base_df.loc[event_date, 'event_sentiment_score'] = float(row.get('sentiment_score', 0.0) or 0.0)
+        if not event_col or event_col not in base_df.columns:
+            continue
+        if event_date in base_df.index:
+            effective_date = event_date
+        else:
+            pos = sorted_index.searchsorted(event_date)
+            if pos >= len(sorted_index):
+                continue  # announcement is after the last available trading date
+            effective_date = sorted_index[pos]
+        base_df.loc[effective_date, event_col] = 1
+        base_df.loc[effective_date, 'event_sentiment_score'] = float(row.get('sentiment_score', 0.0) or 0.0)
 
     # Compute days_since_last_event (any event type)
     any_event = base_df[EVENT_COLS].max(axis=1)

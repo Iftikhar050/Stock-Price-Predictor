@@ -549,3 +549,22 @@ class TopicSentimentDaily(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
     )
+
+class CircuitBreakerEvent(Base):
+    """
+    Records tickers that hit PSX's daily upper/lower circuit price limit.
+    Source: https://dps.psx.com.pk/circuit-breakers (a live daily snapshot -
+    scraped once per trading day, so history only exists from whenever this
+    scraper started running; there is no backfill source for past dates).
+    """
+    __tablename__ = "circuit_breaker_events"
+
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False,
+        doc="'upper' or 'lower' - which circuit limit was hit")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )

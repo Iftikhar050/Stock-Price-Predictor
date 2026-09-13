@@ -30,6 +30,69 @@ FEATURE_SET_VERSION = "v2"
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 
+# Columns confirmed (2026-09, scratch/audit_dead_columns.py) to be constant/all-NaN
+# in every single one of the 107 tracked tickers - fabricated sources that were
+# removed with no real replacement, regulatory metrics with no free scrapable
+# source, or fields never wired to a real feed. Dropped from the final dataset so
+# training doesn't see zero-variance inputs; the code upstream still computes
+# them (harmless) since several are read by intermediate steps (e.g.
+# trade_deficit_usd_m feeds trade_deficit_expected/surprise) before this point.
+DEAD_COLUMNS = [
+    'adr_ratio', 'auto_sales_total', 'bonus_event', 'capital_adequacy_ratio', 'casa_deposits',
+    'casa_ratio', 'cement_dispatches_mt', 'circular_debt_level', 'cpi_energy', 'cpi_food',
+    'cpi_housing', 'current_account_balance', 'electricity_gen_gwh', 'exports_usd_m',
+    'forward_usd_pkr_3m', 'free_float', 'free_float_pct', 'geopolitical_news_sentiment_3d',
+    'government_receivables', 'hit_lower_circuit', 'hit_upper_circuit', 'idr_ratio',
+    'imf_export_volume_growth', 'imf_govt_expenditure_pct_gdp', 'imf_govt_revenue_pct_gdp',
+    'imf_import_volume_growth', 'imf_investment_pct_gdp', 'imf_national_savings_pct_gdp',
+    'imf_net_financial_position', 'imf_quota_sdrs', 'imf_sdr_allocation_bal',
+    'imf_sdr_holdings_bal', 'imf_total_loans_outstanding', 'imf_tranche_disbursements',
+    'imports_usd_m', 'insider_buy_shares_30d', 'insider_net_flow_30d', 'insider_sell_shares_30d',
+    'institutional_holding_pct', 'is_synthetic_rate', 'lsm_growth', 'm2_money',
+    'macro_news_sentiment_3d', 'major_contract_event', 'market_number_of_trades',
+    'net_interest_margin', 'new_highs', 'new_lows', 'npl_ratio', 'pakistan_activity_is_synthetic',
+    'palm_oil_price', 'petroleum_sales_volume', 'plant_shutdown_event',
+    'political_news_sentiment_3d', 'provisioning_coverage', 'refinery_margin',
+    'reserve_import_coverage', 'sbp_additional_is_synthetic', 'sbp_omo_net_outstanding',
+    'sector_breadth', 'sector_news_sentiment_3d', 'sector_news_sentiment_count',
+    'sector_pb_avg', 'sector_pe_avg', 'sponsor_holding_pct', 'stock_relative_strength_sector',
+    'total_advances', 'total_deposits', 'trade_deficit', 'trade_deficit_expected',
+    'trade_deficit_surprise', 'trade_deficit_usd_m', 'wheat_procurement_mt', 'wpi_index',
+    # Sentiment/news aggregates confirmed real in fewer than ~20% of tracked tickers
+    # (effectively no historical depth) plus raw text dumps that were never numeric
+    # ML features to begin with.
+    'sentiment_score', 'sentiment_score_3d_decay', 'sentiment_score_7d_sma',
+    'sentiment_momentum_3d_vs_7d', 'sentiment_dispersion_7d', 'news_shock_sentiment',
+    'search_volume_spike_flag',
+    # Corporate-event flags confirmed (2026-09) to have 1-12 real matches across
+    # the ENTIRE 467k-row/107-ticker dataset (0.0002%-0.003% non-zero) - real
+    # PUCARS keyword matches, not fabricated, but too sparse to carry any
+    # trainable signal. Kept: dividend_event/earnings_event/management_change_event/
+    # insider_transaction_event/event_sentiment_score/event_sentiment_decay, each
+    # with 48-1335 real occurrences.
+    'acquisition_event', 'capacity_expansion_event', 'litigation_event', 'rights_event',
+    'share_buyback_event', 'sponsor_transaction_event', 'merger_event', 'regulatory_approval_event',
+    # 2026-09: stricter >=95%-zero-or-missing audit across all 107 tickers
+    # (467k+ rows). These carry a handful of real occurrences (previously kept
+    # under a looser "has any real signal" bar) but are so sparse they add no
+    # trainable signal in a pooled multi-ticker model. NOT included here:
+    # banking_sector_*/oil_gas_sector_*/oil_return_pct (deliberately sector-
+    # gated - zero is correct for ~90 of 107 tickers by design, real for the
+    # ~13-26 tickers it applies to) and the search_trend_<ticker> per-ticker
+    # columns (each carries genuine sparse signal in its one file).
+    'sent_lag_1', 'sent_lag_2', 'sent_lag_3', 'insider_transaction_event', 'news_shock_flag',
+    'management_change_event', 'event_sentiment_score', 'dividend_event', 'ftse_return_pct',
+    'dax_return_pct', 'news_volume_daily', 'article_count', 'pucars_sentiment_daily',
+    'political_news_sentiment_count', 'lipi_mutual_funds_net', 'lipi_insurance_net',
+    'lipi_individuals_net', 'lipi_companies_net', 'lipi_banks_net',
+    'fipi_overseas_pakistani_net', 'fipi_foreign_individual_net', 'fipi_foreign_corporate_net',
+    'corporate_news_sentiment_3d', 'geopolitical_news_sentiment_count',
+    'news_volume_zscore_20d', 'earnings_event', 'budget_date_flag', 'event_sentiment_decay',
+    'corporate_news_sentiment_count', 'macro_news_sentiment_count', 'policy_rate_surprise',
+    'mpc_date_flag', 'global_oil_supply_shock_flag', 'panic_selling_proxy', 'reserve_changes',
+    'budget_season_flag', 'ramadan_flag',
+]
+
 def load_data(ticker: str) -> pd.DataFrame:
     """
     Queries PostgreSQL for ticker data, sorts chronologically, 
@@ -260,6 +323,30 @@ def merge_dividends(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df.drop(columns=['dividend_amount', 'last_div_date', 'last_div_amount'], inplace=True)
     return df
 
+def merge_circuit_breakers(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+    """
+    Flags days the ticker hit PSX's upper/lower circuit price limit.
+    Source: circuit_breaker_events, populated daily going forward from
+    https://dps.psx.com.pk/circuit-breakers - there is no historical archive,
+    so dates before this scraper started running are honestly 0/not-hit
+    rather than backfilled.
+    """
+    query = text("SELECT date, direction FROM circuit_breaker_events WHERE ticker = :ticker")
+    with engine.connect() as conn:
+        cb_df = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
+
+    df['hit_upper_circuit'] = 0
+    df['hit_lower_circuit'] = 0
+    if cb_df.empty:
+        return df
+
+    cb_df['date'] = pd.to_datetime(cb_df['date'])
+    upper_dates = set(cb_df.loc[cb_df['direction'] == 'upper', 'date'])
+    lower_dates = set(cb_df.loc[cb_df['direction'] == 'lower', 'date'])
+    df['hit_upper_circuit'] = df['date'].isin(upper_dates).astype(int)
+    df['hit_lower_circuit'] = df['date'].isin(lower_dates).astype(int)
+    return df
+
 def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
     Queries stock_fundamentals, merges it using as-of/backward-fill semantics.
@@ -283,30 +370,22 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     
     if fund_df.empty:
         logger.warning(f"No fundamentals data found for {ticker}.")
-        df['eps_trailing'] = 0.0
-        df['pe_ratio'] = np.nan
-        df['roe'] = 0.0
-        df['debt_to_equity'] = 0.0
-        df['book_value_per_share'] = 0.0
-        df['eps_growth_yoy'] = 0.0
-        df['revenue'] = 0.0
-        df['net_income'] = 0.0
-        df['free_cash_flow'] = 0.0
-        df['operating_cash_flow'] = 0.0
-        df['total_assets'] = 0.0
-        df['total_debt'] = 0.0
-        df['ebitda'] = 0.0
-        df['total_cash'] = 0.0
-        df['shares_outstanding'] = 0.0
-        df['pb_ratio'] = np.nan
-        df['profit_margin'] = 0.0
-        df['roa'] = 0.0
-        df['peg_ratio'] = np.nan
-        df['ev'] = np.nan
-        df['ev_ebitda'] = np.nan
-        df['ev_sales'] = np.nan
-        df['pe_percentile_1y'] = np.nan
-        df['pe_percentile_3y'] = np.nan
+        # Build defaults from the actual StockFundamentals table schema so a
+        # ticker with zero fundamentals rows (e.g. no Yahoo Finance coverage)
+        # still gets every column real tickers get - just filled with 0.0/NaN
+        # instead of the column being missing entirely (this used to hand-list
+        # a subset of columns and silently drifted out of sync with the table).
+        from src.psx_predictor.db.models import StockFundamentals
+        table_cols = [c for c in StockFundamentals.__table__.columns.keys()
+                      if c not in ('ticker', 'report_date', 'created_at')]
+        table_cols = [c if c != 'eps' else 'eps_trailing' for c in table_cols]
+        for col in table_cols:
+            df[col] = 0.0
+        # Ratio/derived columns computed later in this function for tickers
+        # that DO have fundamentals - use NaN here since "no data" isn't "0".
+        for col in ['pe_ratio', 'pb_ratio', 'peg_ratio', 'ev', 'ev_ebitda', 'ev_sales',
+                    'pe_percentile_1y', 'pe_percentile_3y']:
+            df[col] = np.nan
         return df
         
     if len(fund_df) < 4:
@@ -315,13 +394,31 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     fund_df['date'] = pd.to_datetime(fund_df['date'])
     fund_df = fund_df.sort_values('date').reset_index(drop=True)
     
+    # pct_change() is +/-inf (not NaN) whenever the value 4 quarters back was
+    # exactly 0 - a real reported 0 (or a data gap) rather than a genuine growth
+    # rate. .replace(inf, nan) before the gap_days mask keeps that honestly null
+    # instead of feeding inf into anything downstream (e.g. the ML models, which
+    # reject inf inputs outright).
     if 'eps_growth_yoy' not in fund_df.columns or fund_df['eps_growth_yoy'].isna().all():
-        fund_df['eps_growth_yoy_raw'] = fund_df['eps'].pct_change(periods=4)
+        fund_df['eps_growth_yoy_raw'] = fund_df['eps'].pct_change(periods=4).replace([np.inf, -np.inf], np.nan)
         fund_df['gap_days'] = (fund_df['date'] - fund_df['date'].shift(4)).dt.days
         fund_df['eps_growth_yoy'] = np.where(fund_df['gap_days'].between(340, 390), fund_df['eps_growth_yoy_raw'], np.nan)
         if 'eps_growth_yoy_raw' in fund_df.columns:
             fund_df.drop(columns=['eps_growth_yoy_raw', 'gap_days'], inplace=True, errors='ignore')
-    
+
+    # Same YoY-with-gap-validation pattern as eps_growth_yoy, applied to revenue/
+    # net income/total assets so these are computed from real reported figures
+    # rather than hardcoded per-ticker (see fundamentals_scraper.py for the raw fields).
+    fund_df['gap_days'] = (fund_df['date'] - fund_df['date'].shift(4)).dt.days
+    for src_col, growth_col in [('revenue', 'revenue_growth'), ('net_income', 'profit_growth'), ('total_assets', 'asset_growth')]:
+        if growth_col not in fund_df.columns or fund_df[growth_col].isna().all():
+            if src_col in fund_df.columns:
+                raw_growth = fund_df[src_col].pct_change(periods=4).replace([np.inf, -np.inf], np.nan)
+                fund_df[growth_col] = np.where(fund_df['gap_days'].between(340, 390), raw_growth, np.nan)
+            else:
+                fund_df[growth_col] = np.nan
+    fund_df.drop(columns=['gap_days'], inplace=True, errors='ignore')
+
     fund_df.rename(columns={'eps': 'eps_trailing'}, inplace=True)
     
     df = pd.merge(df, fund_df, on='date', how='left')
@@ -360,7 +457,19 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     mask_shares = (df['shares_outstanding'] != 0) & (df['shares_outstanding'].notna())
     if mask_shares.any():
         df.loc[mask_shares, 'ev'] = (df.loc[mask_shares, 'close'] * df.loc[mask_shares, 'shares_outstanding']) + df.loc[mask_shares, 'total_debt'] - df.loc[mask_shares, 'total_cash']
-        
+
+    # market_cap above came straight from stock_fundamentals' scraped "Market
+    # Cap (000's)" stat, bfilled/ffilled per report period then blanket-
+    # fillna(0.0)'d at line 364 - that scrape succeeds for only ~5% of
+    # tickers, so ~95% ended up hard-zeroed instead of genuinely missing.
+    # Recompute directly from close x shares_outstanding (the standard
+    # definition) wherever shares data exists: shares_outstanding is reliably
+    # scraped, this updates with price daily instead of freezing at whichever
+    # report date the market-cap stat happened to be captured, and the 5
+    # tickers where the scrape did work agree with this formula to <5%.
+    if mask_shares.any():
+        df.loc[mask_shares, 'market_cap'] = df.loc[mask_shares, 'close'] * df.loc[mask_shares, 'shares_outstanding']
+
     df['ev_ebitda'] = np.nan
     mask_ebitda = (df['ebitda'] != 0) & (df['ebitda'].notna()) & df['ev'].notna()
     if mask_ebitda.any():
@@ -394,25 +503,17 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     else:
         df['price_to_cash_flow'] = 0.0
 
-    sector_pe_baseline = 7.5 if ticker.upper() in ['MEBL', 'MCB', 'UBL', 'HBL', 'NBP', 'BAFL', 'BAHL'] else 6.0
-    sector_pb_baseline = 1.2 if ticker.upper() in ['MEBL', 'MCB', 'UBL', 'HBL', 'NBP', 'BAFL', 'BAHL'] else 0.9
-    df['sector_pe_avg'] = sector_pe_baseline
-    df['sector_pb_avg'] = sector_pb_baseline
+    # sector_pe_avg/sector_pb_avg (hardcoded 2-tier fabrication) and the bank-only
+    # regulatory ratio columns (net_interest_margin, casa_ratio, etc. - no live
+    # scrapable source for any ticker, confirmed 2026-09) are no longer computed
+    # here at all; both are dropped unconditionally in DEAD_COLUMNS before save.
 
     val_cols = [
         'pe_ratio', 'peg_ratio', 'pb_ratio', 'profit_margin', 'roa', 'ev', 'ev_ebitda', 'ev_sales',
-        'pe_percentile_1y', 'pe_percentile_3y', 'forward_pe',
-        'price_to_cash_flow', 'sector_pe_avg', 'sector_pb_avg'
+        'pe_percentile_1y', 'pe_percentile_3y', 'forward_pe', 'price_to_cash_flow',
     ]
     df[val_cols] = df[val_cols].fillna(0.0)
 
-    bank_tickers = ['MEBL', 'MCB', 'UBL', 'HBL', 'NBP', 'BAFL', 'BAHL']
-    bank_cols = ['net_interest_margin', 'casa_ratio', 'casa_deposits', 'total_advances', 'total_deposits',
-                 'npl_ratio', 'provisioning_coverage', 'capital_adequacy_ratio', 'adr_ratio', 'idr_ratio']
-    if ticker.upper() not in bank_tickers:
-        for bc in bank_cols:
-            df[bc] = np.nan
-    
     return df
 
 
@@ -425,7 +526,17 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     
     with engine.connect() as conn:
         macro_df = pd.read_sql(query, conn)
-        
+
+    # macro_indicators stores Google Trends as one column per ticker
+    # (search_trend_<ticker>) since it's a shared table - drop every other
+    # ticker's column here so this ticker's master.csv only carries its own
+    # search trend plus the market-wide one, not ~98 irrelevant columns.
+    own_trend_col = f"search_trend_{ticker.lower()}"
+    other_trend_cols = [c for c in macro_df.columns
+                         if c.startswith("search_trend_") and c not in (own_trend_col, "search_trend_kse")]
+    if other_trend_cols:
+        macro_df = macro_df.drop(columns=other_trend_cols)
+
     if macro_df.empty:
         logger.warning(f"No macro data found.")
         df['sbp_policy_rate'] = np.nan
@@ -444,9 +555,14 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
                      
     # Forward fill ALL columns in macro_df because macro variables (like KIBOR, Remittances, etc)
     # are reported sparsely (weekly/monthly/quarterly) and must carry forward to daily stock dates.
+    # Forward-only: a series' first real observation must never be projected
+    # backward before the date it actually existed - that's look-ahead bias,
+    # and for late-starting/single-snapshot series (e.g. a one-off NCCPL
+    # FIPI/LIPI download) a plain bfill would stamp one recent value across
+    # the entire history instead of leaving the unknown past as NaN.
     for c in macro_df.columns:
         if c != 'date' and c != 'id':
-            macro_df[c] = macro_df[c].ffill().bfill()
+            macro_df[c] = macro_df[c].ffill()
             
     macro_df['pkr_usd_change_pct'] = macro_df['pkr_usd_rate'].pct_change()
     macro_df['oil_return_pct'] = macro_df['brent_oil_price'].pct_change()
@@ -467,17 +583,34 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     
     macro_cols = [c for c in macro_df.columns if c not in ['date', 'created_at']]
     cols_to_merge = ['date'] + macro_cols
-    
-    df = pd.merge(df, macro_df[cols_to_merge], on='date', how='left')
-    
+
+    # Look-ahead guard: PSX closes ~15:30 PKT. Several of these series (US
+    # indices, DAX/FTSE, and Nikkei/Hang Seng/Shanghai) are stamped with their
+    # OWN exchange's local trading date, which for the US/European names
+    # doesn't finish printing until after midnight PKT the *next* calendar
+    # day - i.e. a same-date exact merge on 'date' was attaching a close that
+    # PSX's own session that day could not actually have seen yet (confirmed:
+    # NYSE's "date D" close prints ~01:00-02:00 PKT on date D+1, after PSX's
+    # date-D session already closed). merge_asof(direction='backward',
+    # allow_exact_matches=False) instead takes, for each PSX row, the most
+    # recent macro_df row strictly BEFORE that date - the latest macro
+    # snapshot that was genuinely knowable before PSX's session opened.
+    # macro_df is already ffill'ed to be complete-as-of-that-row above, so
+    # this is equivalent to "yesterday's fully-known macro state" for every
+    # column, not just the international-exchange ones - a uniformly safe,
+    # conservative fix rather than a per-market special case.
+    df = df.sort_values('date').reset_index(drop=True)
+    macro_sorted = macro_df[cols_to_merge].sort_values('date').reset_index(drop=True)
+    df = pd.merge_asof(df, macro_sorted, on='date', direction='backward', allow_exact_matches=False)
+
     for col in macro_cols:
         if col in df.columns:
             # Convert to numeric, errors='coerce' to turn parsing errors into NaNs
             df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # ffill/bfill for continuity, but DO NOT fillna(0.0) if entirely missing.
-            # Only fillna(0.0) for return/change percentages.
-            df[col] = df[col].ffill().bfill()
+            # Forward-fill only - see the no-look-ahead note in the loop above.
+            # DO NOT fillna(0.0) if entirely missing; only for return/change pct cols.
+            df[col] = df[col].ffill()
             if col.endswith('_pct') or col.endswith('_change'):
                 df[col] = df[col].fillna(0.0)
     
@@ -522,25 +655,11 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df['market_return'] = df['market_return'].fillna(0.0)
     df['market_return_lag_1'] = df['market_return_lag_1'].fillna(0.0)
     
-    # Merge NCCPL Institutional Flows from stock_market_index table
-    # Fix P0-E: use explicit column list to prevent _x/_y collision
-    query_flows = text("""SELECT date, fipi_net_usd_m, lipi_mutual_funds_net, lipi_banks_net,
-        lipi_insurance_net, lipi_companies_net, lipi_individuals_net
-        FROM stock_market_index ORDER BY date ASC""")
-    with engine.connect() as conn:
-        flows_df = pd.read_sql(query_flows, conn)
-        
-    if not flows_df.empty:
-        flows_df['date'] = pd.to_datetime(flows_df['date'])
-        flow_cols = ['fipi_net_usd_m', 'lipi_mutual_funds_net', 'lipi_banks_net',
-                     'lipi_insurance_net', 'lipi_companies_net', 'lipi_individuals_net']
-        existing_flow_cols = [c for c in flow_cols if c in df.columns]
-        if existing_flow_cols:
-            df.drop(columns=existing_flow_cols, inplace=True)
-        df = pd.merge(df, flows_df, on='date', how='left')
-        for fc in flow_cols:
-            if fc in df.columns:
-                df[fc] = df[fc].ffill().bfill().fillna(0.0)
+    # NCCPL FIPI/LIPI institutional flows are sourced from macro_indicators via
+    # merge_macro_indicators() below, not from stock_market_index - NCCPL has no
+    # free scrapable daily history, only manually-dropped point-in-time snapshot
+    # files (see fetch_nccpl_flows.py / parse_nccpl_fipi_lipi.py), and stamping
+    # that single snapshot across all trading dates here would be fabrication.
 
     # Dynamic Market Breadth across all 103 stocks in DB
     try:
@@ -550,7 +669,10 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
                    SUM(CASE WHEN close < open THEN 1 ELSE 0 END)::float / COUNT(*) as declining_stocks_pct,
                    SUM(CASE WHEN close > open THEN 1 ELSE 0 END)::float / NULLIF(SUM(CASE WHEN close < open THEN 1 ELSE 0 END), 0) as market_breadth_ratio,
                    SUM(volume) as market_total_volume,
-                   SUM(close * volume) as market_total_traded_value
+                   SUM(close * volume) as market_total_traded_value,
+                   SUM(CASE WHEN close > open THEN 1 ELSE 0 END) as advancing_count,
+                   SUM(CASE WHEN close < open THEN 1 ELSE 0 END) as declining_count,
+                   SUM(CASE WHEN close = open THEN 1 ELSE 0 END) as unchanged_count
             FROM stock_eod_data
             GROUP BY date
             ORDER BY date ASC
@@ -560,7 +682,7 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         if not breadth_df.empty:
             breadth_df['date'] = pd.to_datetime(breadth_df['date'])
             breadth_df['market_breadth_ratio'] = breadth_df['market_breadth_ratio'].fillna(1.0)
-            b_cols = ['advancing_stocks_pct', 'declining_stocks_pct', 'market_breadth_ratio', 'market_total_volume', 'market_total_traded_value']
+            b_cols = ['advancing_stocks_pct', 'declining_stocks_pct', 'market_breadth_ratio', 'market_total_volume', 'market_total_traded_value', 'advancing_count', 'declining_count', 'unchanged_count']
             existing_b_cols = [c for c in b_cols if c in df.columns]
             if existing_b_cols:
                 df.drop(columns=existing_b_cols, inplace=True)
@@ -716,7 +838,12 @@ def calculate_computed_pdf_features(df: pd.DataFrame) -> pd.DataFrame:
         df['downside_beta_252d'] = (cov_down / var_down).replace([np.inf, -np.inf], np.nan).fillna(1.0)
         
         # Cross-Asset Correlations (60d)
-        df['corr_stock_kse100'] = ret.rolling(60, min_periods=20).corr(mkt).fillna(0.0)
+        # A rolling correlation is mathematically undefined (division by a zero
+        # standard deviation) whenever the other series is flat for the whole
+        # window - e.g. sbp_policy_rate unchanged for 60+ days between MPC
+        # meetings. pandas returns +/-inf for that case, not NaN, so .fillna(0.0)
+        # alone doesn't catch it; .replace(inf, nan) first, then fillna, does.
+        df['corr_stock_kse100'] = ret.rolling(60, min_periods=20).corr(mkt).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     else:
         df['beta_60d'] = 1.0
         df['beta_252d'] = 1.0
@@ -724,22 +851,22 @@ def calculate_computed_pdf_features(df: pd.DataFrame) -> pd.DataFrame:
         df['corr_stock_kse100'] = 0.0
 
     if 'daily_return' in df.columns and 'pkr_usd_change_pct' in df.columns:
-        df['corr_stock_pkr_usd'] = df['daily_return'].rolling(60, min_periods=20).corr(df['pkr_usd_change_pct']).fillna(0.0)
+        df['corr_stock_pkr_usd'] = df['daily_return'].rolling(60, min_periods=20).corr(df['pkr_usd_change_pct']).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     else:
         df['corr_stock_pkr_usd'] = 0.0
 
     if 'daily_return' in df.columns and 'oil_return_pct' in df.columns:
-        df['corr_stock_brent'] = df['daily_return'].rolling(60, min_periods=20).corr(df['oil_return_pct']).fillna(0.0)
+        df['corr_stock_brent'] = df['daily_return'].rolling(60, min_periods=20).corr(df['oil_return_pct']).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     else:
         df['corr_stock_brent'] = 0.0
 
     if 'daily_return' in df.columns and 'sbp_policy_rate' in df.columns:
-        df['corr_stock_policy_rate'] = df['daily_return'].rolling(60, min_periods=20).corr(df['sbp_policy_rate']).fillna(0.0)
+        df['corr_stock_policy_rate'] = df['daily_return'].rolling(60, min_periods=20).corr(df['sbp_policy_rate']).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     else:
         df['corr_stock_policy_rate'] = 0.0
 
     if 'daily_return' in df.columns and 'gold_return_pct' in df.columns:
-        df['corr_stock_gold'] = df['daily_return'].rolling(60, min_periods=20).corr(df['gold_return_pct']).fillna(0.0)
+        df['corr_stock_gold'] = df['daily_return'].rolling(60, min_periods=20).corr(df['gold_return_pct']).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     else:
         df['corr_stock_gold'] = 0.0
 
@@ -1001,7 +1128,7 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = calculate_atr(df)
     # df = encode_ticker(df, ticker) # Removed in favor of native categorical/embeddings
     df = merge_market_index(df, ticker)
-    
+
     # 3. Merge Sentiment Data with Decay
     df = merge_sentiment(df, ticker)
 
@@ -1021,14 +1148,40 @@ def build_features(ticker: str) -> pd.DataFrame:
         logger.exception("Could not merge news sentiment features:")
     # 3.5 Merge Dividend Data
     df = merge_dividends(df, ticker)
-    
+
+    # 3.55 Merge Circuit Breaker Events
+    df = merge_circuit_breakers(df, ticker)
+
     # 3.6 Merge Fundamentals and Macro
     query = text("SELECT sector FROM stock_metadata WHERE ticker = :ticker")
     with engine.connect() as conn:
         sector = conn.execute(query, {"ticker": ticker.upper()}).scalar() or ""
-        
+
     df = merge_fundamentals(df, ticker)
     df = merge_macro_indicators(df, ticker, sector)
+
+    # P0-E: Resolve _x/_y suffix duplicates from the macro merge immediately,
+    # before anything else touches these columns. macro_indicators carries ~30
+    # columns (market breadth, circuit-breaker flags, etc.) that share a name
+    # with a column already computed earlier in this function from a real,
+    # per-ticker source (e.g. advancing_stocks_pct from stock_eod_data) but are
+    # themselves never populated (always SQL NULL) - merge_macro_indicators
+    # doesn't pre-drop on name collision like the other merges in this file do,
+    # so pandas suffixes both sides instead of overwriting. This used to run
+    # right before the CSV save (after "Handle Missing Values" below), which
+    # first ran fillna("") on the object-dtype all-NULL `_y` side - turning
+    # its NULLs into empty strings. combine_first() then preferred `_y`
+    # wherever it was "present" (an empty string is present, not missing), so
+    # the real `_x` data got silently discarded for every affected ticker.
+    # Running this before any fillna keeps `_y` genuinely null, so
+    # combine_first correctly falls back to the real `_x` value everywhere.
+    for col in list(df.columns):
+        if col.endswith('_x'):
+            base = col[:-2]
+            y_col = base + '_y'
+            if y_col in df.columns:
+                df[base] = df[y_col].combine_first(df[col])
+                df.drop(columns=[col, y_col], inplace=True, errors='ignore')
 
     # 3.7 Corporate Event Features (from PUCARS — P1-A)
     try:
@@ -1175,9 +1328,35 @@ def build_features(ticker: str) -> pd.DataFrame:
         monthly_imports = (df['imports_usd_m'] / 30.4).replace(0, np.nan)
         df['reserve_import_coverage'] = (df['total_fx_reserves'] / monthly_imports).fillna(0.0)
 
+    # Sector index columns (banking_sector_*, oil_gas_sector_*) come from a
+    # shared macro_indicators table and were merged into EVERY ticker's file
+    # regardless of that ticker's own sector - a cement or pharma ticker was
+    # carrying real Commercial Banks index data as if it were relevant context.
+    # Null them out for tickers outside the matching sector (NaN, not 0.0 - a
+    # tree model should see "not applicable", not "no change today").
+    is_bank = bool(sector) and 'commercial bank' in sector.lower()
+    is_oil_gas = bool(sector) and any(s in sector.lower() for s in ['oil & gas', 'refinery'])
+    for col in ['banking_sector_index_level', 'banking_sector_return_pct']:
+        if col in df.columns and not is_bank:
+            df[col] = np.nan
+    for col in ['oil_gas_sector_index_level', 'oil_gas_sector_return_pct']:
+        if col in df.columns and not is_oil_gas:
+            df[col] = np.nan
+
     # P0-B Computed: Volatility sub-groups (PDF Group #37)
-    if 'banking_sector_return_pct' in df.columns:
-        df['sector_volatility_20d'] = df['banking_sector_return_pct'].rolling(20, min_periods=5).std().fillna(0.0)
+    own_sector_return_col = (
+        'banking_sector_return_pct' if is_bank
+        else 'oil_gas_sector_return_pct' if is_oil_gas
+        else None
+    )
+    if own_sector_return_col and own_sector_return_col in df.columns:
+        df['sector_volatility_20d'] = df[own_sector_return_col].rolling(20, min_periods=5).std().fillna(0.0)
+    else:
+        # No sector-index proxy exists for this ticker's sector (only banking
+        # and oil & gas are tracked) - drop rather than mislabel a cement/pharma/
+        # etc. ticker's volatility with the banking sector's, as the old
+        # hardcoded fallback did.
+        df.drop(columns=['sector_volatility_20d'], inplace=True, errors='ignore')
     if 'brent_oil_price' in df.columns:
         df['oil_volatility_20d'] = df['brent_oil_price'].pct_change().rolling(20, min_periods=5).std().fillna(0.0)
     if 'pib_10y' in df.columns:
@@ -1201,28 +1380,43 @@ def build_features(ticker: str) -> pd.DataFrame:
         df['eps_consensus_surprise'] = (df['eps_trailing'] - df['eps_expected']).fillna(0.0)
         df['eps_qoq_surprise'] = df['eps_trailing'].diff(63).fillna(0.0)  # ~1 quarter = 63 trading days
 
+    # 4.6 Data-maturity feature. The pooled model trains across 107 tickers with
+    # very different listing histories (the core group has ~4,850 rows / ~18.7
+    # years, several newer listings have far less) - without a signal for this,
+    # a young ticker's early-life volatility (thin volume, no analyst coverage,
+    # pre-established trading range) looks identical to a mature ticker's, and
+    # the model has no way to learn to discount it. `history_days` is the
+    # running count of trading sessions seen so far for this ticker;
+    # `history_maturity_ratio` normalizes that against this ticker's own
+    # eventual max (so it reads as "0 at listing -> 1 at the most recent row"
+    # regardless of how long the ticker has actually been listed).
+    df = df.sort_values('date').reset_index(drop=True)
+    df['history_days'] = np.arange(1, len(df) + 1)
+    max_history = df['history_days'].iloc[-1] if len(df) else 1
+    df['history_maturity_ratio'] = df['history_days'] / max(max_history, 1)
 
-    # P0-E: Final cleanup of any remaining _x/_y suffix duplicates from macro merge
-    for col in list(df.columns):
-        if col.endswith('_x'):
-            base = col[:-2]
-            y_col = base + '_y'
-            if y_col in df.columns:
-                # Prefer the macro_indicators version (_y from macro merge)
-                df[base] = df[y_col].combine_first(df[col])
-                df.drop(columns=[col, y_col], inplace=True, errors='ignore')
+    # 4.5 Drop dead/no-signal columns (see DEAD_COLUMNS docstring above) so the
+    # dataset saved below is training-ready, not padded with zero-variance inputs.
+    df.drop(columns=[c for c in DEAD_COLUMNS if c in df.columns], inplace=True, errors='ignore')
 
-    # 5. Save finalized dataset
-    final_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
-    df.to_csv(final_path, index=False)
-    logger.info(f"Saved finalized feature dataset ready for ML to {final_path}")
-    
-    # Always export dedicated master CSV with attached raw text announcements & news
+    # Per-ticker Google Trends columns (search_trend_<ticker>) are only real for
+    # tickers with confirmed scraped search data - macro_indicators carries the
+    # column for every ticker regardless, so tickers without real data get an
+    # all-zero placeholder. Drop it dynamically here (never hardcode a per-ticker
+    # column list) rather than shipping a dead column; search_trend_kse (market-
+    # wide) is never dropped by this rule.
+    own_search_col = f"search_trend_{ticker.lower()}"
+    if own_search_col in df.columns and df[own_search_col].fillna(0).eq(0).all():
+        df.drop(columns=[own_search_col], inplace=True, errors='ignore')
+
+    # 5. Save finalized dataset. master.csv is the single canonical output - both
+    # the API and training code read it directly, and it also carries the
+    # date-matched raw text announcements/news attached below.
     master_filename = f"{ticker.upper()}_master.csv"
     master_path = os.path.join(PROCESSED_DIR, master_filename)
     try:
         df.to_csv(master_path, index=False)
-        logger.info(f"Saved dedicated master dataset: {master_path}")
+        logger.info(f"Saved finalized master dataset ready for ML to {master_path}")
         try:
             from src.psx_predictor.data.export_raw_text_datasets import export_raw_text_files_for_ticker
             export_raw_text_files_for_ticker(ticker.upper())

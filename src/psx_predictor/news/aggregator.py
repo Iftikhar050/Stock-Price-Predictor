@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Optional
 
 from .config import COMPANIES
 from .models import Article
@@ -94,14 +94,19 @@ class NewsAggregator:
 
         return trading_date
 
-    def run_pipeline(self):
+    def run_pipeline(self, tickers: Optional[List[str]] = None):
         logger.info("Starting Financial News Intelligence Pipeline...")
 
         all_raw_articles: List[Article] = []
 
+        target_companies = COMPANIES
+        if tickers:
+            requested = {t.upper() for t in tickers}
+            target_companies = {t: c for t, c in COMPANIES.items() if t in requested}
+
         # ── 1. Collect from all company-specific sources ──────────────────
         for collector in self.collectors:
-            for ticker, company in COMPANIES.items():
+            for ticker, company in target_companies.items():
                 logger.info(f"Collecting {company.name} from {collector.source_name}...")
                 try:
                     articles = collector.fetch_news(company)

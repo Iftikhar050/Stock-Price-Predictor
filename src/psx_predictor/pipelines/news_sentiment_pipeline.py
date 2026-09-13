@@ -10,6 +10,7 @@ from src.psx_predictor.news.alpha_vantage_fetcher import AlphaVantageFetcher
 from src.psx_predictor.news.aggregator import NewsAggregator
 from src.psx_predictor.data.fetch_psx_pucars import fetch_pucars_announcements
 from src.psx_predictor.data.export_raw_text_datasets import export_raw_text_files_for_ticker
+from src.psx_predictor.pipelines.rate_limit import throttle
 
 logger = logging.getLogger("NewsSentimentPipeline")
 logger.setLevel(logging.INFO)
@@ -45,7 +46,7 @@ def run_news_sentiment_pipeline(tickers: Optional[List[str]] = None, limit: int 
     logger.info("\n[Step 2/4] Running Multi-Source News Aggregator & Topic Sentiment Engine...")
     try:
         aggregator = NewsAggregator(use_finbert=use_finbert)
-        aggregator.run_pipeline()
+        aggregator.run_pipeline(tickers=tickers)
         logger.info(" Multi-source news aggregator completed.")
     except Exception as e:
         logger.error(f" Error in NewsAggregator pipeline: {e}")
@@ -61,6 +62,7 @@ def run_news_sentiment_pipeline(tickers: Optional[List[str]] = None, limit: int 
         except Exception as e:
             logger.error(f" Error ingesting PUCARS for {ticker}: {e}")
             success = False
+        throttle()
             
     # 4. Export Raw Text Datasets
     logger.info("\n[Step 4/4] Exporting Date-Matched Raw Text Datasets...")

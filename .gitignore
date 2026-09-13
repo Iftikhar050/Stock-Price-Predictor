@@ -44,6 +44,15 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Staged/unreviewed ticker-expansion output (never promoted, not for the repo)
+data/staging/
+*.db
+
+# Scratch / exploration scripts and logs (not real source)
+scratch/
+scratch_*.py
+scratch_*.html
+
 # Model Checkpoints & Artifacts
 models/checkpoints/*
 *.pt

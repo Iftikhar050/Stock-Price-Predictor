@@ -7,6 +7,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from xgboost import XGBRegressor
 try:
+    from lightgbm import LGBMRegressor
+except ImportError:
+    LGBMRegressor = None
+try:
     import torch
     import torch.nn as nn
 except ImportError:
@@ -32,6 +36,30 @@ def xgboost_factory():
         random_state=42,
         n_jobs=-1,
         enable_categorical=True,
+    )
+
+def lightgbm_factory():
+    """Return a new LGBMRegressor instance.
+
+    Second tree-ensemble opinion alongside XGBoost, per the comparative-study
+    literature (SVM-RBF/RF being the accurate-but-slow end, trees being the
+    right family for wide tabular data like this dataset's 270+ columns).
+    LightGBM's native categorical support means `sector` doesn't need to be
+    cast to a pandas category first the way XGBoost's `enable_categorical`
+    path requires - pass the sector column's name via `categorical_feature`
+    at fit time if using this directly outside of prepare_data()'s df.
+    """
+    if LGBMRegressor is None:
+        raise ImportError("lightgbm is not installed; run `pip install lightgbm`.")
+    return LGBMRegressor(
+        n_estimators=200,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        n_jobs=-1,
+        verbosity=-1,
     )
 
 if torch is not None:

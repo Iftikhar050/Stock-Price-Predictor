@@ -60,13 +60,10 @@ def export_raw_text_files_for_ticker(ticker: str):
         news_df = pd.read_sql(query_news, conn, params={"ticker": ticker.upper()})
         
     if news_df.empty:
-        # Fallback raw news items if database news is empty
-        sample_news = [
-            {"date": "2024-03-15", "headline": f"{ticker.upper()} Expands Operational Capacity and Strategic Partnerships in Pakistan", "summary": f"Full market report detailing {ticker.upper()} financial performance, asset growth, and quarterly expansion strategy.", "full_text": f"Raw News Article: {ticker.upper()} announced significant business milestones in Karachi today. Executive management expressed confidence in long-term earnings resilience amidst SBP policy rate adjustments.", "source": "PSX News Wire", "url": "https://dps.psx.com.pk/news", "sentiment_score": 0.80},
-            {"date": "2023-11-10", "headline": f"{ticker.upper()} Financial Statement Audit and Annual General Disclosures", "summary": f"Official auditor review and annual compliance summary for {ticker.upper()}.", "full_text": f"Raw News Article: State Bank and SECP compliance report published for {ticker.upper()}. Financial indicators showcase robust balance sheet strength and capital adequacy.", "source": "Business Recorder", "url": "https://www.brecorder.com", "sentiment_score": 0.70}
-        ]
-        news_df = pd.DataFrame(sample_news)
-        
+        # No real news found for this ticker - write an empty (but correctly-shaped)
+        # dataset rather than fabricating placeholder articles.
+        news_df = pd.DataFrame(columns=["date", "headline", "summary", "full_text", "source", "url", "sentiment_score"])
+
     news_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_raw_news_sentiment.csv")
     try:
         news_df.to_csv(news_path, index=False)
@@ -141,7 +138,19 @@ def export_raw_text_files_for_ticker(ticker: str):
             master_df['news_sentiment_daily'] = 0.0
 
         master_df['date'] = master_df['date'].dt.strftime('%Y-%m-%d')
-        
+
+        # These carry no real historical depth (raw_pucars_*/raw_news_headline_daily
+        # are free text, never numeric ML features to begin with; news_sentiment_daily
+        # is real in <6% of tracked tickers) - keep them out of the training-ready
+        # master CSV. pucars_sentiment_daily is kept: real in >50% of tickers.
+        master_df.drop(
+            columns=[c for c in [
+                'raw_pucars_headline_daily', 'raw_pucars_body_daily',
+                'raw_pucars_category_daily', 'raw_news_headline_daily', 'news_sentiment_daily',
+            ] if c in master_df.columns],
+            inplace=True, errors='ignore',
+        )
+
         try:
             master_df.to_csv(master_path, index=False)
             logger.info(f"Updated {master_path} with date-matched raw text announcement and news columns (Now {len(master_df.columns)} columns)!")

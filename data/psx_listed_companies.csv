@@ -1,0 +1,755 @@
+ticker,company_name,sector,fetched_at
+786,786 Investments Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+786R,786 Investment (Right),INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+AABS,Al-Abbas Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+AAL,Agro Allianz Limited,TEXTILE SPINNING,2026-09-10
+AASM,Al-Abid Silk Mills Limited,SYNTHETIC & RAYON,2026-09-10
+AATM,Ali Asghar Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ABL,Allied Bank Limited,COMMERCIAL BANKS,2026-09-10
+ABOT,Abbott Laboratories (Pakistan) Limited,PHARMACEUTICALS,2026-09-10
+ABSON,Abson Industries Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+ACPL,Attock Cement Pakistan Limited,CEMENT,2026-09-10
+ADAMS,Adam Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+ADMM,Artistic Denim Mills Limited,TEXTILE COMPOSITE,2026-09-10
+ADOS,Ados Pakistan Limited,ENGINEERING,2026-09-10
+ADTM,Adil Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+AEL,AEL Textile Limited,,2026-09-10
+AGHA,Agha Steel Ind.Ltd,ENGINEERING,2026-09-10
+AGIC,Askari General Insurance Company Limited,INSURANCE,2026-09-10
+AGICR2,Askari General Insurance Co.Ltd.(Right),INSURANCE,2026-09-10
+AGIL,Agriauto Industries Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+AGL,Agritech Limited,FERTILIZER,2026-09-10
+AGLNCPS,Agritech Non-Voting (Pref) Class A,FERTILIZER,2026-09-10
+AGP,AGP Limited,PHARMACEUTICALS,2026-09-10
+AGSML,Abdullah Shah Ghazi Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+AGTL,Al-Ghazi Tractors Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+AHCL,Arif Habib Corporation Limited,FERTILIZER,2026-09-10
+AHL,Arif Habib Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+AHTM,Ahmad Hassan Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+AICL,Adamjee Insurance Company Limited,INSURANCE,2026-09-10
+AIRLINK,Air Link Communication Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+AKBL,Askari Bank Limited,COMMERCIAL BANKS,2026-09-10
+AKDCL,AKD Capital Limited,,2026-09-10
+AKDHL,AKD Hospitality Limited,MISCELLANEOUS,2026-09-10
+AKDSL,AKD Securities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+AKGL,Al-Khair Gadoon Limited,MISCELLANEOUS,2026-09-10
+AKZO,Akzo Nobel Pakistan Limited,,2026-09-10
+ALAC,Askari Life Assurance Company Limited,INSURANCE,2026-09-10
+ALIFE,Adamjee Life Assurance Company Limited,INSURANCE,2026-09-10
+ALNRS,Al-Noor Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+ALQT,Al-Qadir Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ALTN,Altern Energy Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+AMBL,Apna Microfinance Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+AMSL,Al-Mal Securities & Services Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+AMTEX,Amtex Limited,TEXTILE SPINNING,2026-09-10
+ANL,Azgard Nine Limited,TEXTILE COMPOSITE,2026-09-10
+ANNT,Annoor Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ANSM,Ansari Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+ANTM,AN Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+APL,Attock Petroleum Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+APOT,Apollo Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+AQTM,Al-Qaim Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ARCTM,Arctic Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ARM,Allied Rental Modaraba,,2026-09-10
+ARMG,ARM Green Industries Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+ARPAK,Arpak International Investments Ltd.,MISCELLANEOUS,2026-09-10
+ARPL,Archroma Pakistan Limited,CHEMICAL,2026-09-10
+ARUJ,Aruj Industries Limited,TEXTILE COMPOSITE,2026-09-10
+ASC,Al Shaheer Corporation Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+ASCR1,AL-Shaheer (R),,2026-09-10
+ASHT,Ashfaq Textile Mills Limited,TEXTILE WEAVING,2026-09-10
+ASIC,Asia Insurance Company Limited,INSURANCE,2026-09-10
+ASL,Aisha Steel Mills Limited,ENGINEERING,2026-09-10
+ASLCPS,Aisha Steel Convt (Pref) Right,ENGINEERING,2026-09-10
+ASLPS,Aisha Steel Convertible (Pref),ENGINEERING,2026-09-10
+ASRL,Associated Services Limited,JUTE,2026-09-10
+ASTL,Amreli Steels Limited,ENGINEERING,2026-09-10
+ASTM,Asim Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ATBA,Atlas Battery Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+ATIL,Atlas Insurance Limited,INSURANCE,2026-09-10
+ATLH,Atlas Honda Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+ATRL,Attock Refinery Limited,REFINERY,2026-09-10
+AVN,Avanceon Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+AWTX,Allawasaya Tex. & Finishing Mills Ltd,TEXTILE SPINNING,2026-09-10
+AWWAL,Awwal Modaraba,,2026-09-10
+AYTM,Ayesha Textile Mills Limited,,2026-09-10
+AYZT,Ayaz Textile Mills Limited,TEXTILE WEAVING,2026-09-10
+AZMT,Azmat Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+AZTM,Al-Azhar Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+BAFL,Bank Alfalah Limited,COMMERCIAL BANKS,2026-09-10
+BAFS,Baba Farid Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+BAHL,Bank AL Habib Limited,COMMERCIAL BANKS,2026-09-10
+BAPL,Bawany Air Products Limited,CHEMICAL,2026-09-10
+BATA,Bata Pakistan Limited,LEATHER & TANNERIES,2026-09-10
+BBFL,Big Bird Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+BCL,Bolan Castings Limited,ENGINEERING,2026-09-10
+BCML,Babri Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+BECO,Beco Steel Limited,ENGINEERING,2026-09-10
+BEEM,Beema-Pakistan Company Limited,INSURANCE,2026-09-10
+BELA,Bela Automotives Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+BERG,Berger Paints Pakistan Limited,CHEMICAL,2026-09-10
+BFAGRO,Barkat Frisian Agro Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+BFBIO,BF Biosciences Limited,PHARMACEUTICALS,2026-09-10
+BFMOD,B.F. Modaraba,MODARABAS,2026-09-10
+BGL,Baluchistan Glass Limited,GLASS & CERAMICS,2026-09-10
+BHAT,Bhanero Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+BIFO,Biafo Industries Limited,CHEMICAL,2026-09-10
+BIIC,Business & Industrial Insurance Company,INSURANCE,2026-09-10
+BILF,Bilal Fibres Limited,TEXTILE SPINNING,2026-09-10
+BIPL,BankIslami Pakistan Limited,COMMERCIAL BANKS,2026-09-10
+BIPLS,BIPL Securities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+BLUEX,Blue-Ex Limited,TRANSPORT,2026-09-10
+BML,Bank Makramah Limited,COMMERCIAL BANKS,2026-09-10
+BNL,Bunnys Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+BNWM,Bannu Woollen Mills Limited,WOOLLEN,2026-09-10
+BOK,The Bank of Khyber,COMMERCIAL BANKS,2026-09-10
+BOP,The Bank of Punjab,COMMERCIAL BANKS,2026-09-10
+BPBL,Balochistan Particle Board Limited,,2026-09-10
+BPL,Burshane LPG (Pakistan) Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+BROT,Brothers Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+BRR,B.R.R. Guardian Modaraba,,2026-09-10
+BRRG,B.R.R Guardian Limited,PROPERTY,2026-09-10
+BTL,Blessed Textiles Limited,TEXTILE COMPOSITE,2026-09-10
+BUXL,Buxly Paints Limited,CHEMICAL,2026-09-10
+BWCL,Bestway Cement Limited,CEMENT,2026-09-10
+BWHL,Baluchistan Wheels Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+BYCO,Byco Petroleum Pakistan Limited,REFINERY,2026-09-10
+CASH,Calcorp Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+CCM,Crescent Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+CECL,Climax Engineering Company Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+CENI,Century Insurance Company Limited,INSURANCE,2026-09-10
+CEPB,Century Paper & Board Mills Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+CFL,Crescent Fibres Limited,TEXTILE SPINNING,2026-09-10
+CHAS,Chashma Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+CHBL,Chenab Limited,TEXTILE COMPOSITE,2026-09-10
+CHCC,Cherat Cement Company Limited,CEMENT,2026-09-10
+CJPL,Crescent Jute Products Limited,JUTE,2026-09-10
+CLCPS,Chenab Limited (Pref),TEXTILE COMPOSITE,2026-09-10
+CLOUD,Chakwal Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+CLOV,Clover Pakistan Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+CLVL,Cordoba Logistics & Ventures Limited,TRANSPORT,2026-09-10
+CNERGY,Cnergyico PK  Limited,REFINERY,2026-09-10
+COLG,Colgate-Palmolive (Pakistan) Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+COST,(Colony) Sarhad Textile Mills Limited,,2026-09-10
+COTT,,TEXTILE COMPOSITE,2026-09-10
+CPAL,Capital Assets Leasing Corporation,LEASING COMPANIES,2026-09-10
+CPHL,Citi Pharma Ltd.,PHARMACEUTICALS,2026-09-10
+CPPL,Cherat Packaging Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+CRTM,The Crescent Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+CSAP,Crescent Steel & Allied Products Limited,ENGINEERING,2026-09-10
+CSIL,Crescent Star Insurance Limited,INSURANCE,2026-09-10
+CSILR3,Crescent Star Insurance Limited (Right),INSURANCE,2026-09-10
+CSM,Cresent Standard Modaraba,MODARABAS,2026-09-10
+CTM,Colony Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+CWSM,Chakwal Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+CYAN,Cyan Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DAAG,Data Agro Limited,CHEMICAL,2026-09-10
+DADX,Dadex Eternit Limited,ENGINEERING,2026-09-10
+DATM,Data Textiles Limited,,2026-09-10
+DAWH,Dawood Hercules Corporation Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DBCI,Dadabhoy Cement Industries Limited,CEMENT,2026-09-10
+DBSL,Dadabhoy Sack Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+DCL,Dewan Cement Limited,CEMENT,2026-09-10
+DCM,Dawood Capital Management Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DCR,Dolmen City REIT,REAL ESTATE INVESTMENT TRUST,2026-09-10
+DCTL,Dadabhoy Construction Technology Limited,MISCELLANEOUS,2026-09-10
+DEL,Dawood Equities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DFML,Dewan Farooque Motors Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+DFSM,Dewan Farooque Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+DGKC,D.G. Khan Cement Company Limited,CEMENT,2026-09-10
+DHPL,DH Partners Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DIIL,Diamond Industries Limited,MISCELLANEOUS,2026-09-10
+DINT,Din Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DKL,Drekkar Kingsway Limited,ENGINEERING,2026-09-10
+DKTM,Dewan Khalid Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DLL,Dawood Lawrencepur Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+DMC,D.M. Corporation Limited.,TEXTILE SPINNING,2026-09-10
+DMIL,D.M. Industries Limited,TEXTILE SPINNING,2026-09-10
+DMTM,Dewan Mushtaq Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DMTX,D.M. Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DNCC,Dandot Cement Company Limited,CEMENT,2026-09-10
+DOL,Descon Oxychem Limited,CHEMICAL,2026-09-10
+DOLCPS,Descon Oxychem Limited (12%Non-Voting Pref),CHEMICAL,2026-09-10
+DOMF,Dominion Stock Fund Limited,,2026-09-10
+DSFL,Dewan Salman Fibre Limited,SYNTHETIC & RAYON,2026-09-10
+DSIL,D.S. Industries Limited,TEXTILE SPINNING,2026-09-10
+DSL,Dost Steels Limited,ENGINEERING,2026-09-10
+DSML,Dar-es-Salaam Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DWAE,Dewan Automotive Engineering Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+DWSM,Dewan Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+DWTM,Dewan Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+DYNO,Dynea Pakistan Limited,CHEMICAL,2026-09-10
+ECOP,Ecopack Limited,MISCELLANEOUS,2026-09-10
+EFERT,Engro Fertilizers Limited,FERTILIZER,2026-09-10
+EFGH,EFG Hermes Pakistan Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+EFOODS,Engro Foods Limited,,2026-09-10
+EFUG,EFU General Insurance Limited,INSURANCE,2026-09-10
+EFUL,EFU Life Assurance Limited,INSURANCE,2026-09-10
+ELCM,Elahi Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+ELSM,Ellcot Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+EMCO,Emco Industries Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+ENGL,English Leasing Limited,LEASING COMPANIES,2026-09-10
+ENGRO,Engro Corporation Limited,FERTILIZER,2026-09-10
+ENGROH,Engro Holdings Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+EPCL,Engro Polymer & Chemicals Limited,CHEMICAL,2026-09-10
+EPCLPS,Engro Poly(Pref),CHEMICAL,2026-09-10
+EPCLR1,,CHEMICAL,2026-09-10
+EPQL,Engro Powergen Qadirpur Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+ESBL,Escorts Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+EWIC,East West Insurance Company Limited,INSURANCE,2026-09-10
+EWICR1,East West (R),,2026-09-10
+EWLA,East West Life Assurance Company Limited,INSURANCE,2026-09-10
+EXIDE,Exide Pakistan Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+EXTR,Extraction (Pakistan) Limited,,2026-09-10
+FABL,Faysal Bank Limited,COMMERCIAL BANKS,2026-09-10
+FAEL,Fatima Enterprises Limited,TEXTILE SPINNING,2026-09-10
+FANM,First Al-Noor Modaraba,MODARABAS,2026-09-10
+FASM,Faisal Spinning Mills Limited,TEXTILE COMPOSITE,2026-09-10
+FATIMA,Fatima Fertilizer Company Limited,FERTILIZER,2026-09-10
+FCCL,Fauji Cement Company Limited,CEMENT,2026-09-10
+FCEL,First Capital Equities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FCEPL,Frieslandcampina Engro Pakistan Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+FCIBL,First Credit and Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FCL,Fast Cables Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+FCONM,First Constellation Modaraba,MODARABAS,2026-09-10
+FCSC,First Capital Securities Corporation,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FDIBL,First Dawood Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FDMF,First Dawood Mutual Fund,CLOSE - END MUTUAL FUND,2026-09-10
+FDPL,First Dawood Properties Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FECM,First Elite Capital Modaraba,MODARABAS,2026-09-10
+FECTC,Fecto Cement Limited,CEMENT,2026-09-10
+FEM,First Equity Modaraba,MODARABAS,2026-09-10
+FEROZ,Ferozsons Laboratories Limited,PHARMACEUTICALS,2026-09-10
+FFBL,Fauji Fertilizer Bin Qasim Limited,FERTILIZER,2026-09-10
+FFC,Fauji Fertilizer Company Limited,FERTILIZER,2026-09-10
+FFL,Fauji Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+FFLM,First Fidelity Leasing Modaraba,MODARABAS,2026-09-10
+FFLNV,,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+FFLR1,Fauji Foods Ltd(R),,2026-09-10
+FHAM,First Habib Modaraba,MODARABAS,2026-09-10
+FIBLM,First IBL Modaraba,MODARABAS,2026-09-10
+FIL,Fateh Industries Limited,LEATHER & TANNERIES,2026-09-10
+FIM,First Investec Modaraba,MODARABAS,2026-09-10
+FIMM,First Imrooz Modaraba,MODARABAS,2026-09-10
+FLYNG,Flying Cement Company Limited,CEMENT,2026-09-10
+FLYNGR1,Flying Cement(R),CEMENT,2026-09-10
+FML,Feroze1888 Mills Limited,TEXTILE COMPOSITE,2026-09-10
+FNBM,First National Bank Modaraba,MODARABAS,2026-09-10
+FNEL,First National Equities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+FPJM,First Punjab Modaraba,MODARABAS,2026-09-10
+FPRM,First Paramount Modaraba,MODARABAS,2026-09-10
+FPRMR2,First Paramount Modaraba(Right),MODARABAS,2026-09-10
+FRCL,Frontier Ceramics Limited,GLASS & CERAMICS,2026-09-10
+FRSM,Faran Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+FSWL,Fateh Sports Wear Limited,TEXTILE COMPOSITE,2026-09-10
+FTHM,Fateh Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+FTMM,First Treet Manufacturing Modaraba,MODARABAS,2026-09-10
+FTSM,First Tri-Star Modaraba,MODARABAS,2026-09-10
+FUDLM,First UDL Modaraba,,2026-09-10
+FZCM,Fazal Cloth Mills Limited,TEXTILE COMPOSITE,2026-09-10
+GADT,Gadoon Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+GAIL,Ghani Automobile Industries Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+GAILR1,,,2026-09-10
+GAL,Ghandhara Automobiles Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+GAMON,Gammon Pakistan Limited,MISCELLANEOUS,2026-09-10
+GASF,Golden Arrow Selected Stocks,CLOSE - END MUTUAL FUND,2026-09-10
+GATI,Gatron (Industries) Limited,SYNTHETIC & RAYON,2026-09-10
+GATM,Gul Ahmed Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+GCIL,Ghani Chemical Industries Limited,CHEMICAL,2026-09-10
+GCILB,Ghani Chemical Industries Limited (B),,2026-09-10
+GCWL,Ghani Chemworld Limited,CHEMICAL,2026-09-10
+GCWLPRS,Ghani Chemworld Limited(PRS),CHEMICAL,2026-09-10
+GCWLR,Ghani Chemworld Limited Right,CHEMICAL,2026-09-10
+GDL,Ghani Dairies Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+GEMBCEM,Burj Clean Energy Modaraba(GEM),MODARABAS,2026-09-10
+GEMBLUEX,Blue-Ex Limited (GEM),TRANSPORT,2026-09-10
+GEMMEL,Mughal Energy Limited(GEM),POWER GENERATION & DISTRIBUTION,2026-09-10
+GEMNETS,Nets International Communication Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+GEMPACRA,The Pakistan Credit Rating Agency Ltd,MISCELLANEOUS,2026-09-10
+GEMPAPL,Pak Agro Packaging Limited(GEM),"PAPER, BOARD & PACKAGING",2026-09-10
+GEMSPNL,Supernet Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+GEMUNSL,Universal Network Systems Limited(GEM),,2026-09-10
+GENP,Genertech Pakistan Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+GFIL,Ghazi Fabrics International Limited,TEXTILE COMPOSITE,2026-09-10
+GGGL,Ghani Global Glass Limited,GLASS & CERAMICS,2026-09-10
+GGGLR1,Ghani Global(R),,2026-09-10
+GGL,Ghani Global Holdings Limited,CHEMICAL,2026-09-10
+GGLR1,Ghani Global(R),,2026-09-10
+GHGL,Ghani Glass Limited,GLASS & CERAMICS,2026-09-10
+GHGLR1,,GLASS & CERAMICS,2026-09-10
+GHNI,Ghandhara Industries Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+GHNL,Ghandhara Nissan Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+GIL,Good Luck Industries Ltd.,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+GLAT,Glamour Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+GLAXO,GlaxoSmithKline Pakistan Limited,PHARMACEUTICALS,2026-09-10
+GLOT,Globe Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+GLPL,Gillette Pakistan Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+GOC,GOC (Pak) Limited.,MISCELLANEOUS,2026-09-10
+GOEM,Globe Textile Mills (OE) Limited,TEXTILE SPINNING,2026-09-10
+GRR,Globe Residency REIT,REAL ESTATE INVESTMENT TRUST,2026-09-10
+GRYL,Grays Leasing Limited,LEASING COMPANIES,2026-09-10
+GSKCH,GlaxoSmithKline Consumer Healthcare,PHARMACEUTICALS,2026-09-10
+GSPM,Gulshan Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+GTECH,G3 Technologies Limited,,2026-09-10
+GTECHBR,G3 Technologies Ltd.CLASS B,,2026-09-10
+GTYR,Ghandhara Tyre & Rubber Company Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+GUSM,Gulistan Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+GUTM,Gulistan Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+GVGL,Ghani Value Glass Limited,GLASS & CERAMICS,2026-09-10
+GWLC,Gharibwal Cement Limited,CEMENT,2026-09-10
+HABSM,Habib Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+HACC,Hashimi Can Company Limited,MISCELLANEOUS,2026-09-10
+HADC,Haydari Construction Company Limited,MISCELLANEOUS,2026-09-10
+HAEL,Hala Enterprises Limited,TEXTILE COMPOSITE,2026-09-10
+HAFL,Hafiz Limited,TEXTILE COMPOSITE,2026-09-10
+HAJT,Hajra Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+HAL,Habib-ADM Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+HALEON,Haleon Pakistan Limited,PHARMACEUTICALS,2026-09-10
+HASCOL,Hascol Petroleum Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+HASCOLR1,Hascol Petre(R),OIL & GAS MARKETING COMPANIES,2026-09-10
+HATM,Hamid Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+HBL,Habib Bank Limited,COMMERCIAL BANKS,2026-09-10
+HCAR,Honda Atlas Cars (Pakistan) Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+HCL,Hallmark Company Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+HGFA,HBL Growth Fund,CLOSE - END MUTUAL FUND,2026-09-10
+HICL,Habib Insurance Company Limited,INSURANCE,2026-09-10
+HIFA,HBL Investment Fund,CLOSE - END MUTUAL FUND,2026-09-10
+HINO,Hinopak Motors Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+HINOON,Highnoon Laboratories Limited,PHARMACEUTICALS,2026-09-10
+HIRAT,Hira Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+HKKT,Hakkim Textile Mills Limited,TEXTILE WEAVING,2026-09-10
+HMB,Habib Metropolitan Bank Limited,COMMERCIAL BANKS,2026-09-10
+HMICL,Hallmark Insurance Company Limited,INSURANCE,2026-09-10
+HMIM,Haji Mohammad Ismail Mills Limited,TEXTILE SPINNING,2026-09-10
+HMM,Habib Metro Mod,,2026-09-10
+HPL,Hoechst Pakistan Limited,PHARMACEUTICALS,2026-09-10
+HRPL,Habib Rice Product Limited.,SUGAR & ALLIED INDUSTRIES,2026-09-10
+HSM,Husein Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+HSMCPS,Husein Sugar(Pref),SUGAR & ALLIED INDUSTRIES,2026-09-10
+HSMPSR,Husein Sugar(R),,2026-09-10
+HSMR1,,SUGAR & ALLIED INDUSTRIES,2026-09-10
+HSPI,Huffaz Seamless Pipe Industries Limited,ENGINEERING,2026-09-10
+HTL,Hi-Tech Lubricants Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+HUBC,The Hub Power Company Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+HUMNL,Hum Network Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+HUSI,Husein Industries Limited,PROPERTY,2026-09-10
+HWQS,Haseeb Waqas Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+IBFL,Ibrahim Fibres Limited,SYNTHETIC & RAYON,2026-09-10
+IBLHL,IBL HealthCare Limited,PHARMACEUTICALS,2026-09-10
+ICCI,ICC Industries Limited,TEXTILE WEAVING,2026-09-10
+ICCT,ICC Textiles Limited,TEXTILE WEAVING,2026-09-10
+ICI,ICI Pakistan Limited,CHEMICAL,2026-09-10
+ICIBL,Invest Capital Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+ICL,Ittehad Chemicals Limted,CHEMICAL,2026-09-10
+ICLR1,,CHEMICAL,2026-09-10
+IDEAL,Ideal Dynamics Limited,TEXTILE SPINNING,2026-09-10
+IDRT,Idrees Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+IDSM,Ideal Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+IDYM,Indus Dyeing & Manufacturing Co. Limited,TEXTILE SPINNING,2026-09-10
+IFSL,Invest & Finance Securities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+IGIBL,IGI Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+IGIHL,IGI Holdings Limited,INSURANCE,2026-09-10
+IGIIL,IGI Insurance Limited,INSURANCE,2026-09-10
+IGIL,IGI Life Insurance Limited,INSURANCE,2026-09-10
+ILP,Interloop Limited,TEXTILE COMPOSITE,2026-09-10
+ILTM,Island Textile Mills Limited,,2026-09-10
+IMAGE,Image Pakistan Limited,APPAREL,2026-09-10
+IMAGER1,Image Pak Ltd(R),,2026-09-10
+IML,Imperial  Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+IMS,Intermarket Securities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+IMSL,Imperial Sugar Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+INDU,Indus Motor Company Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+INIL,International Industries Limited,ENGINEERING,2026-09-10
+INKL,International Knitwear Limited,APPAREL,2026-09-10
+INL,,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+INMF,Investec Mutual Fund Limited,CLOSE - END MUTUAL FUND,2026-09-10
+IPAK,International Packaging Films Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+IREIT,Image Reit,REAL ESTATE INVESTMENT TRUST,2026-09-10
+ISHT,Ishtiaq Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+ISIL,Ismail Industries Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+ISL,International Steels Limited,ENGINEERING,2026-09-10
+ISTM,Ishaq Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+ITANZ,Itanz Technologies Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+ITSL,Investec Securities Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+ITTEFAQ,Ittefaq Iron Industries Limited,ENGINEERING,2026-09-10
+JATM,J.A. Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+JDMT,Janana De Malucho Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+JDWS,JDW Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+JGICL,Jubilee General Insurance Company Ltd.,INSURANCE,2026-09-10
+JKSM,J.K. Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+JLICL,Jubilee Life Insurance Company Limited,INSURANCE,2026-09-10
+JOPP,Johnson & Phillips (Pakistan) Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+JOVC,Javed Omer Vohra & Company Limited,,2026-09-10
+JPGL,Japan Power Generation Limited,,2026-09-10
+JSBL,JS Bank Limited,COMMERCIAL BANKS,2026-09-10
+JSBLR1,JS Bank Limited Right (R),,2026-09-10
+JSCL,Jahangir Siddiqui & Co. Ltd.,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+JSCLR1,Jahangi Sidd(R),,2026-09-10
+JSGCL,JS Global Capital Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+JSIL,JS Investments Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+JSML,Jauharabad Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+JSRR,JS Rental REIT,REAL ESTATE INVESTMENT TRUST,2026-09-10
+JUBS,Jubilee Spinning & Weaving Mills Ltd.,TEXTILE COMPOSITE,2026-09-10
+JVDC,Javedan Corporation Limited,PROPERTY,2026-09-10
+JVDCPS,Javedan Corporation (Pref),PROPERTY,2026-09-10
+JVDCR1,,CEMENT,2026-09-10
+KACM,Karim Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+KAKL,Kaiser Arts & Krafts Limited,TEXTILE COMPOSITE,2026-09-10
+KAPCO,Kot Addu Power Company Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+KASBM,KASB Modaraba,,2026-09-10
+KCL,Karam Ceramics Limited,GLASS & CERAMICS,2026-09-10
+KEL,K-Electric Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+KHSM,Khurshid Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+KHTC,Khyber Tobacco Company Limited,TOBACCO,2026-09-10
+KHYT,Khyber Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+KML,Kohinoor Mills Limited,TEXTILE COMPOSITE,2026-09-10
+KOHC,Kohat Cement Company Limited,CEMENT,2026-09-10
+KOHE,Kohinoor Energy Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+KOHP,Kohinoor Power Company Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+KOHTM,Kohat Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+KOIL,Kohinoor Industries Limited,TEXTILE COMPOSITE,2026-09-10
+KOSM,Kohinoor Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+KPUS,Khairpur Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+KSBP,KSB Pumps Company Limited,ENGINEERING,2026-09-10
+KSTM,Khalid Siraj Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+KTML,Kohinoor Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+LCI,Lucky Core Industries Limited,CHEMICAL,2026-09-10
+LEUL,Leather Up Limited,LEATHER & TANNERIES,2026-09-10
+LINDE,Linde Pakistan Limited,CHEMICAL,2026-09-10
+LIVEN,Liven Pharma Limited,PHARMACEUTICALS,2026-09-10
+LIVENR,Liven Pharma Limited(Right),PHARMACEUTICALS,2026-09-10
+LMSM,Landmark Spinning Industries Limited,TEXTILE SPINNING,2026-09-10
+LOADS,Loads Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+LOADSR1,LOADS Limited (Right),AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+LOTCHEM,Lotte Chemical Pakistan Limited,CHEMICAL,2026-09-10
+LPCL,Lafarge Pakistan Cement Limited,CEMENT,2026-09-10
+LPGL,Leiner Pak Gelatine Limited,CHEMICAL,2026-09-10
+LPL,Lalpir Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+LSECL,LSE Capital Limited.,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+LSECLR,LSE Capital Limited.(Right),INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+LSEFSL,LSE Financial Services Limited.,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+LSEPL,LSE Proptech Limited,,2026-09-10
+LSEVL,LSE Ventures Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+LSEVLR,LSE Ventures Limited(RIGHT),INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+LUCK,Lucky Cement Limited,CEMENT,2026-09-10
+MACFL,MACPAC Films Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+MACTER,Macter International Limited,PHARMACEUTICALS,2026-09-10
+MARI,Mari Energies Limited,OIL & GAS EXPLORATION COMPANIES,2026-09-10
+MCB,MCB Bank Limited,COMMERCIAL BANKS,2026-09-10
+MCBAH,MCB-Arif Habib Savings and Invest,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+MCBIM,MCB Investment Management Limited.,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+MDTL,Media Times Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+MDTM,Mehr Dastgir Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+MEBL,Meezan Bank Limited,COMMERCIAL BANKS,2026-09-10
+MEHT,Mehmood Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+MERIT,Merit Packaging Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+MERITR1,,"PAPER, BOARD & PACKAGING",2026-09-10
+META,MetaTech Trading Limited,,2026-09-10
+MFFL,Mitchells Fruit Farms Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+MFFLR1,Mitchells Fruit Farms Limited(Right),FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+MFL,Matco Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+MFTM,Mohammad Farooq Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+MIRKS,Mirpurkhas Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+MLCF,Maple Leaf Cement Factory Limited,CEMENT,2026-09-10
+MLCFR1,Maple Leaf (R),,2026-09-10
+MODAM,Modaraba Al-Mali,,2026-09-10
+MODAMR1,MODARABA AL-MALI (R),MODARABAS,2026-09-10
+MOHE,Mohib Exports Limited,TEXTILE WEAVING,2026-09-10
+MOIL,Morafco Industries Limited,,2026-09-10
+MOON,Moonlite (Pak) Limited,WOOLLEN,2026-09-10
+MQTM,Maqbool Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+MRNS,Mehran Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+MSCL,Metropolitan Steel Corporation Limited,ENGINEERING,2026-09-10
+MSOT,Masood Textile Mills Limited,APPAREL,2026-09-10
+MSOTPS,Masood Textile (Pref),APPAREL,2026-09-10
+MTIL,Mian Textile Industries Limited,TEXTILE COMPOSITE,2026-09-10
+MTL,Millat Tractors Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+MUBT,Mubarak Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+MUGHAL,Mughal Iron & Steel Industries Limited,ENGINEERING,2026-09-10
+MUGHALC,Mughal Iron & Steel Industries Ltd(C),ENGINEERING,2026-09-10
+MUGHALR1,Mughal Iron (R),,2026-09-10
+MUKT,Mukhtar Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+MUREB,Murree Brewery Company Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+MWMP,Mandviwala Mauser Plastic Industries,MISCELLANEOUS,2026-09-10
+MZSM,Mirza Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+NAFL,National Fibres Limited,SYNTHETIC & RAYON,2026-09-10
+NAGC,Nagina Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+NATF,National Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+NATM,Nadeem Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+NBP,National Bank of Pakistan,COMMERCIAL BANKS,2026-09-10
+NCL,Nishat Chunian Limited,TEXTILE COMPOSITE,2026-09-10
+NCML,Nazir Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+NCPL,Nishat Chunian Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+NESTLE,Nestle Pakistan Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+NETSOL,NetSol Technologies Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+NEXT,Next Capital Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+NIB,NIB Bank Limited,COMMERCIAL BANKS,2026-09-10
+NICL,Nimir Industrial Chemicals Limited,CHEMICAL,2026-09-10
+NINA,Nina Industries Limited,TEXTILE COMPOSITE,2026-09-10
+NMFL,Nirala MSR Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+NML,Nishat Mills Limited,TEXTILE COMPOSITE,2026-09-10
+NONS,Noon Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+NORS,Noor Silk Mills Limited,SYNTHETIC & RAYON,2026-09-10
+NPL,Nishat Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+NPSM,N. P. Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+NRL,National Refinery Limited,REFINERY,2026-09-10
+NRSL,Nimir Resins Limited,CHEMICAL,2026-09-10
+NSRM,The National Silk & Rayon Mills Limited,SYNTHETIC & RAYON,2026-09-10
+OBOY,Oilboy Energy Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+OBOYR1,Oilboy Energy(R),OIL & GAS MARKETING COMPANIES,2026-09-10
+OCTOPUS,Octopus Digital Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+OGDC,Oil & Gas Development Company Limited,OIL & GAS EXPLORATION COMPANIES,2026-09-10
+OLPL,OLP Financial Services Pakistan Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+OLPM,OLP Modaraba,MODARABAS,2026-09-10
+OLSM,Olympia Spinning and Weaving Mills Limited,TEXTILE SPINNING,2026-09-10
+OML,Olympia Mills Limited,MISCELLANEOUS,2026-09-10
+ORIXM,Orix Modaraba,MODARABAS,2026-09-10
+ORM,Orient Rental Mod,MODARABAS,2026-09-10
+OTSU,Otsuka Pakistan Limited,PHARMACEUTICALS,2026-09-10
+PABC,Pakistan Aluminium Beverage Cans Limited,MISCELLANEOUS,2026-09-10
+PACE,Pace (Pakistan) Limited,PROPERTY,2026-09-10
+PAEL,Pak Elektron Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+PAKCEM,Pakcem Limited,CEMENT,2026-09-10
+PAKD,Pak Datacom Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+PAKL,Pak Leather Crafts Limited,LEATHER & TANNERIES,2026-09-10
+PAKMI,First Pak Modaraba,,2026-09-10
+PAKOXY,Pakistan Oxygen Limited,CHEMICAL,2026-09-10
+PAKQATAR,Pak Qatar Family Takaful Limited,INSURANCE,2026-09-10
+PAKRI,Pakistan Reinsurance Company Limited,INSURANCE,2026-09-10
+PAKT,Pakistan Tobacco Company Limited,TOBACCO,2026-09-10
+PASL,Pervez Ahmed Consultancy Services Ltd.,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+PASM,Paramount Spinning Mills Limited,TEXTILE COMPOSITE,2026-09-10
+PCAL,Pakistan Cables Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+PCML,Punjab Cotton Mill,TEXTILE WEAVING,2026-09-10
+PDGH,Prudential Discourt & Guarantee House Lt,,2026-09-10
+PECO,Pakistan Engineering Company Limited,ENGINEERING,2026-09-10
+PGCL,Pakistan Gum & Chemicals Limited,CHEMICAL,2026-09-10
+PGF,PICIC Growth Fund,CLOSE - END MUTUAL FUND,2026-09-10
+PGIC,Pakistan Guarantee Insurance Company Limited,INSURANCE,2026-09-10
+PGLC,Pak-Gulf Leasing Company Limited,LEASING COMPANIES,2026-09-10
+PHDL,Pakistan Hotels Developers Limited,MISCELLANEOUS,2026-09-10
+PIAA,Pakistan International Airlines Corp,,2026-09-10
+PIAB,Pakistan International Airlines Corporat,,2026-09-10
+PIAHCLA,PIA Holding Company Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+PIAHCLB,PIA Holding Company LimitedB,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+PIBTL,Pakistan International Bulk Terminal,TRANSPORT,2026-09-10
+PICL,Pakistan Industrial & Commercial Leasing,LEASING COMPANIES,2026-09-10
+PICT,Pakistan International Container,TRANSPORT,2026-09-10
+PIF,PICIC Investment Fund,CLOSE - END MUTUAL FUND,2026-09-10
+PIL,PICIC Insurance Limited,INSURANCE,2026-09-10
+PIM,Popular Islamic Modaraba,MODARABAS,2026-09-10
+PINL,Premier Insurance Limited,INSURANCE,2026-09-10
+PIOC,Pioneer Cement Limited,CEMENT,2026-09-10
+PKGI,The Pakistan General Insurance Co. Ltd.,INSURANCE,2026-09-10
+PKGP,Pakgen Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+PKGS,Packages Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+PMI,First Prudential Modaraba,MODARABAS,2026-09-10
+PMPK,Philip Morris (Pakistan) Limited,TOBACCO,2026-09-10
+PMRS,The Premier Sugar Mills,SUGAR & ALLIED INDUSTRIES,2026-09-10
+PNGRS,Pangrio Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+PNSC,Pakistan National Shipping Corporation,TRANSPORT,2026-09-10
+POL,Pakistan Oilfields Limited,OIL & GAS EXPLORATION COMPANIES,2026-09-10
+POML,Punjab Oil Mills Limited,VANASPATI & ALLIED INDUSTRIES,2026-09-10
+POWER,Power Cement Limited,CEMENT,2026-09-10
+POWERPS,Power Cement (Pref),CEMENT,2026-09-10
+POWERR1,Power Cement (R),,2026-09-10
+PPL,Pakistan Petroleum Limited,OIL & GAS EXPLORATION COMPANIES,2026-09-10
+PPP,Pakistan Paper Products Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+PPVC,Pakistan PVC Limited,CHEMICAL,2026-09-10
+PQGTL,Pak Qatar General Takaful Limited,INSURANCE,2026-09-10
+PREMA,At-Tahur Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+PRET,Premium Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+PRIB,Prudential Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+PRIC,Progressive Insurance Company Limited,INSURANCE,2026-09-10
+PRL,Pakistan Refinery Limited,REFINERY,2026-09-10
+PRLR1,Pak Refinery (R),,2026-09-10
+PRWM,Prosperity Weaving Mills Limited,TEXTILE WEAVING,2026-09-10
+PSEL,Pakistan Services Limited,MISCELLANEOUS,2026-09-10
+PSMC,Pak Suzuki Motor Company Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+PSO,Pakistan State Oil Company Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+PSX,Pakistan Stock Exchange Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+PSYL,Pakistan Synthetics Limited,SYNTHETIC & RAYON,2026-09-10
+PTC,Pakistan Telecommunication Company Ltd,TECHNOLOGY & COMMUNICATION,2026-09-10
+PTL,Panther Tyres Ltd.,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+PUDF,Prudential Stocks Fund Limited,CLOSE - END MUTUAL FUND,2026-09-10
+QTECH,Quantum Data Technologies Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+QUET,Quetta Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+QUICE,Quice Food Industries Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+QUSW,Quality Steel Works Limited,,2026-09-10
+RAVT,Ravi Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+RCML,Reliance Cotton Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+REDCO,Redco Textiles Limited,TEXTILE COMPOSITE,2026-09-10
+REGAL,Regal Ceramics Limited,GLASS & CERAMICS,2026-09-10
+REWM,Reliance Weaving Mills Limited,TEXTILE COMPOSITE,2026-09-10
+RICL,Reliance Insurance Company Limited,INSURANCE,2026-09-10
+RMPL,Rafhan Maize Products Company Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+RPL,Roshan Packages Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+RUBY,Ruby Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+RUPL,Rupali Polyester Limited,SYNTHETIC & RAYON,2026-09-10
+SAIF,Saif Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+SALT,Salfi Textile Mills Limited,,2026-09-10
+SANE,Salman Noman Enterprises Limited,TEXTILE SPINNING,2026-09-10
+SANSM,Sanghar Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SAPL,Sanofi-Aventis Pakistan Limited,PHARMACEUTICALS,2026-09-10
+SAPT,Sapphire Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+SARC,Sardar Chemical Industries Limited,CHEMICAL,2026-09-10
+SASML,Sindh Abadgars Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SAZEW,Sazgar Engineering Works Limited,AUTOMOBILE ASSEMBLER,2026-09-10
+SBL,Samba Bank Limited,COMMERCIAL BANKS,2026-09-10
+SCBPL,Standard Chartered Bank (Pak) Ltd,COMMERCIAL BANKS,2026-09-10
+SCHT,Schon Textiles Limited,TEXTILE COMPOSITE,2026-09-10
+SCL,Shield Corporation Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+SDIL,Saleem Denim Industries Limited,TEXTILE WEAVING,2026-09-10
+SDOT,Sadoon Textile Industries Limited,TEXTILE WEAVING,2026-09-10
+SEARL,The Searle Company Limited,PHARMACEUTICALS,2026-09-10
+SEARLR1,Searl Company(R),,2026-09-10
+SEL,Sitara Energy Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+SELECT,Select Technologies Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+SEPCO,Southern Electric Power Company Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+SEPL,Security Papers Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+SERF,Service Fabrics Limited,TEXTILE WEAVING,2026-09-10
+SERT,Service Industries Textiles Limited,TEXTILE SPINNING,2026-09-10
+SFAT,Safa Textiles Limited,TEXTILE COMPOSITE,2026-09-10
+SFL,Sapphire Fibres Limited,TEXTILE COMPOSITE,2026-09-10
+SFLL,SFL Limited,TEXTILE COMPOSITE,2026-09-10
+SGABL,SG.Allied Businesses Limited,SYNTHETIC & RAYON,2026-09-10
+SGF,Service GlobalFootwear Limited,LEATHER & TANNERIES,2026-09-10
+SGFL,S.G.Fiber Limited,SYNTHETIC & RAYON,2026-09-10
+SGPL,S.G. Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+SGPLR,S.G.Power Limited(RIGHT),POWER GENERATION & DISTRIBUTION,2026-09-10
+SHCI,Shaffi Chemical Industries Limited,CHEMICAL,2026-09-10
+SHCM,Shadman Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+SHDT,Shadab Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+SHDTR1,Shadab Textile Mills Limited(Right),TEXTILE SPINNING,2026-09-10
+SHEL,Shell Pakistan Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+SHEZ,Shezan International Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+SHFA,Shifa International Hospitals Limited,MISCELLANEOUS,2026-09-10
+SHJS,Shahtaj Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SHNI,Shaheen Insurance Company Limited,INSURANCE,2026-09-10
+SHSML,Shahmurad Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SIBL,Security Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+SICL,Standard Insurance Company Limited,INSURANCE,2026-09-10
+SIEM,Siemens (Pakistan) Engineering,CABLE & ELECTRICAL GOODS,2026-09-10
+SILK,Silkbank Limited,COMMERCIAL BANKS,2026-09-10
+SINDM,Sindh Modaraba,MODARABAS,2026-09-10
+SING,Singer Pakistan ,CABLE & ELECTRICAL GOODS,2026-09-10
+SITC,Sitara Chemical Industries Limited,CHEMICAL,2026-09-10
+SJTM,Sajjad Textile Mills Limited,,2026-09-10
+SKRS,Sakrand Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SLCL,Security Leasing Corporation Limited,LEASING COMPANIES,2026-09-10
+SLGL,Secure Logistics-Trax Group Limited,TRANSPORT,2026-09-10
+SLL,SME Leasing Limited,LEASING COMPANIES,2026-09-10
+SLM,Service Long March Tyres Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+SLSO,Saleem Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SLSOPP,,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SLSOPVI,,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SLYT,Sally Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+SMBL,Summit Bank Limited,COMMERCIAL BANKS,2026-09-10
+SMBLCPSA,Summit Bank,COMMERCIAL BANKS,2026-09-10
+SMBLCPSB,Summit Bank B,COMMERCIAL BANKS,2026-09-10
+SMCPL,Safe Mix Concrete Limited,CEMENT,2026-09-10
+SML,Shakarganj Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SMLR1,,SUGAR & ALLIED INDUSTRIES,2026-09-10
+SMTM,Samin Textiles Limited,TEXTILE WEAVING,2026-09-10
+SNAI,Sana Industries Limited,TEXTILE SPINNING,2026-09-10
+SNBL,Soneri Bank Limited,COMMERCIAL BANKS,2026-09-10
+SNGP,Sui Northern Gas Pipelines Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+SPAC1,LSE SPAC-I Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+SPAC2,LSE SPAC-II Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+SPCL,Saudi Pak Consultancy Company Limited,LEASING COMPANIES,2026-09-10
+SPEL,SPEL Limited,"PAPER, BOARD & PACKAGING",2026-09-10
+SPL,Sitara Peroxide Limited,CHEMICAL,2026-09-10
+SPLC,Saudi Pak Leasing Company Limited,LEASING COMPANIES,2026-09-10
+SPLCTFC3,,LEASING COMPANIES,2026-09-10
+SPSL,Sitara Petroleum Service Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+SPWL,Saif Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+SRR,Signature Residency Reit,REAL ESTATE INVESTMENT TRUST,2026-09-10
+SRSM,Sargodha Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+SRVI,Service Industries Limited,LEATHER & TANNERIES,2026-09-10
+SSGC,Sui Southern Gas Company Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+SSIC,Silver Star Insurance Company Limited,INSURANCE,2026-09-10
+SSML,Saritow Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+SSOM,S.S.Oil Mills Limited,VANASPATI & ALLIED INDUSTRIES,2026-09-10
+STCL,Shabbir Tiles & Ceramics Limited,GLASS & CERAMICS,2026-09-10
+STJT,Shahtaj Textile Limited,TEXTILE WEAVING,2026-09-10
+STL,Supernet Technologies Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+STLR,Supernet Technologies Limited.(Right),TECHNOLOGY & COMMUNICATION,2026-09-10
+STML,Shams Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+STPL,Siddiqsons Tin Plate Limited,MISCELLANEOUS,2026-09-10
+STYLERS,Stylers International Limited,APPAREL,2026-09-10
+SUCM,Sunshine Cotton Mills Limited,TEXTILE SPINNING,2026-09-10
+SUHJ,Suhail Jute Mills Limited,JUTE,2026-09-10
+SURAJ,Suraj Ghee Industries Limited,VANASPATI & ALLIED INDUSTRIES,2026-09-10
+SURC,Suraj Cotton Mills Limited,TEXTILE COMPOSITE,2026-09-10
+SUTM,Sunrays Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+SWL,Standard Worldwide Limited,INSURANCE,2026-09-10
+SYM,Symmetry Group Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+SYS,Systems Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+SZTM,Shahzad Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+TAJT,Taj Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+TATM,Tata Textile Mills Limited,TEXTILE SPINNING,2026-09-10
+TBL,Treet Battery Limited.,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+TCLTC,Treet Corporation (Ptc),FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+TCORP,Tariq Corporation Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+TCORPCPS,Tariq Corporation Limited(Pref),SUGAR & ALLIED INDUSTRIES,2026-09-10
+TCORPR1,Tariq Corporation (Pvt) Ltd (R),,2026-09-10
+TCORPR2,Tariq Corporation Limited(Right),SUGAR & ALLIED INDUSTRIES,2026-09-10
+TDIL,TPL Direct Insurance Limited,INSURANCE,2026-09-10
+TELE,Telecard Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+TGL,Tariq Glass Industries Limited,GLASS & CERAMICS,2026-09-10
+THALL,Thal Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+THAS,Taha Spinning Mills Limited,TEXTILE SPINNING,2026-09-10
+THCCL,Thatta Cement Company Limited,CEMENT,2026-09-10
+TICL,The Thal Industries Corporation Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+TISL,Tasdeeq Information Services Limited,MISCELLANEOUS,2026-09-10
+TOMCL,The Organic Meat Company Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+TOWL,Towellers Limited,TEXTILE COMPOSITE,2026-09-10
+TPL,TPL Corp Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+TPLI,TPL Insurance Limited,INSURANCE,2026-09-10
+TPLL,TPL Life Insurance Limited,INSURANCE,2026-09-10
+TPLP,TPL Properties Limited,PROPERTY,2026-09-10
+TPLRF1,TPL REIT Fund I,REAL ESTATE INVESTMENT TRUST,2026-09-10
+TPLT,TPL Trakker Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+TREET,Treet Corporation Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+TREI,Transmission Engineering Industries Limited,AUTOMOBILE PARTS & ACCESSORIES,2026-09-10
+TRG,TRG Pakistan Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+TRIBL,Trust Investment Bank Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+TRIPF,Tri-Pack Films Limited,MISCELLANEOUS,2026-09-10
+TRPOL,Tri-Star Polyester Limited,SYNTHETIC & RAYON,2026-09-10
+TRSM,Trust Modaraba,MODARABAS,2026-09-10
+TSBL,Trust Securities & Brokerage Limited,INV. BANKS / INV. COS. / SECURITIES COS.,2026-09-10
+TSMF,Tri-Star Mutual Fund Limited,CLOSE - END MUTUAL FUND,2026-09-10
+TSML,Tandlianwala Sugar Mills Limited,SUGAR & ALLIED INDUSTRIES,2026-09-10
+TSPL,Tri-Star Power Limited,POWER GENERATION & DISTRIBUTION,2026-09-10
+UBDL,United Brands Limited,MISCELLANEOUS,2026-09-10
+UBL,United Bank Limited,COMMERCIAL BANKS,2026-09-10
+UBLGSFO,,,2026-09-10
+UCAPM,Unicap Modaraba,MODARABAS,2026-09-10
+UDLI,UDL International Limited,MISCELLANEOUS,2026-09-10
+UDPL,United Distributors Pakistan Limited,MISCELLANEOUS,2026-09-10
+UNIC,The United Insurance Company,INSURANCE,2026-09-10
+UNITY,Unity Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+UNITYR1,Unity Foods(R),,2026-09-10
+UPFL,Unilever Pakistan Foods Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+USMT,Usman Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+UVIC,The Universal Insurance Company Limited,INSURANCE,2026-09-10
+WAFI,Wafi Energy Pakistan Limited,OIL & GAS MARKETING COMPANIES,2026-09-10
+WAHDAT,Wahdat Poultry Farm Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+WAHN,Wah Noble Chemicals Limited,CHEMICAL,2026-09-10
+WASL,Wasl Mobility Modaraba,MODARABAS,2026-09-10
+WASLR,Wasl Mobility Modaraba(Right),MODARABAS,2026-09-10
+WAVES,Waves Corporation Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+WAVESAPP,Waves Home Appliances Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+WAVESAPPR,Waves Home Appliances Limited(Right),CABLE & ELECTRICAL GOODS,2026-09-10
+WAVESR1,Waves Singer Pakistan Limited (R),,2026-09-10
+WHALE,Waves Home Appliances Limited,CABLE & ELECTRICAL GOODS,2026-09-10
+WTL,Worldcall Telecom Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+WYETH,Wyeth Pakistan Limited,PHARMACEUTICALS,2026-09-10
+YOUW,Yousaf Weaving Mills Limited,TEXTILE WEAVING,2026-09-10
+ZAHID,Zahidjee Textile Mills Limited,TEXTILE COMPOSITE,2026-09-10
+ZAL,Zarea Limited,TECHNOLOGY & COMMUNICATION,2026-09-10
+ZELP,Zeal Pak Cement Factory Limited,CEMENT,2026-09-10
+ZHCM,Zahur Cotton Mills Limited,TEXTILE COMPOSITE,2026-09-10
+ZIL,ZIL Limited,FOOD & PERSONAL CARE PRODUCTS,2026-09-10
+ZTL,Zephyr Textiles Limited,TEXTILE WEAVING,2026-09-10
+ZUMA,Zuma Resources Limited,TECHNOLOGY & COMMUNICATION,2026-09-10

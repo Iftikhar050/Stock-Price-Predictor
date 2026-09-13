@@ -132,7 +132,9 @@ def run_walk_forward(
             model = model_factory()
             model.fit(X_train, y_train)
             preds = model.predict(X_test)
-            # Naïve persistence baseline (next day's return = 0 change)
+            # Naive persistence baseline for the PRICE-error metrics (next day's
+            # return = 0 change, i.e. tomorrow's price = today's price). This is
+            # the textbook naive forecast for MAE/RMSE/MAPE and stays correct.
             naive_preds = np.zeros(len(y_test))
             actual_prices = close_test * (1 + y_test)
             pred_prices = close_test * (1 + preds)
@@ -142,11 +144,21 @@ def run_walk_forward(
             rmse_val = np.sqrt(rmse(actual_prices, pred_prices))
             mape_val = mape(actual_prices, pred_prices) * 100
             dir_acc = directional_accuracy(y_test, preds)
-            
+
             naive_mae = mae(actual_prices, naive_pred_prices)
             naive_rmse = np.sqrt(rmse(actual_prices, naive_pred_prices))
             naive_mape = mape(actual_prices, naive_pred_prices) * 100
-            naive_dir_acc = directional_accuracy(y_test, naive_preds)
+
+            # Directional accuracy needs its OWN naive baseline - reusing
+            # `naive_preds` (always exactly 0) here is degenerate: np.sign(0)
+            # essentially never equals a nonzero true return's sign, so it
+            # mechanically scores near-0% regardless of the model, not a real
+            # ~50% coin-flip baseline. Use yesterday's realized direction
+            # instead (predict tomorrow moves the same way today did) - this
+            # is what promotion.py's DIRECTIONAL_ACC_MARGIN gate is actually
+            # meant to be compared against.
+            naive_dir_signal = np.sign(close_test.diff()).fillna(0.0).to_numpy()
+            naive_dir_acc = directional_accuracy(y_test, naive_dir_signal)
             rows.append({
                 "ticker": ticker,
                 "window_idx": window_idx,

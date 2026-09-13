@@ -162,7 +162,7 @@ def run_ablation():
             configs["Baseline - Close - Raw OBV"].append((df_base[feat_minus], df_base['target_return_t1'], df_base['close'], ticker, df_base['date']))
             
         # 3. Full Patched & Naive Persistence
-        file_path = os.path.join(PROCESSED_DIR, f"{ticker.lower()}_features.csv")
+        file_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
         if os.path.exists(file_path):
             df_full = pd.read_csv(file_path)
             if 'target_return_t1' not in df_full.columns:
@@ -189,19 +189,24 @@ def run_ablation():
         X_train_list, X_test_list = [], []
         y_train_list, y_test_list = [], []
         close_test_list = []
+        naive_dir_list = []
         ticker_test_list = []
-        
+
         for X, y, close, ticker_name, dates in data_list:
             train_mask = dates <= cutoff_date
             test_mask = dates > cutoff_date
-            
+
             X_train_list.append(X[train_mask])
             X_test_list.append(X[test_mask])
             y_train_list.append(y[train_mask])
             y_test_list.append(y[test_mask])
             close_test_list.append(close[test_mask])
+            # Naive-persistence-of-direction signal, computed per-ticker
+            # BEFORE concatenation so a .diff() never crosses a ticker
+            # boundary: predict tomorrow moves the same way today did.
+            naive_dir_list.append(np.sign(close[test_mask].diff()).fillna(0.0))
             ticker_test_list.extend([ticker_name] * test_mask.sum())
-            
+
         X_train = pd.concat(X_train_list, ignore_index=True)
         X_test = pd.concat(X_test_list, ignore_index=True)
         
@@ -215,19 +220,31 @@ def run_ablation():
         y_train = pd.concat(y_train_list, ignore_index=True)
         y_test = pd.concat(y_test_list, ignore_index=True)
         close_test_all = pd.concat(close_test_list, ignore_index=True)
-        
+        naive_dir_all = pd.concat(naive_dir_list, ignore_index=True)
+
         if name == "Naive Persistence":
+            # Correct and standard for the price-error metrics below: the
+            # naive forecast for a price series is "tomorrow = today".
             predictions_return = np.zeros_like(y_test)
         else:
             model = XGBRegressor(n_estimators=100, learning_rate=0.05, max_depth=6, random_state=42, n_jobs=-1, objective='reg:squarederror', enable_categorical=True)
             model.fit(X_train, y_train)
             predictions_return = model.predict(X_test)
-        
+
         predicted_prices = close_test_all * (1 + predictions_return)
         actual_prices = close_test_all * (1 + y_test)
-        
+
         actual_dir = np.sign(y_test)
-        pred_dir = np.sign(predictions_return)
+        if name == "Naive Persistence":
+            # Reusing predictions_return (always exactly 0) here would be
+            # degenerate for directional accuracy: np.sign(0) essentially
+            # never matches a nonzero true return, so it would mechanically
+            # score near-0% rather than a real ~50% coin-flip baseline. Use
+            # yesterday's realized direction instead (computed per-ticker
+            # above, before concatenation).
+            pred_dir = naive_dir_all
+        else:
+            pred_dir = np.sign(predictions_return)
         dir_acc = (actual_dir == pred_dir).mean() * 100
         
         mae = mean_absolute_error(actual_prices, predicted_prices)
@@ -247,16 +264,21 @@ def run_ablation():
             'actual_price': actual_prices.values,
             'predicted_price': predicted_prices.values,
             'actual_return': y_test.values,
-            'predicted_return': predictions_return
+            'predicted_return': predictions_return,
+            # Decoupled from predicted_return: for "Naive Persistence" that
+            # column is always exactly 0 (correct for the price metrics
+            # above), but directional accuracy needs the real naive-direction
+            # signal computed earlier, not np.sign(0).
+            'predicted_direction': np.asarray(pred_dir),
         })
-        
+
         for t in valid_tickers:
             df_t = df_eval[df_eval['ticker'] == t]
             if not df_t.empty:
                 t_mae = mean_absolute_error(df_t['actual_price'], df_t['predicted_price'])
                 t_rmse = np.sqrt(mean_squared_error(df_t['actual_price'], df_t['predicted_price']))
                 t_mape = mean_absolute_percentage_error(df_t['actual_price'], df_t['predicted_price']) * 100
-                t_dir = (np.sign(df_t['actual_return']) == np.sign(df_t['predicted_return'])).mean() * 100
+                t_dir = (np.sign(df_t['actual_return']) == df_t['predicted_direction']).mean() * 100
                 ticker_results.append({
                     "Config": name,
                     "Ticker": t,

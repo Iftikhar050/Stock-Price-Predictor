@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import (
     Base, StockEODData, StockNews, StockNewsSentiment, StockFundamentals,
-    MacroIndicators, CorporateEvent, TopicSentimentDaily
+    MacroIndicators, CorporateEvent, TopicSentimentDaily, CircuitBreakerEvent
 )
 
 # Auto-create any missing tables/constraints in PostgreSQL
@@ -171,6 +171,28 @@ def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
         logger.error(f"Database error upserting fundamentals: {e}")
         return False
 
+def upsert_circuit_breaker_events(df: pd.DataFrame) -> bool:
+    """
+    Upserts today's circuit-breaker hits (ticker, date, direction) scraped
+    from PSX's live circuit-breakers page.
+    """
+    if df is None or df.empty:
+        return False
+
+    records = df.to_dict(orient='records')
+    stmt = insert(CircuitBreakerEvent).values(records)
+    upsert_stmt = stmt.on_conflict_do_update(
+        index_elements=['ticker', 'date'],
+        set_={'direction': stmt.excluded.direction}
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting circuit breaker events: {e}")
+        return False
+
 def upsert_macro_indicators(df: pd.DataFrame) -> bool:
     """
     Upserts macro data into macro_indicators.
@@ -186,7 +208,10 @@ def upsert_macro_indicators(df: pd.DataFrame) -> bool:
         logger.warning("No valid MacroIndicators table columns found in DataFrame.")
         return False
 
-    clean_df = df[valid_cols]
+    # Postgres's ON CONFLICT can't touch the same target row twice within one
+    # statement - dedupe on the conflict key (date) first, keeping the last
+    # (most complete/most recent) row for each date.
+    clean_df = df[valid_cols].drop_duplicates(subset=['date'], keep='last')
     records = clean_df.to_dict(orient='records')
     stmt = insert(MacroIndicators).values(records)
     

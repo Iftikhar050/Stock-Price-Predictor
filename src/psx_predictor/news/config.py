@@ -45,3 +45,35 @@ COMPANIES: Dict[str, CompanyMetadata] = {
         search_keywords=["Lucky Cement stock", "LUCK earnings", "Lucky Cement news"]
     )
 }
+
+def _load_active_companies() -> None:
+    """
+    Extends COMPANIES with every other active ticker from stock_metadata, so
+    news collection/matching covers the full active universe (e.g. all of
+    KSE-100) instead of only the 6 hand-curated names above. Curated entries
+    are left untouched; everyone else gets a simple alias/keyword set built
+    from their company name.
+    """
+    try:
+        from sqlalchemy import text
+        from src.psx_predictor.db.connection import engine
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT ticker, company_name FROM stock_metadata WHERE is_active = true AND company_name IS NOT NULL"
+            )).fetchall()
+        for ticker, company_name in rows:
+            ticker = ticker.upper()
+            if ticker in COMPANIES:
+                continue
+            COMPANIES[ticker] = CompanyMetadata(
+                ticker=ticker,
+                name=company_name,
+                aliases=[company_name, ticker],
+                search_keywords=[f"{company_name} stock", f"{company_name} earnings"],
+            )
+    except Exception:
+        # DB may not be reachable at import time in some contexts (e.g. offline
+        # unit tests) - fall back to the curated list above only.
+        pass
+
+_load_active_companies()

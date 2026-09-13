@@ -1,12 +1,19 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime, timedelta
 from src.psx_predictor.models.utils import choose_global_cutoff
 
 class TestUtils(unittest.TestCase):
+    # choose_global_cutoff() writes models/training_split_metadata.json as a
+    # side effect - without mocking the file write too, running this test
+    # overwrites that PRODUCTION metadata file with fake test values (this is
+    # exactly how it got corrupted before: a real training run's metadata was
+    # silently clobbered by a later `pytest` run).
+    @patch('src.psx_predictor.models.utils.open', new_callable=mock_open)
+    @patch('src.psx_predictor.models.utils.os.makedirs')
     @patch('src.psx_predictor.models.utils.engine.connect')
     @patch('src.psx_predictor.db.repository.get_active_tickers')
-    def test_choose_global_cutoff_fallback(self, mock_get_tickers, mock_connect):
+    def test_choose_global_cutoff_fallback(self, mock_get_tickers, mock_connect, mock_makedirs, mock_open_file):
         # Create 10 mock dates, sorted descending (newest first)
         base_date = datetime(2023, 1, 1).date()
         mock_dates = [(base_date + timedelta(days=i),) for i in range(10)][::-1]

@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 import shutil
 
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 REGISTRY_ROOT = os.path.join(ROOT_DIR, "models", "registry")
 os.makedirs(REGISTRY_ROOT, exist_ok=True)
 

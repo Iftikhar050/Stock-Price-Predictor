@@ -44,13 +44,22 @@ EVENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "rights_event": ("right share", "right issue", "rights issue"),
     "merger_event": ("merger", "amalgamation", "scheme of arrangement"),
     "acquisition_event": ("acquisition", "acquire"),
+    # Checked before management_change_event: PSX's real disclosure headline is
+    # "Disclosure of Interest by a Director/CEO... u/c 5.6.1.(d)" - it contains
+    # "director", which would otherwise be swallowed by management_change_event's
+    # much broader keyword match (found by inspecting real ingested headlines -
+    # zero rows had ever matched the old dealing/sale/purchase phrasing, they were
+    # all silently miscategorized as management changes instead).
+    "insider_transaction_event": (
+        "dealing in shares", "sale of shares by", "purchase of shares by", "insider trading",
+        "disclosure of interest", "substantial shareholder",
+    ),
     "management_change_event": ("resignation", "appointment of", "ceo", "cfo", "director", "managing director", "board of directors"),
     "plant_shutdown_event": ("shutdown", "plant closure", "suspension of operations", "force majeure"),
     "major_contract_event": ("contract award", "supply agreement", "new contract", "LOI", "letter of intent"),
     "litigation_event": ("court", "petition", "litigation", "suit filed", "legal proceedings"),
     "regulatory_approval_event": ("approval", "no objection", "noc", "license", "consent order"),
     "share_buyback_event": ("buy-back", "buyback", "share repurchase"),
-    "insider_transaction_event": ("dealing in shares", "sale of shares by", "purchase of shares by", "insider trading"),
     "sponsor_transaction_event": ("sponsor", "associated company transaction", "holding pattern"),
     "capacity_expansion_event": ("capacity enhancement", "expansion project", "bmr", "new plant", "commissioning"),
 }
@@ -139,13 +148,29 @@ def fetch_pucars_announcements(ticker: str) -> bool:
         r = requests.get(url, headers=headers, timeout=15)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, 'html.parser')
-            # Extract announcement elements across layout variations
-            rows = (
-                soup.select("table.announcementsTable tbody tr")
-                or soup.select("table.tbl tbody tr")
-                or soup.select(".announcement-item")
-                or soup.select("table tr")
-            )
+            # The company page has several tables sharing the same "tbl" class
+            # (officer list, financial summaries by year/quarter, and the real
+            # announcements tables) - selecting "table.tbl tbody tr" blindly
+            # mixes them all together, so e.g. a financial-summary row like
+            # ("2025", "420,462,297") gets misread as an announcement with
+            # date="2025" and headline="420,462,297". Only the real
+            # announcements tables have a ['Date', 'Title', 'Document']
+            # header - filter to those specifically.
+            rows = []
+            for table in soup.find_all("table", class_="tbl"):
+                header_row = table.find("tr")
+                if not header_row:
+                    continue
+                header_cells = [c.get_text(strip=True) for c in header_row.find_all(["td", "th"])]
+                if header_cells[:2] == ["Date", "Title"]:
+                    rows.extend(table.find_all("tr")[1:])
+            if not rows:
+                # Fall back to the old broad selectors if PSX changes the
+                # header text/layout again, rather than silently returning nothing.
+                rows = (
+                    soup.select("table.announcementsTable tbody tr")
+                    or soup.select(".announcement-item")
+                )
             for row in rows:
                 cols = row.find_all("td")
                 if len(cols) >= 2:
@@ -159,13 +184,16 @@ def fetch_pucars_announcements(ticker: str) -> bool:
                         continue
                     existing_hashes.add(h_hash)
 
-                    try:
-                        ann_date = datetime.strptime(dt_text, "%Y-%m-%d").date()
-                    except ValueError:
+                    ann_date = None
+                    for fmt in ("%Y-%m-%d", "%d %b %Y", "%b %d, %Y"):
                         try:
-                            ann_date = datetime.strptime(dt_text, "%d %b %Y").date()
+                            ann_date = datetime.strptime(dt_text, fmt).date()
+                            break
                         except ValueError:
-                            ann_date = date.today()
+                            continue
+                    if ann_date is None:
+                        logger.warning(f"Could not parse announcement date '{dt_text}' for {ticker}; skipping row.")
+                        continue
 
                     # Classify event type
                     event_type = _classify_event(headline_raw)

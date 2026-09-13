@@ -25,6 +25,9 @@ python-dotenv==1.0.1
 # Machine Learning & Deep Learning
 scikit-learn==1.6.1
 xgboost==2.1.4
+lightgbm==4.7.0
+ipykernel
+reportlab
 
 # Utilities
 tqdm==4.67.1
