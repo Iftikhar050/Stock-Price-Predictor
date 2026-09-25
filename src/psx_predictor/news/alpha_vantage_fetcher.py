@@ -20,7 +20,10 @@ from src.psx_predictor.db.repository import upsert_macro_indicators
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("AlphaVantageFetcher")
 
-ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "LZ5KLTE63PU0FRT3")
+# No hardcoded fallback: a key baked into source ships forever in git history
+# even after being "removed". Missing key -> calls fail per-request (existing
+# try/except in each fetch method already logs and returns an empty DataFrame).
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 
 class AlphaVantageFetcher:
     """
@@ -30,6 +33,8 @@ class AlphaVantageFetcher:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or ALPHA_VANTAGE_API_KEY
         self.base_url = "https://www.alphavantage.co/query"
+        if not self.api_key:
+            logger.warning("ALPHA_VANTAGE_API_KEY is not set - Alpha Vantage sync will be skipped.")
 
     def fetch_news_sentiment(self, topics: str = "financial_markets,energy_transportation,economy_monetary", limit: int = 50) -> pd.DataFrame:
         """

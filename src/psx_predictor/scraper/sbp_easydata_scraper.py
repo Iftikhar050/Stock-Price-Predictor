@@ -21,6 +21,7 @@ if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from src.psx_predictor.db.repository import upsert_macro_indicators
+from src.psx_predictor.data.parse_sbp_kibor import parse_sbp_kibor
 
 logger = logging.getLogger(__name__)
 
@@ -29,34 +30,39 @@ SBP_BASE_URL = os.environ.get("SBP_BASE_URL", "https://easydata.sbp.org.pk/api/v
 # Each entry MUST be a real, independently-reported SBP series —
 # never a formula derived from another column in this dict.
 REAL_SERIES = {
-    "sbp_policy_rate":          "TS_GP_MPR_MPR.M",
-    "kibor_3m":                 "TS_GP_KIBOR_3M.D",
-    "kibor_6m":                 "TS_GP_KIBOR_6M.D",
-    "kibor_1y":                 "TS_GP_KIBOR_1Y.D",
-    "tbill_3m":                 "TS_GP_TBILL_3M.W",
-    "tbill_6m":                 "TS_GP_TBILL_6M.W",
-    "tbill_1y":                 "TS_GP_TBILL_1Y.W",
-    "pib_3y":                   "TS_GP_PIB_3Y.M",
-    "pib_5y":                   "TS_GP_PIB_5Y.M",
-    "pib_10y":                  "TS_GP_PIB_10Y.M",
-    "cpi_headline":             "TS_GP_CPI_HEADLINE.M",
-    "cpi_core":                 "TS_GP_CPI_CORE.M",
-    "sbp_reserves":             "TS_GP_FX_RES_SBP.M",
-    "commercial_bank_reserves": "TS_GP_FX_RES_COMM.M",
-    "total_fx_reserves":        "TS_GP_FX_RES_TOTAL.M",
-    "monthly_remittances":      "TS_GP_REMIT_TOTAL.M",
-    "remittances_saudi":        "TS_GP_REMIT_KSA.M",
-    "remittances_uae":          "TS_GP_REMIT_UAE.M",
-    "remittances_usa":          "TS_GP_REMIT_USA.M",
-    "remittances_uk":           "TS_GP_REMIT_UK.M",
-    "m2_money_supply":          "TS_GP_M2_MONEY.M",
-    "currency_in_circulation":  "TS_GP_CURR_CIRC.M",
+    "sbp_policy_rate":          "TS_GP_IR_SIRPR_AH.SBPOL0030",
+    "kibor_3m":                 "TS_GP_BAM_SIRKIBOR_D.KIBOR0020",
+    "kibor_6m":                 "TS_GP_BAM_SIRKIBOR_D.KIBOR0030",
+    "kibor_1y":                 "TS_GP_BAM_SIRKIBOR_D.7KIBOR12M",
+    "tbill_3m":                 "TS_GP_BAM_SIRTBIL_AH.TB0010",
+    "tbill_6m":                 "TS_GP_BAM_SIRTBIL_AH.TB0020",
+    "tbill_1y":                 "TS_GP_BAM_SIRTBIL_AH.TB0030",
+    "pib_3y":                   "TS_GP_BAM_SIRPIBS_AH.PIB0010",
+    "pib_5y":                   "TS_GP_BAM_SIRPIBS_AH.PIB0020",
+    "pib_10y":                  "TS_GP_BAM_SIRPIBS_AH.PIB0040",
+    "cpi_headline":             "TS_GP_PT_CPI_M.P00011516",
+    "cpi_core":                 "TS_GP_PT_CPI_M.P00121516",
+    "sbp_reserves":             "TS_GP_EXT_PAKRES_M.Z00030",
+    "commercial_bank_reserves": "TS_GP_EXT_PAKRES_M.Z00050",
+    "total_fx_reserves":        "TS_GP_EXT_PAKRES_M.Z00060",
+    "monthly_remittances":      "TS_GP_BOP_WR_M.WR0340",
+    "remittances_saudi":        "TS_GP_BOP_WR_M.WR0040",
+    "remittances_uae":          "TS_GP_BOP_WR_M.WR0050",
+    "remittances_usa":          "TS_GP_BOP_WR_M.WR0020",
+    "remittances_uk":           "TS_GP_BOP_WR_M.WR0030",
+    "m2_money_supply":          "TS_GP_BAM_M2_W.M000070",
+    "currency_in_circulation":  "TS_GP_BAM_M2_W.M000010",
 }
 
 
 class SbpEasyDataScraper:
     def __init__(self, api_key: str = ""):
-        self.api_key = api_key or os.environ.get("SBP_API_KEY", "9FD9ADC4862DECD60AE3691139A265883C1CA2AD")
+        # No hardcoded fallback: a key baked into source ships forever in git
+        # history even after being "removed". Missing key -> per-series calls
+        # fail gracefully (existing non-200 handling already logs + skips).
+        self.api_key = api_key or os.environ.get("SBP_API_KEY", "")
+        if not self.api_key:
+            logger.warning("SBP_API_KEY is not set - SBP EasyData series fetch will be skipped.")
 
     def _fetch_one(self, series_key: str) -> pd.DataFrame:
         """
@@ -66,10 +72,15 @@ class SbpEasyDataScraper:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
             
-        url = f"{SBP_BASE_URL}/{series_key}"
+        # Without an explicit date range the API only returns the single most
+        # recent observation instead of the full series history.
+        from datetime import datetime as _dt
+        end_date = _dt.now().strftime("%Y-%m-%d")
+        url = (
+            f"https://easydata.sbp.org.pk/api/v1/series/{series_key}/data"
+            f"?api_key={self.api_key}&start_date=2005-01-01&end_date={end_date}"
+        )
         try:
             import cloudscraper
             scraper = cloudscraper.create_scraper()
@@ -79,13 +90,29 @@ class SbpEasyDataScraper:
                 return pd.DataFrame(columns=["date", series_key])
             
             payload = resp.json()
-            obs = payload.get("observations", payload.get("data", []))
-            if not obs:
-                logger.warning(f"No observations returned for SBP series {series_key}")
-                return pd.DataFrame(columns=["date", series_key])
+            
+            # New SBP API format: {"columns": [...], "rows": [[...], ...]}
+            if "columns" in payload and "rows" in payload:
+                cols = [c.lower() for c in payload["columns"]]
+                rows = payload["rows"]
+                if not rows:
+                    return pd.DataFrame(columns=["date", series_key])
+                
+                df = pd.DataFrame(rows, columns=cols)
+                date_col = "observation date"
+                val_col = "observation value"
+                if date_col not in df.columns or val_col not in df.columns:
+                    return pd.DataFrame(columns=["date", series_key])
+                df = df.rename(columns={date_col: "date", val_col: "value"})
+            else:
+                # Fallback to old format
+                obs = payload.get("observations", payload.get("data", []))
+                if not obs:
+                    logger.warning(f"No observations returned for SBP series {series_key}")
+                    return pd.DataFrame(columns=["date", series_key])
+                df = pd.DataFrame(obs)
+                df.columns = [c.lower() for c in df.columns]
 
-            df = pd.DataFrame(obs)
-            df.columns = [c.lower() for c in df.columns]
             if "date" not in df.columns or "value" not in df.columns:
                 return pd.DataFrame(columns=["date", series_key])
 
@@ -121,19 +148,48 @@ class SbpEasyDataScraper:
             else:
                 combined = pd.merge(combined, raw, on="date", how="outer")
 
+        # 1. Fetch Manual KIBOR Data
+        manual_kibor_df = pd.DataFrame()
+        try:
+            manual_kibor_df = parse_sbp_kibor()
+        except Exception as e:
+            logger.error(f"Error parsing manual SBP KIBOR: {e}")
+
+        # 2. Combine with Live Data (Manual > Live)
+        if not manual_kibor_df.empty:
+            if combined is None or combined.empty:
+                combined = manual_kibor_df
+            else:
+                combined["date"] = pd.to_datetime(combined["date"])
+                manual_kibor_df["date"] = pd.to_datetime(manual_kibor_df["date"])
+                combined = pd.merge(combined, manual_kibor_df, on="date", how="outer", suffixes=("_live", "_manual"))
+                
+                # Manual overrides live
+                for col in ["kibor_1w", "kibor_1m", "kibor_3m", "kibor_6m", "kibor_1y"]:
+                    if f"{col}_manual" in combined.columns and f"{col}_live" in combined.columns:
+                        combined[col] = combined[f"{col}_manual"].combine_first(combined[f"{col}_live"])
+                        combined.drop(columns=[f"{col}_manual", f"{col}_live"], inplace=True)
+                    elif f"{col}_manual" in combined.columns:
+                        combined[col] = combined[f"{col}_manual"]
+                        combined.drop(columns=[f"{col}_manual"], inplace=True)
+                    elif f"{col}_live" in combined.columns:
+                        combined[col] = combined[f"{col}_live"]
+                        combined.drop(columns=[f"{col}_live"], inplace=True)
+                        
         if combined is None or combined.empty:
-            logger.warning("All live SBP EasyData series API fetches returned empty.")
+            logger.warning("All live and manual SBP EasyData fetches returned empty.")
             return pd.DataFrame()
 
         combined = combined.sort_values("date").reset_index(drop=True)
 
         # Mark per-column missing flags and NEVER fabricate
         for col in REAL_SERIES.keys():
-            if col in missing_cols:
+            if col not in combined.columns:
                 combined[col] = pd.NA
-                combined[f"{col}_is_missing"] = True
-            else:
-                combined[f"{col}_is_missing"] = False
+            
+            # If the column is entirely NaN for a date, mark it missing
+            missing_mask = combined[col].isna()
+            combined[f"{col}_is_missing"] = missing_mask
 
         # Since we removed all synthesis loops, the data is never synthetic.
         combined["is_synthetic_rate"] = False

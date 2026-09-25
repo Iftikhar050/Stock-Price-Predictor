@@ -201,12 +201,69 @@ class PsxDpsScraper:
                 }
                 records.append(rec)
                 
+            # 3. Process Table 6 (Quarterly Financial Statements) - previously scraped past
+            # without being parsed, even though it renders on every company page alongside
+            # the annual table. Same 4-period rendering ceiling as the annual table (this
+            # is a real PSX DPS page limit, not something this scraper self-imposes) - this
+            # adds quarterly-frequency, more current data points, not deeper history.
+            quarterly_table = tables[5]
+            q_rows = quarterly_table.find_all('tr')
+            q_periods = [ele.text.strip() for ele in q_rows[0].find_all(['td', 'th']) if ele.text.strip()]
+
+            q_data = {}
+            for row in q_rows[1:]:
+                cols = [ele.text.strip() for ele in row.find_all(['td', 'th'])]
+                if not cols:
+                    continue
+                metric_name = cols[0]
+                values = cols[1:]
+                q_data[metric_name] = dict(zip(q_periods, values))
+
+            # PSX renders quarter labels as "Q<n> <year>" with no fiscal-year-end info per
+            # company - mapped here to the standard calendar quarter-end date (Mar/Jun/Sep/
+            # Dec 31). Companies on a non-calendar fiscal year will have their report_date
+            # off by a quarter or two; flagged here rather than silently assumed correct.
+            quarter_end_month = {1: 3, 2: 6, 3: 9, 4: 12}
+            quarter_end_day = {1: 31, 2: 30, 3: 30, 4: 31}
+            for period in q_periods:
+                parts = period.replace('Q', '').split()
+                if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                    continue
+                q_num, q_year = int(parts[0]), int(parts[1])
+                if q_num not in quarter_end_month:
+                    continue
+                rep_date = datetime(q_year, quarter_end_month[q_num], quarter_end_day[q_num]).date()
+
+                rev_str = q_data.get('Sales', {}).get(period) or q_data.get('Mark-up Earned', {}).get(period)
+                net_str = q_data.get('Profit after Taxation', {}).get(period)
+                eps_str = q_data.get('EPS', {}).get(period)
+
+                rev_val = self._parse_val(rev_str)
+                net_val = self._parse_val(net_str)
+                eps_val = self._parse_val(eps_str)
+                rev_val, net_val = self._reconcile_annual_scale(rev_val, net_val, eps_val, shares_val)
+                rev_val, net_val = self._plausibility_gate(rev_val, net_val)
+
+                if np.isnan(rev_val) and np.isnan(net_val) and np.isnan(eps_val):
+                    continue
+
+                records.append({
+                    'ticker': ticker,
+                    'report_date': rep_date,
+                    'revenue': rev_val,
+                    'net_income': net_val,
+                    'eps': eps_val,
+                    'shares_outstanding': shares_val,
+                    'market_cap': mcap_val,
+                })
+
             if not records:
                 logger.warning(f"No financial records extracted for {ticker}.")
                 return False
-                
+
             df = pd.DataFrame(records)
-            df = df.dropna(how='all', subset=['revenue', 'net_income', 'eps', 'eps_growth_yoy'])
+            df = df.dropna(how='all', subset=['revenue', 'net_income', 'eps'])
+            df = df.drop_duplicates(subset=['ticker', 'report_date'], keep='first')
             
             success = upsert_stock_fundamentals(df)
             if success:
