@@ -107,8 +107,13 @@ def main():
 
     with dst.cursor() as cur:
         cur.execute(dump_section("post-data", src_params))
+        # Supabase serves every public table over its REST API to anyone with
+        # the project's publishable key. RLS with no policies closes that off;
+        # the app connects as the tables' owner, which RLS doesn't restrict.
+        for t in tables:
+            cur.execute(f'ALTER TABLE public."{t}" ENABLE ROW LEVEL SECURITY')
     dst.commit()
-    print("Added keys, constraints and indexes.")
+    print("Added keys, constraints and indexes; locked tables to the app's own login (RLS).")
 
     with src.cursor() as cur:
         cur.execute("SELECT schemaname, sequencename, last_value FROM pg_sequences "
