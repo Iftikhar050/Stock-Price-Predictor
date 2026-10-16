@@ -1,0 +1,32 @@
+# Runtime dependencies for the deployed API only (Dockerfile). Pinned to the
+# exact versions the models were trained and pickled with - scikit-learn,
+# xgboost, lightgbm, numpy and pandas pickles are only reliably loadable by the
+# versions that wrote them. Re-pin from the training venv after any retrain.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+fastapi==0.140.13
+starlette==1.3.1
+uvicorn==0.52.0
+pydantic==2.13.4
+pydantic_core==2.46.4
+
+SQLAlchemy==2.0.51
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
+
+numpy==2.5.1
+pandas==3.0.5
+pyarrow==25.0.1
+scipy==1.18.0
+scikit-learn==1.9.0
+joblib==1.5.3
+threadpoolctl==3.6.0
+xgboost==3.3.0
+lightgbm==4.7.0
+torch==2.13.0+cpu
+
+requests==2.34.2
+beautifulsoup4==4.15.0
+lxml==6.1.1
+html5lib==1.1
+tqdm==4.70.1

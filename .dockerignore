@@ -1,0 +1,14 @@
+# Keep the image to what the API needs: src/, models/, deploy/, and the
+# storage sync script. Feature data is downloaded at startup, not baked in.
+*
+!src/
+!models/
+!deploy/
+!scripts/serving_data_storage.py
+!requirements-api.txt
+
+**/__pycache__/
+**/*.py[cod]
+models/registry/
+models/**/*.json
+models/svr_rbf_model.pkl

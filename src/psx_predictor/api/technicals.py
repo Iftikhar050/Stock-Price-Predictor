@@ -19,8 +19,7 @@ import pandas as pd
 
 from src.psx_predictor.api.state import psx_cache
 from src.psx_predictor.api.cache import get_cached, set_cached
-
-PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
+from src.psx_predictor.api.master_data import read_master
 
 TECHNICAL_COLUMNS = [
     "date",
@@ -45,14 +44,11 @@ def get_latest_technicals(ticker: str) -> dict | None:
     if cached is not None:
         return cached
 
-    path = os.path.join(PROCESSED_DIR, f"{ticker}_master.csv")
-    if not os.path.exists(path):
-        return None
     try:
-        df = pd.read_csv(path, usecols=lambda c: c in TECHNICAL_COLUMNS)
+        df = read_master(ticker, columns=TECHNICAL_COLUMNS)
     except Exception:
         return None
-    if df.empty:
+    if df is None or df.empty:
         return None
     row = df.iloc[-1]
     result = {}

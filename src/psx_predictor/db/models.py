@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Float, BigInteger, Date, DateTime, Text, Integer
+from sqlalchemy import String, Float, BigInteger, Date, DateTime, Text, Integer, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
@@ -515,6 +515,14 @@ class CorporateEvent(Base):
     Closes PDF Groups 25 (Corporate Announcements) and 36 (News/Event Shocks).
     """
     __tablename__ = "corporate_events"
+    # event_type is part of the key: the same notice can legitimately carry two
+    # classifications, and both feed separate *_event feature columns.
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol", "published_at", "title", "event_type",
+            name="uq_corporate_events_notice", postgresql_nulls_not_distinct=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(20), index=True, nullable=False)

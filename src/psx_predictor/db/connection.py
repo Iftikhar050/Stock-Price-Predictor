@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session, Session
 from dotenv import load_dotenv
 
@@ -16,29 +16,36 @@ if not logger.handlers:
     ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logger.addHandler(ch)
 
-def get_database_url() -> str:
-    """Constructs the PostgreSQL database URL from environment variables."""
-    user = os.getenv("DB_USER", "postgres")
+def get_database_url() -> URL:
+    """Constructs the PostgreSQL database URL from environment variables.
+    URL.create escapes each part, so a password containing @ : / still works."""
     password = os.getenv("DB_PASSWORD", "")
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    db_name = os.getenv("DB_NAME", "psx_predictor")
-
     if not password:
         logger.warning("DB_PASSWORD is not set in the environment variables.")
-        
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
+
+    return URL.create(
+        "postgresql+psycopg2",
+        username=os.getenv("DB_USER", "postgres"),
+        password=password,
+        host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", "5432")),
+        database=os.getenv("DB_NAME", "psx_predictor"),
+    )
 
 try:
     db_url = get_database_url()
     
     # Create the SQLAlchemy 2.0 Engine
+    # Hosted Postgres (Supabase) wants SSL and caps connections per client on
+    # its pooler, so both are overridable; local defaults are unchanged.
+    sslmode = os.getenv("DB_SSLMODE")
     engine = create_engine(
         db_url,
         echo=False,  # Set to True to log all SQL queries
         pool_pre_ping=True,  # Verifies connections before usage
-        pool_size=10,
-        max_overflow=20
+        pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
+        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
+        connect_args={"sslmode": sslmode} if sslmode else {},
     )
     
     # Create a configured "Session" factory

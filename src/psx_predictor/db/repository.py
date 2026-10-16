@@ -240,8 +240,10 @@ def upsert_macro_indicators(df: pd.DataFrame) -> bool:
 
 def upsert_corporate_events(df: pd.DataFrame) -> bool:
     """
-    Upserts structured corporate event records into the corporate_events table.
-    Deduplicates on (symbol, published_at, title) via ON CONFLICT DO UPDATE.
+    Inserts structured corporate event records into the corporate_events table,
+    skipping notices already stored (uq_corporate_events_notice). Callers
+    re-sync every stored notice on each run, so without the skip each run
+    re-inserted the whole table.
     """
     if df is None or df.empty:
         logger.warning("No corporate events to upsert.")
@@ -254,12 +256,14 @@ def upsert_corporate_events(df: pd.DataFrame) -> bool:
         return False
 
     records = df.to_dict(orient='records')
-    stmt = insert(CorporateEvent).values(records)
+    stmt = insert(CorporateEvent).values(records).on_conflict_do_nothing(
+        constraint="uq_corporate_events_notice"
+    )
 
     try:
         with engine.begin() as conn:
-            conn.execute(stmt)
-        logger.info(f"Inserted {len(records)} corporate event records.")
+            inserted = conn.execute(stmt).rowcount
+        logger.info(f"Inserted {inserted} new corporate event records ({len(records) - inserted} already stored).")
         return True
     except Exception as e:
         logger.error(f"Database error upserting corporate events: {e}")

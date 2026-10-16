@@ -26,6 +26,7 @@ from src.psx_predictor.config import VALID_TICKERS
 from sqlalchemy import text
 from src.psx_predictor.db.connection import engine
 from src.psx_predictor.api.state import ml_models, psx_cache
+from src.psx_predictor.api.master_data import master_path, read_master
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
@@ -34,7 +35,6 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
-PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 
 router = APIRouter()
 
@@ -120,10 +120,10 @@ async def get_prediction(payload: PredictionRequest):
     if "rf_predictor" not in ml_models or "lstm_predictor" not in ml_models or "lr_predictor" not in ml_models or "xgb_predictor" not in ml_models:
         raise HTTPException(status_code=503, detail="ML Models are currently unavailable.")
 
-    data_path = os.path.join(PROCESSED_DIR, f"{ticker}_master.csv")
+    data_path = master_path(ticker)
     ticker = ticker.lower()
 
-    if not os.path.exists(data_path):
+    if data_path is None:
         raise HTTPException(status_code=404, detail=f"Feature data for ticker '{ticker.upper()}' not found.")
 
     try:
@@ -136,10 +136,8 @@ async def get_prediction(payload: PredictionRequest):
 
         # Run synchronous blocking logic in threadpool to avoid blocking event loop
         def _compute():
-            head_df = pd.read_csv(data_path, nrows=2)
-            load_cols = [c for c in head_df.columns if c not in ['raw_text_announcements', 'raw_news_headline_daily']]
-            df = pd.read_csv(data_path, usecols=load_cols, engine='c')
-            if df.empty:
+            df = read_master(ticker, exclude=['raw_text_announcements', 'raw_news_headline_daily'])
+            if df is None or df.empty:
                 raise HTTPException(status_code=404, detail=f"Insufficient historical data to compute predictions for {ticker.upper()}.")
 
             # Text/categorical columns (e.g. sentiment_coverage_era's "unavailable"/"live"
@@ -459,7 +457,7 @@ async def get_prediction(payload: PredictionRequest):
                     SELECT headline, source, published_at, url, sentiment_score
                     FROM stock_news
                     WHERE ticker = :ticker
-                    ORDER BY published_at DESC
+                    ORDER BY published_at DESC, id DESC
                     LIMIT 5
                 """)
                 with engine.connect() as conn:

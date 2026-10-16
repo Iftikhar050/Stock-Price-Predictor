@@ -82,3 +82,12 @@ logs/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Local database backups
+backups/
+
+# Trimmed feature tables for deployment (scripts/export_serving_data.py)
+data/serving/
+
+# Production secrets for deploy/ scripts
+deploy/.env.production
