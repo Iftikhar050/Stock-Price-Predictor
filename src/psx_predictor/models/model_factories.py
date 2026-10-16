@@ -5,6 +5,7 @@ Used by the walk‑forward evaluation pipeline.
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVR
 from xgboost import XGBRegressor
 try:
     from lightgbm import LGBMRegressor
@@ -24,6 +25,20 @@ def baseline_factory():
 def ridge_factory():
     """Return a new Ridge regression instance."""
     return Ridge(alpha=1.0)
+
+def svr_rbf_factory(epsilon: float = 0.001):
+    """Return a new SVR (RBF kernel) instance.
+
+    Requires standardized input (StandardScaler) - unlike the tree models,
+    SVR is not scale-invariant. `epsilon` defaults far below sklearn's 0.1
+    default: a next-day return is ~1-2% in magnitude, and the epsilon-
+    insensitive tube swallows nearly every training point if epsilon is
+    comparable to or larger than the target's own scale, collapsing the fit
+    to just the bias term (found and fixed earlier via the MEBL/PSO report
+    bake-off - both RBF and linear kernels converged to near-identical,
+    near-zero predictions until epsilon was shrunk to match the target scale).
+    """
+    return SVR(kernel='rbf', C=10.0, gamma='scale', epsilon=epsilon)
 
 def xgboost_factory():
     """Return a new XGBRegressor instance."""

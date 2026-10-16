@@ -1,10 +1,19 @@
 import os
+import socket
 import sys
 import logging
 from typing import List, Optional
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.append(ROOT_DIR)
+
+# Several sub-pipelines (notably the news collectors - gnews and feedparser-based
+# RSS fetching) make urllib-based network calls with no per-call timeout, which
+# previously hung this pipeline indefinitely on an unresponsive server across a
+# multi-ticker batch run. socket.setdefaulttimeout() bounds every socket this
+# process opens (anything using urllib/feedparser under the hood) without having
+# to patch each third-party collector individually.
+socket.setdefaulttimeout(20)
 
 from src.psx_predictor.pipelines.macro_pipeline import run_macro_pipeline
 from src.psx_predictor.pipelines.institutional_flows_pipeline import run_institutional_flows_pipeline

@@ -13,7 +13,7 @@ const NAV_LINKS = [
   { to: "/", label: "Home", end: true },
   { to: "/screener", label: "Screener" },
   { to: "/compare", label: "Compare" },
-  { to: "/sectors", label: "Sectors" },
+  { to: "/dividends", label: "Dividends" },
 ];
 
 function NavItem({ to, label, end }) {

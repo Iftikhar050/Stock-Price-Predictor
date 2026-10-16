@@ -22,11 +22,20 @@ def to_naive_dt(series):
         dt = dt.tz_localize(None)
     return dt.dt.floor('D').astype('datetime64[ns]') if hasattr(dt, 'dt') else dt.floor('D').astype('datetime64[ns]')
 
-def export_raw_text_files_for_ticker(ticker: str):
+def export_raw_text_files_for_ticker(ticker: str, processed_dir: str = None):
     """
     Queries PostgreSQL for raw textual announcements, press releases, and news items
     for a ticker and exports standalone raw text CSV datasets into data/processed/.
+
+    `processed_dir` (opt-in, defaults to this module's own PROCESSED_DIR): lets a
+    caller redirect output elsewhere (e.g. build_features.py's staged-ingestion
+    runs writing to data/staging/phase_N/). Without this, this function always
+    wrote to - and read the pre-existing master CSV back out of - the real
+    data/processed/ regardless of where the caller's own master CSV had just been
+    written, silently overwriting whatever (possibly stale/unverified) file was
+    already sitting there for tickers outside a staged batch.
     """
+    processed_dir = processed_dir or PROCESSED_DIR
     logger.info(f"Exporting raw text datasets for {ticker.upper()}...")
     
     # 1. Query corporate_announcements_pucars for raw announcement text
@@ -40,13 +49,13 @@ def export_raw_text_files_for_ticker(ticker: str):
     with engine.connect() as conn:
         pucars_df = pd.read_sql(query_pucars, conn, params={"ticker": ticker.upper()})
         
-    pucars_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_raw_text_announcements.csv")
+    pucars_path = os.path.join(processed_dir, f"{ticker.upper()}_raw_text_announcements.csv")
     try:
         pucars_df.to_csv(pucars_path, index=False)
         logger.info(f"Saved {len(pucars_df)} raw text PUCARS announcements to {pucars_path}")
     except Exception as e:
         logger.warning(f"Could not save to {pucars_path} ({e}). Using fallback filename.")
-        pucars_df.to_csv(os.path.join(PROCESSED_DIR, f"{ticker.upper()}_raw_text_announcements_v2.csv"), index=False)
+        pucars_df.to_csv(os.path.join(processed_dir, f"{ticker.upper()}_raw_text_announcements_v2.csv"), index=False)
     
     # 2. Query stock_news for raw news headlines and text articles
     query_news = text("""
@@ -64,16 +73,16 @@ def export_raw_text_files_for_ticker(ticker: str):
         # dataset rather than fabricating placeholder articles.
         news_df = pd.DataFrame(columns=["date", "headline", "summary", "full_text", "source", "url", "sentiment_score"])
 
-    news_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_raw_news_sentiment.csv")
+    news_path = os.path.join(processed_dir, f"{ticker.upper()}_raw_news_sentiment.csv")
     try:
         news_df.to_csv(news_path, index=False)
         logger.info(f"Saved {len(news_df)} raw text news articles to {news_path}")
     except Exception as e:
         logger.warning(f"Could not save to {news_path} ({e}). Using fallback filename.")
-        news_df.to_csv(os.path.join(PROCESSED_DIR, f"{ticker.upper()}_raw_news_sentiment_v2.csv"), index=False)
+        news_df.to_csv(os.path.join(processed_dir, f"{ticker.upper()}_raw_news_sentiment_v2.csv"), index=False)
     
     # 3. Attach historical raw text disclosures date-by-date into master CSV file
-    master_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
+    master_path = os.path.join(processed_dir, f"{ticker.upper()}_master.csv")
     if os.path.exists(master_path):
         master_df = pd.read_csv(master_path)
         master_df['date'] = to_naive_dt(master_df['date'])
@@ -156,7 +165,7 @@ def export_raw_text_files_for_ticker(ticker: str):
             logger.info(f"Updated {master_path} with date-matched raw text announcement and news columns (Now {len(master_df.columns)} columns)!")
         except Exception as e:
             logger.warning(f"Could not overwrite {master_path} ({e}). Saving to fallback file.")
-            fallback_master = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master_updated.csv")
+            fallback_master = os.path.join(processed_dir, f"{ticker.upper()}_master_updated.csv")
             try:
                 master_df.to_csv(fallback_master, index=False)
                 logger.info(f"Saved master dataset to fallback: {fallback_master}")

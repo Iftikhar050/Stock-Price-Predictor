@@ -141,8 +141,8 @@ def test_realtime_falls_back_to_db_on_scrape_failure(mocker):
 
     mock_conn = mocker.MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = [
-        mocker.MagicMock(close=202.0),
-        mocker.MagicMock(close=200.0),
+        mocker.MagicMock(close=202.0, date=datetime.date(2026, 10, 13)),
+        mocker.MagicMock(close=200.0, date=datetime.date(2026, 10, 12)),
     ]
     mock_engine = mocker.MagicMock()
     mock_engine.connect.return_value.__enter__.return_value = mock_conn

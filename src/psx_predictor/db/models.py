@@ -304,6 +304,11 @@ class MacroIndicators(Base):
     lipi_companies_net: Mapped[float] = mapped_column(Float, nullable=True)
     lipi_individuals_net: Mapped[float] = mapped_column(Float, nullable=True)
     
+    # Real, officially-published PSX KSE-100 level (via dps.psx.com.pk/indices) -
+    # distinct from MarketIndex's "KSE100" row, which is a synthetic
+    # equal-weighted proxy (is_synthetic_index=True), never the real index.
+    kse100_real_index_level: Mapped[float] = mapped_column(Float, nullable=True)
+    kse100_real_return_pct: Mapped[float] = mapped_column(Float, nullable=True)
     kmi30_index_level: Mapped[float] = mapped_column(Float, nullable=True)
     kmi30_return_pct: Mapped[float] = mapped_column(Float, nullable=True)
     kse30_index_level: Mapped[float] = mapped_column(Float, nullable=True)

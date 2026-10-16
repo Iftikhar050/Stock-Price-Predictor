@@ -1,0 +1,248 @@
+{
+  "banking": {
+    "sector_key": "banking",
+    "valid_tickers": [
+      "ABL",
+      "AKBL",
+      "BAHL",
+      "BAFL",
+      "BOP",
+      "FABL",
+      "HBL",
+      "HMB",
+      "MCB",
+      "MEBL",
+      "NBP",
+      "SCBPL",
+      "UBL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 2.95,
+    "baseline_mape": 1.57,
+    "best_model_mae": 3.48,
+    "best_model_mape": 1.99,
+    "directional_accuracy": 47.05,
+    "lightgbm_dir_acc": 47.05,
+    "xgboost_dir_acc": 46.87
+  },
+  "cement": {
+    "sector_key": "cement",
+    "valid_tickers": [
+      "BWCL",
+      "CHCC",
+      "DGKC",
+      "FCCL",
+      "KOHC",
+      "LUCK",
+      "MLCF",
+      "POWER",
+      "PIOC"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 3.86,
+    "baseline_mape": 2.0,
+    "best_model_mae": 5.41,
+    "best_model_mape": 2.66,
+    "directional_accuracy": 52.71,
+    "lightgbm_dir_acc": 48.83,
+    "xgboost_dir_acc": 52.71
+  },
+  "oil_exploration": {
+    "sector_key": "oil_exploration",
+    "valid_tickers": [
+      "MARI",
+      "OGDC",
+      "POL",
+      "PPL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 4.99,
+    "baseline_mape": 1.28,
+    "best_model_mae": 5.66,
+    "best_model_mape": 1.39,
+    "directional_accuracy": 50.61,
+    "lightgbm_dir_acc": 50.61,
+    "xgboost_dir_acc": 48.83
+  },
+  "oil_marketing": {
+    "sector_key": "oil_marketing",
+    "valid_tickers": [
+      "APL",
+      "PSO",
+      "WAFI",
+      "SNGP",
+      "SSGC"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 3.43,
+    "baseline_mape": 1.67,
+    "best_model_mae": 3.5,
+    "best_model_mape": 1.7,
+    "directional_accuracy": 50.63,
+    "lightgbm_dir_acc": 49.19,
+    "xgboost_dir_acc": 50.63
+  },
+  "technology": {
+    "sector_key": "technology",
+    "valid_tickers": [
+      "AIRLINK",
+      "AVN",
+      "HUMNL",
+      "PTC",
+      "SYS",
+      "TRG"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 1.44,
+    "baseline_mape": 1.94,
+    "best_model_mae": 2.24,
+    "best_model_mape": 2.69,
+    "directional_accuracy": 49.1,
+    "lightgbm_dir_acc": 47.61,
+    "xgboost_dir_acc": 49.1
+  },
+  "automobile": {
+    "sector_key": "automobile",
+    "valid_tickers": [
+      "ATLH",
+      "GAL",
+      "GHNI",
+      "HCAR",
+      "INDU",
+      "MTL",
+      "SAZEW",
+      "THALL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 14.37,
+    "baseline_mape": 1.67,
+    "best_model_mae": 14.72,
+    "best_model_mape": 1.7,
+    "directional_accuracy": 47.87,
+    "lightgbm_dir_acc": 47.87,
+    "xgboost_dir_acc": 47.13
+  },
+  "fertilizer": {
+    "sector_key": "fertilizer",
+    "valid_tickers": [
+      "EFERT",
+      "FATIMA",
+      "FFC"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 3.96,
+    "baseline_mape": 1.44,
+    "best_model_mae": 4.15,
+    "best_model_mape": 1.51,
+    "directional_accuracy": 44.73,
+    "lightgbm_dir_acc": 44.73,
+    "xgboost_dir_acc": 44.43
+  },
+  "pharmaceuticals": {
+    "sector_key": "pharmaceuticals",
+    "valid_tickers": [
+      "ABOT",
+      "AGP",
+      "CPHL",
+      "HALEON",
+      "GLAXO",
+      "HINOON",
+      "SEARL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 6.24,
+    "baseline_mape": 1.46,
+    "best_model_mae": 6.37,
+    "best_model_mape": 1.48,
+    "directional_accuracy": 47.98,
+    "lightgbm_dir_acc": 47.98,
+    "xgboost_dir_acc": 47.98
+  },
+  "power": {
+    "sector_key": "power",
+    "valid_tickers": [
+      "HUBC",
+      "KEL",
+      "KAPCO"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 1.15,
+    "baseline_mape": 1.66,
+    "best_model_mae": 1.16,
+    "best_model_mape": 1.67,
+    "directional_accuracy": 50.67,
+    "lightgbm_dir_acc": 50.67,
+    "xgboost_dir_acc": 44.54
+  },
+  "food": {
+    "sector_key": "food",
+    "valid_tickers": [
+      "COLG",
+      "FFL",
+      "MUREB",
+      "NATF",
+      "NESTLE",
+      "RMPL",
+      "UPFL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 51.48,
+    "baseline_mape": 1.0,
+    "best_model_mae": 50.8,
+    "best_model_mape": 1.01,
+    "directional_accuracy": 53.0,
+    "lightgbm_dir_acc": 53.0,
+    "xgboost_dir_acc": 52.74
+  },
+  "investment_banks": {
+    "sector_key": "investment_banks",
+    "valid_tickers": [
+      "AHCL",
+      "DHPL",
+      "ENGROH",
+      "PSX"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 1.87,
+    "baseline_mape": 1.96,
+    "best_model_mae": 1.94,
+    "best_model_mape": 2.06,
+    "directional_accuracy": 49.8,
+    "lightgbm_dir_acc": 47.72,
+    "xgboost_dir_acc": 49.8
+  },
+  "refinery": {
+    "sector_key": "refinery",
+    "valid_tickers": [
+      "ATRL",
+      "CNERGY"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 7.62,
+    "baseline_mape": 1.96,
+    "best_model_mae": 7.65,
+    "best_model_mape": 1.95,
+    "directional_accuracy": 54.85,
+    "lightgbm_dir_acc": 54.63,
+    "xgboost_dir_acc": 54.85
+  },
+  "textile": {
+    "sector_key": "textile",
+    "valid_tickers": [
+      "ILP",
+      "KTML",
+      "MEHT",
+      "GADT",
+      "YOUW",
+      "IBFL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 3.1,
+    "baseline_mape": 2.15,
+    "best_model_mae": 4.1,
+    "best_model_mape": 2.8,
+    "directional_accuracy": 48.04,
+    "lightgbm_dir_acc": 48.04,
+    "xgboost_dir_acc": 45.03
+  }
+}

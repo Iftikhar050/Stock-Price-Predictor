@@ -59,9 +59,19 @@ class LocalNewsCollector(BaseCollector):
 
     def __init__(self, feeds: list[dict] | None = None):
         self.feeds = feeds or RSS_FEEDS
+        # Per-instance cache keyed by feed URL - a pipeline run instantiates one
+        # NewsAggregator (and so one LocalNewsCollector) for the whole ticker batch
+        # but calls fetch_news() once per ticker, which otherwise re-parses every
+        # RSS feed from scratch per ticker (97 tickers x 4 feeds = 388 fetches for
+        # 4 feeds' worth of actual content, and previously had no timeout - see below).
+        self._feed_cache: dict[str, List[Article]] = {}
 
     def _parse_feed(self, feed_config: dict) -> List[Article]:
-        """Parse a single RSS feed and return Article objects."""
+        """Parse a single RSS feed and return Article objects (cached per instance)."""
+        feed_url = feed_config["url"]
+        if feed_url in self._feed_cache:
+            return self._feed_cache[feed_url]
+
         articles = []
         try:
             import feedparser
@@ -71,14 +81,19 @@ class LocalNewsCollector(BaseCollector):
             )
             return articles
 
-        feed_url = feed_config["url"]
         source = feed_config["source"]
 
         try:
-            feed = feedparser.parse(feed_url)
+            # feedparser.parse(url) has no timeout of its own and can hang
+            # indefinitely on an unresponsive server - fetch the bytes ourselves
+            # with a bounded timeout and hand feedparser the content instead.
+            import requests
+            resp = requests.get(feed_url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            feed = feedparser.parse(resp.content)
 
             if feed.bozo and not feed.entries:
                 logger.warning(f"Feed error for {feed_config['name']}: {feed.bozo_exception}")
+                self._feed_cache[feed_url] = articles
                 return articles
 
             for entry in feed.entries[:25]:  # Cap at 25 per feed per run
@@ -123,6 +138,7 @@ class LocalNewsCollector(BaseCollector):
         except Exception as e:
             logger.error(f"Error parsing feed {feed_config['name']}: {e}")
 
+        self._feed_cache[feed_url] = articles
         return articles
 
     def fetch_news(self, company: CompanyMetadata) -> List[Article]:

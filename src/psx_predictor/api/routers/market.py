@@ -229,20 +229,25 @@ async def get_sector_detail(sector: str):
     return result
 
 
-# Real broad-market indices scraped in psx_dps_index_scraper.py. Deliberately
-# excludes "KSE100" - stock_market_index's KSE100 row is a documented
-# synthetic equal-weighted proxy (is_synthetic_index=True), not the real
-# PSX-published index, so it's never surfaced here as market data.
+# Real broad-market indices scraped in psx_dps_index_scraper.py. "kse100" here
+# is the REAL PSX-published index (kse100_real_index_level, added 2026-10-13) -
+# not stock_market_index's "KSE100" row, which is a documented synthetic
+# equal-weighted proxy (is_synthetic_index=True) and is never surfaced here.
 INDEX_DEFS = [
-    {"key": "kmi30", "name": "KMI-30", "column": "kmi30_index_level"},
-    {"key": "kse30", "name": "KSE-30", "column": "kse30_index_level"},
-    {"key": "all_share", "name": "All Share Index", "column": "all_share_index_level"},
+    {"key": "kse100", "name": "KSE-100", "column": "kse100_real_index_level", "return_column": "kse100_real_return_pct"},
+    {"key": "kmi30", "name": "KMI-30", "column": "kmi30_index_level", "return_column": "kmi30_return_pct"},
+    {"key": "kse30", "name": "KSE-30", "column": "kse30_index_level", "return_column": "kse30_return_pct"},
+    {"key": "all_share", "name": "All Share Index", "column": "all_share_index_level", "return_column": "all_share_return_pct"},
 ]
 
 
 def _compute_indices():
     query = text("""
-        SELECT date, kmi30_index_level, kse30_index_level, all_share_index_level
+        SELECT date,
+               kse100_real_index_level, kse100_real_return_pct,
+               kmi30_index_level, kmi30_return_pct,
+               kse30_index_level, kse30_return_pct,
+               all_share_index_level, all_share_return_pct
         FROM macro_indicators ORDER BY date ASC
     """)
     with engine.connect() as conn:
@@ -251,6 +256,7 @@ def _compute_indices():
     indices_out = []
     for idx in INDEX_DEFS:
         col = idx["column"]
+        ret_col = idx["return_column"]
         history = [
             {"date": r["date"].isoformat(), "level": float(r[col])}
             for r in rows if r[col] is not None
@@ -259,8 +265,18 @@ def _compute_indices():
             indices_out.append({**idx, "level": None, "change_percent": None, "history": []})
             continue
         latest = history[-1]["level"]
-        prev = history[-2]["level"] if len(history) > 1 else latest
-        change_percent = round((latest - prev) / prev * 100, 2) if prev else 0.0
+        # Prefer PSX's own reported daily % change (stored alongside the level
+        # every sync) over diffing the last two available history rows - the
+        # index-sync step went unnoticed-broken for about a month (2026-09-16
+        # to 2026-10-13, see psx_dps_index_scraper.py), leaving a gap where
+        # "the previous row" could be nearly a month old instead of yesterday,
+        # which silently produced a wildly wrong "daily" change percentage.
+        latest_return_pct = next((r[ret_col] for r in reversed(rows) if r[col] is not None), None)
+        if latest_return_pct is not None:
+            change_percent = round(float(latest_return_pct) * 100, 2)
+        else:
+            prev = history[-2]["level"] if len(history) > 1 else latest
+            change_percent = round((latest - prev) / prev * 100, 2) if prev else 0.0
         indices_out.append({
             "key": idx["key"],
             "name": idx["name"],

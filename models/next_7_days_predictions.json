@@ -1,0 +1,156 @@
+{
+  "MEBL": {
+    "model_family": "lightgbm",
+    "anchor_date": "2026-09-24",
+    "anchor_close": 551.6599731445312,
+    "forecast": [
+      {
+        "horizon": 1,
+        "target_trading_day": "2026-09-25",
+        "predicted_return_pct": 0.16449684474744772,
+        "predicted_close": 552.5674363940885,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 51.08424981782182,
+        "walk_forward_naive_dir_acc_pct": 50.45873071105424,
+        "n_windows": 20
+      },
+      {
+        "horizon": 2,
+        "target_trading_day": "2026-09-28",
+        "predicted_return_pct": 0.4939695509099323,
+        "predicted_close": 554.3850054364231,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.197887076360516,
+        "walk_forward_naive_dir_acc_pct": 51.250062183818876,
+        "n_windows": 20
+      },
+      {
+        "horizon": 3,
+        "target_trading_day": "2026-09-29",
+        "predicted_return_pct": 0.363403257728544,
+        "predicted_close": 553.6647234585229,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 48.1880377906994,
+        "walk_forward_naive_dir_acc_pct": 53.331836955923244,
+        "n_windows": 20
+      },
+      {
+        "horizon": 4,
+        "target_trading_day": "2026-09-30",
+        "predicted_return_pct": 1.0313791923989168,
+        "predicted_close": 557.3496793203374,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 49.02093396614127,
+        "walk_forward_naive_dir_acc_pct": 55.090795465265316,
+        "n_windows": 20
+      },
+      {
+        "horizon": 5,
+        "target_trading_day": "2026-10-01",
+        "predicted_return_pct": 1.8557910952234051,
+        "predicted_close": 561.8976298020593,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.599410030938785,
+        "walk_forward_naive_dir_acc_pct": 55.78798662009018,
+        "n_windows": 20
+      },
+      {
+        "horizon": 6,
+        "target_trading_day": "2026-10-02",
+        "predicted_return_pct": 3.047481753466321,
+        "predicted_close": 568.471710167288,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.92648980602799,
+        "walk_forward_naive_dir_acc_pct": 54.91065188623425,
+        "n_windows": 20
+      },
+      {
+        "horizon": 7,
+        "target_trading_day": "2026-10-05",
+        "predicted_return_pct": 2.9991275546979987,
+        "predicted_close": 568.2049594073485,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 48.214965817408256,
+        "walk_forward_naive_dir_acc_pct": 56.47871940332669,
+        "n_windows": 20
+      }
+    ]
+  },
+  "PSO": {
+    "model_family": "xgboost",
+    "anchor_date": "2026-09-24",
+    "anchor_close": 351.07000732421875,
+    "forecast": [
+      {
+        "horizon": 1,
+        "target_trading_day": "2026-09-25",
+        "predicted_return_pct": -0.15898358542472124,
+        "predicted_close": 350.51186363922386,
+        "predicted_direction": "DOWN",
+        "walk_forward_dir_acc_pct": 50.49519742009919,
+        "walk_forward_naive_dir_acc_pct": 48.47437946664706,
+        "n_windows": 20
+      },
+      {
+        "horizon": 2,
+        "target_trading_day": "2026-09-28",
+        "predicted_return_pct": 0.2058288548141718,
+        "predicted_close": 351.79261069989025,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.17071249561033,
+        "walk_forward_naive_dir_acc_pct": 52.50546070107224,
+        "n_windows": 20
+      },
+      {
+        "horizon": 3,
+        "target_trading_day": "2026-09-29",
+        "predicted_return_pct": 1.3606088235974312,
+        "predicted_close": 355.8466968208762,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.62497103415182,
+        "walk_forward_naive_dir_acc_pct": 53.21119943601383,
+        "n_windows": 20
+      },
+      {
+        "horizon": 4,
+        "target_trading_day": "2026-09-30",
+        "predicted_return_pct": 1.7563777044415474,
+        "predicted_close": 357.23612265984264,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 52.284433509733034,
+        "walk_forward_naive_dir_acc_pct": 52.04731904716404,
+        "n_windows": 20
+      },
+      {
+        "horizon": 5,
+        "target_trading_day": "2026-10-01",
+        "predicted_return_pct": 2.3073935881257057,
+        "predicted_close": 359.1705741630502,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 50.72410839335298,
+        "walk_forward_naive_dir_acc_pct": 50.53997161976848,
+        "n_windows": 20
+      },
+      {
+        "horizon": 6,
+        "target_trading_day": "2026-10-02",
+        "predicted_return_pct": 1.9913217052817345,
+        "predicted_close": 358.0609405808001,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 51.67765410548104,
+        "walk_forward_naive_dir_acc_pct": 51.5282495321179,
+        "n_windows": 20
+      },
+      {
+        "horizon": 7,
+        "target_trading_day": "2026-10-05",
+        "predicted_return_pct": 1.3937890529632568,
+        "predicted_close": 355.963182654541,
+        "predicted_direction": "UP",
+        "walk_forward_dir_acc_pct": 53.742090085487405,
+        "walk_forward_naive_dir_acc_pct": 50.20559214803715,
+        "n_windows": 20
+      }
+    ]
+  }
+}

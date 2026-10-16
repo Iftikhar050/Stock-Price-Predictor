@@ -6,7 +6,7 @@ const PLATFORM_LINKS = [
   { to: "/", label: "Home" },
   { to: "/screener", label: "Screener" },
   { to: "/compare", label: "Compare" },
-  { to: "/sectors", label: "Sectors" },
+  { to: "/dividends", label: "Dividends" },
 ];
 
 const FEATURES = [

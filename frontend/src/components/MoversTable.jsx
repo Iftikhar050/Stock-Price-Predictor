@@ -8,6 +8,7 @@ import { Skeleton } from "./ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { CompanyLogo } from "./CompanyLogo";
 import { useSort } from "../lib/useSort";
+import { formatNumber } from "../lib/format";
 
 const TABS = [
   { key: "top_active", label: "Most Active" },
@@ -59,7 +60,7 @@ function Row({ item }) {
       <span className={`tabular-nums text-right ${item.change >= 0 ? "text-positive" : "text-negative"}`}>
         {item.change >= 0 ? "▲" : "▼"} {Math.abs(item.change_percent).toFixed(2)}%
       </span>
-      <span className="tabular-nums text-right text-muted-foreground">{item.volume.toLocaleString()}</span>
+      <span className="tabular-nums text-right text-muted-foreground">{formatNumber(item.volume)}</span>
     </Link>
   );
 }

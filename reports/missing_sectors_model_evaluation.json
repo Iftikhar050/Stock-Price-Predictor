@@ -1,0 +1,245 @@
+{
+  "cable_electrical": {
+    "sector_key": "cable_electrical",
+    "valid_tickers": [
+      "PAEL"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 0.92,
+    "baseline_mape": 2.1,
+    "best_model_mae": 0.94,
+    "best_model_mape": 2.14,
+    "directional_accuracy": 50.67,
+    "lightgbm_dir_acc": 46.19,
+    "xgboost_dir_acc": 50.67
+  },
+  "chemical": {
+    "sector_key": "chemical",
+    "valid_tickers": [
+      "LOTCHEM",
+      "LCI"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 1.45,
+    "baseline_mape": 1.48,
+    "best_model_mae": 5.03,
+    "best_model_mape": 3.98,
+    "directional_accuracy": 54.85,
+    "lightgbm_dir_acc": 54.85,
+    "xgboost_dir_acc": 53.95
+  },
+  "closed_end_funds": {
+    "sector_key": "closed_end_funds",
+    "valid_tickers": [
+      "HGFA"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 0.28,
+    "baseline_mape": 1.81,
+    "best_model_mae": 0.29,
+    "best_model_mape": 1.89,
+    "directional_accuracy": 54.15,
+    "lightgbm_dir_acc": 51.97,
+    "xgboost_dir_acc": 54.15
+  },
+  "engineering": {
+    "sector_key": "engineering",
+    "valid_tickers": [
+      "INIL",
+      "ISL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 2.47,
+    "baseline_mape": 2.05,
+    "best_model_mae": 2.5,
+    "best_model_mape": 2.09,
+    "directional_accuracy": 50.23,
+    "lightgbm_dir_acc": 50.23,
+    "xgboost_dir_acc": 48.19
+  },
+  "glass_ceramics": {
+    "sector_key": "glass_ceramics",
+    "valid_tickers": [
+      "GHGL",
+      "TGL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 1.86,
+    "baseline_mape": 1.73,
+    "best_model_mae": 1.92,
+    "best_model_mape": 1.78,
+    "directional_accuracy": 52.26,
+    "lightgbm_dir_acc": 52.26,
+    "xgboost_dir_acc": 49.55
+  },
+  "insurance": {
+    "sector_key": "insurance",
+    "valid_tickers": [
+      "AICL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 1.9,
+    "baseline_mape": 2.35,
+    "best_model_mae": 1.97,
+    "best_model_mape": 2.45,
+    "directional_accuracy": 50.68,
+    "lightgbm_dir_acc": 50.68,
+    "xgboost_dir_acc": 45.7
+  },
+  "leasing": {
+    "sector_key": "leasing",
+    "valid_tickers": [
+      "PGLC"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 0.39,
+    "baseline_mape": 2.59,
+    "best_model_mae": 0.38,
+    "best_model_mape": 2.53,
+    "directional_accuracy": 58.82,
+    "lightgbm_dir_acc": 57.92,
+    "xgboost_dir_acc": 58.82
+  },
+  "leather_tanneries": {
+    "sector_key": "leather_tanneries",
+    "valid_tickers": [
+      "SRVI"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 36.36,
+    "baseline_mape": 5.97,
+    "best_model_mae": 36.71,
+    "best_model_mape": 6.01,
+    "directional_accuracy": 50.45,
+    "lightgbm_dir_acc": 49.55,
+    "xgboost_dir_acc": 50.45
+  },
+  "misc_other": {
+    "sector_key": "misc_other",
+    "valid_tickers": [
+      "PABC",
+      "PSEL",
+      "SHFA"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 9.6,
+    "baseline_mape": 1.67,
+    "best_model_mae": 9.63,
+    "best_model_mape": 1.69,
+    "directional_accuracy": 47.53,
+    "lightgbm_dir_acc": 47.09,
+    "xgboost_dir_acc": 47.53
+  },
+  "modarabas": {
+    "sector_key": "modarabas",
+    "valid_tickers": [
+      "FHAM"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 0.37,
+    "baseline_mape": 1.23,
+    "best_model_mae": 0.43,
+    "best_model_mape": 1.44,
+    "directional_accuracy": 49.1,
+    "lightgbm_dir_acc": 49.1,
+    "xgboost_dir_acc": 49.1
+  },
+  "paper_packaging": {
+    "sector_key": "paper_packaging",
+    "valid_tickers": [
+      "PKGS"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 9.31,
+    "baseline_mape": 1.27,
+    "best_model_mae": 9.47,
+    "best_model_mape": 1.29,
+    "directional_accuracy": 52.94,
+    "lightgbm_dir_acc": 52.94,
+    "xgboost_dir_acc": 50.23
+  },
+  "property": {
+    "sector_key": "property",
+    "valid_tickers": [
+      "JVDC"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 2.68,
+    "baseline_mape": 2.27,
+    "best_model_mae": 2.75,
+    "best_model_mape": 2.31,
+    "directional_accuracy": 48.42,
+    "lightgbm_dir_acc": 48.42,
+    "xgboost_dir_acc": 48.42
+  },
+  "reit": {
+    "sector_key": "reit",
+    "valid_tickers": [
+      "DCR"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 0.24,
+    "baseline_mape": 0.67,
+    "best_model_mae": 0.25,
+    "best_model_mape": 0.7,
+    "directional_accuracy": 52.02,
+    "lightgbm_dir_acc": 52.02,
+    "xgboost_dir_acc": 51.57
+  },
+  "sugar": {
+    "sector_key": "sugar",
+    "valid_tickers": [
+      "JDWS"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 8.66,
+    "baseline_mape": 1.01,
+    "best_model_mae": 8.69,
+    "best_model_mape": 1.01,
+    "directional_accuracy": 50.23,
+    "lightgbm_dir_acc": 49.32,
+    "xgboost_dir_acc": 50.23
+  },
+  "tobacco": {
+    "sector_key": "tobacco",
+    "valid_tickers": [
+      "PAKT"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 15.81,
+    "baseline_mape": 1.18,
+    "best_model_mae": 16.03,
+    "best_model_mape": 1.2,
+    "directional_accuracy": 52.91,
+    "lightgbm_dir_acc": 52.02,
+    "xgboost_dir_acc": 52.91
+  },
+  "transport": {
+    "sector_key": "transport",
+    "valid_tickers": [
+      "PIBTL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 0.36,
+    "baseline_mape": 2.16,
+    "best_model_mae": 0.39,
+    "best_model_mape": 2.35,
+    "directional_accuracy": 50.67,
+    "lightgbm_dir_acc": 50.67,
+    "xgboost_dir_acc": 49.33
+  },
+  "woollen": {
+    "sector_key": "woollen",
+    "valid_tickers": [
+      "BNWM"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 1.22,
+    "baseline_mape": 1.89,
+    "best_model_mae": 1.23,
+    "best_model_mape": 1.9,
+    "directional_accuracy": 52.94,
+    "lightgbm_dir_acc": 49.32,
+    "xgboost_dir_acc": 52.94
+  }
+}

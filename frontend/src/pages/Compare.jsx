@@ -12,12 +12,13 @@ import { selectStyles } from "../lib/reactSelectStyles";
 import { rebaseToPercent } from "../lib/performance";
 import { formatChartDate, mergeSeriesByDate } from "../lib/dateRange";
 import { CHART_COLORS } from "../lib/chartColors";
+import { formatCompact, formatNumber } from "../lib/format";
 
 const METRIC_ROWS = [
   { key: "sector", label: "Sector" },
   { key: "price", label: "Price", fmt: (v) => v?.toFixed(2) },
   { key: "change_percent", label: "Change %", fmt: (v) => (v != null ? `${v.toFixed(2)}%` : "—") },
-  { key: "market_cap", label: "Market Cap", fmt: (v) => (v != null ? v.toLocaleString() : "—") },
+  { key: "market_cap", label: "Market Cap", fmt: (v) => (v != null ? `Rs. ${formatNumber(v)}` : "—") },
   { key: "pe_ratio", label: "P/E", fmt: (v) => v?.toFixed(2) },
   { key: "pb_ratio", label: "P/B", fmt: (v) => v?.toFixed(2) },
   { key: "dividend_yield", label: "Dividend Yield", fmt: (v) => (v != null ? `${(v * 100).toFixed(2)}%` : "—") },
@@ -27,20 +28,12 @@ const METRIC_ROWS = [
 const RANGES = ["30D", "90D", "1Y", "5Y"];
 
 const RATIO_CHART_METRICS = [
-  { key: "market_cap", label: "Market Cap", formatter: (v) => `Rs. ${fmtCompact(v)}` },
+  { key: "market_cap", label: "Market Cap", formatter: (v) => `Rs. ${formatCompact(v)}` },
   { key: "pe_ratio", label: "P/E Ratio", formatter: (v) => v.toFixed(1) },
   { key: "pb_ratio", label: "P/B Ratio", formatter: (v) => v.toFixed(1) },
   { key: "dividend_yield", label: "Dividend Yield", formatter: (v) => `${v.toFixed(1)}%`, scale: 100 },
   { key: "roe", label: "Return on Equity", formatter: (v) => `${v.toFixed(1)}%`, scale: 100 },
 ];
-
-function fmtCompact(value) {
-  if (typeof value !== "number") return "—";
-  if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  if (Math.abs(value) >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return value.toLocaleString();
-}
 
 function PricePerformanceChart({ selected, histories, historiesLoading, range, setRange, colorFor }) {
   const chartData = useMemo(() => {

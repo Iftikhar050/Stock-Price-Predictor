@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Home, SlidersHorizontal, Landmark, GitCompare, Layers } from "lucide-react";
+import { Home, SlidersHorizontal, Landmark, GitCompare, Coins } from "lucide-react";
 import { cn } from "../lib/utils";
 
 const TABS = [
@@ -8,7 +8,7 @@ const TABS = [
   { to: "/screener", label: "Screener", icon: SlidersHorizontal },
   { to: "/markets", label: "Markets", icon: Landmark },
   { to: "/compare", label: "Compare", icon: GitCompare },
-  { to: "/sectors", label: "Sectors", icon: Layers },
+  { to: "/dividends", label: "Dividends", icon: Coins },
 ];
 
 export function MobileTabBar() {

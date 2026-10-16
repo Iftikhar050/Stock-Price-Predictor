@@ -28,7 +28,7 @@ from src.psx_predictor.db.connection import engine
 from src.psx_predictor.api.state import ml_models, psx_cache
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.WARNING)
 if not logger.handlers:
     ch = logging.StreamHandler()
     logger.addHandler(ch)
@@ -37,6 +37,27 @@ MODELS_DIR = os.path.join(ROOT_DIR, "models")
 PROCESSED_DIR = os.path.join(ROOT_DIR, "data", "processed")
 
 router = APIRouter()
+
+
+def _directional_accuracy(df: pd.DataFrame, pred_col: str) -> tuple[float | None, int]:
+    """
+    Overall backtested directional accuracy for one model's predicted-price
+    column, over however much history is available (not just a recent window).
+    Uses the same shift(1) one-step-ahead convention as the rest of this file:
+    row i's prediction was computed from day i-1's features, so it's compared
+    against the actual move from day i-1's close to day i's close.
+    """
+    if pred_col not in df.columns:
+        return None, 0
+    valid = df[["close", pred_col]].copy()
+    valid["prev_close"] = valid["close"].shift(1)
+    valid = valid.dropna(subset=[pred_col, "prev_close"])
+    if valid.empty:
+        return None, 0
+    actual_dir = (valid["close"] - valid["prev_close"]) >= 0
+    pred_dir = (valid[pred_col] - valid["prev_close"]) >= 0
+    matches = int((actual_dir == pred_dir).sum())
+    return round(matches / len(valid) * 100, 1), len(valid)
 
 
 class PredictionRequest(BaseModel):
@@ -50,6 +71,7 @@ class DataPoint(BaseModel):
     lr_pred: float | None = None
     xgb_pred: float | None = None
     lstm_pred: float | None = None
+    specialized_pred: float | None = None
 
 
 class DividendInfo(BaseModel):
@@ -73,6 +95,20 @@ class PredictionResponse(BaseModel):
     latest_sentiment: float = 0.0
     recent_news: list[dict] = Field(default_factory=list)
     latest_dividend: DividendInfo | None = None
+    specialized_predicted_price: float | None = Field(
+        None, description="MEBL/PSO-only: ticker-specific 1-day model trained on cleaned data + extra volatility features. Null for every other ticker."
+    )
+    specialized_model_type: str | None = Field(
+        None, description="Which model family the specialized prediction came from (e.g. 'lightgbm', 'xgboost')."
+    )
+    backtest_directional_accuracy: dict[str, float] | None = Field(
+        None, description="Overall directional accuracy (%) per model, backtested over the available "
+                           "history (up to ~5 years) - not the small, noisier 7-day rolling figure shown "
+                           "in the performance log table. Keys: rf, lr, xgb, lstm, specialized."
+    )
+    backtest_sample_size: dict[str, int] | None = Field(
+        None, description="Number of days each backtest_directional_accuracy figure is computed over."
+    )
 
 
 @router.post("/api/predict", response_model=PredictionResponse)
@@ -100,7 +136,9 @@ async def get_prediction(payload: PredictionRequest):
 
         # Run synchronous blocking logic in threadpool to avoid blocking event loop
         def _compute():
-            df = pd.read_csv(data_path)
+            head_df = pd.read_csv(data_path, nrows=2)
+            load_cols = [c for c in head_df.columns if c not in ['raw_text_announcements', 'raw_news_headline_daily']]
+            df = pd.read_csv(data_path, usecols=load_cols, engine='c')
             if df.empty:
                 raise HTTPException(status_code=404, detail=f"Insufficient historical data to compute predictions for {ticker.upper()}.")
 
@@ -193,6 +231,82 @@ async def get_prediction(payload: PredictionRequest):
             lstm_return = ml_models["target_scaler"].inverse_transform(lstm_out_scaled.numpy())[0][0]
             lstm_prediction = current_close_price * (1 + lstm_return)
 
+            # 1c. Specialized / Sector-Specific Model (MEBL/PSO or Sector Models)
+            specialized_predicted_price = None
+            specialized_model_type = None
+            specialized_key = f"{ticker}_specialized"
+
+            SECTOR_MAPPING = {
+                "banking": ["ABL", "AKBL", "BAHL", "BAFL", "BOP", "FABL", "HBL", "HMB", "MCB", "NBP", "SCBPL", "UBL"], # MEBL uses own specialized model
+                "cement": ["BWCL", "CHCC", "DGKC", "FCCL", "KOHC", "LUCK", "MLCF", "POWER", "PIOC"],
+                "oil_exploration": ["MARI", "OGDC", "POL", "PPL"],
+                "oil_marketing": ["APL", "WAFI", "SNGP", "SSGC"], # PSO uses own specialized model
+                "technology": ["AIRLINK", "AVN", "HUMNL", "PTC", "SYS", "TRG"],
+                "automobile": ["ATLH", "GAL", "GHNI", "HCAR", "INDU", "MTL", "SAZEW", "THALL"],
+                "fertilizer": ["EFERT", "FATIMA", "FFC"],
+                "pharmaceuticals": ["ABOT", "AGP", "CPHL", "HALEON", "GLAXO", "HINOON", "SEARL"],
+                "power": ["HUBC", "KEL", "KAPCO"],
+                "food": ["COLG", "FFL", "MUREB", "NATF", "NESTLE", "RMPL", "UPFL"],
+                "investment_banks": ["AHCL", "ENGROH", "PSX"],
+                "refinery": ["ATRL", "CNERGY", "NRL", "PRL"],
+                "textile": ["ILP", "KTML", "MEHT", "GADT", "YOUW", "IBFL", "GATM", "NML"],
+                "cable_electrical": ["PAEL"],
+                "chemical": ["LOTCHEM", "LCI", "EPCL"],
+                "closed_end_funds": ["HGFA"],
+                "engineering": ["INIL", "ISL", "ASTL", "MUGHAL"],
+                "glass_ceramics": ["GHGL", "TGL"],
+                "insurance": ["AICL"],
+                "leasing": ["PGLC"],
+                "leather_tanneries": ["SRVI"],
+                "misc_other": ["PABC", "PSEL", "SHFA"],
+                "modarabas": ["FHAM"],
+                "paper_packaging": ["PKGS"],
+                "property": ["JVDC"],
+                "reit": ["DCR"],
+                "sugar": ["JDWS"],
+                "tobacco": ["PAKT"],
+                "transport": ["PIBTL"],
+                "woollen": ["BNWM"],
+            }
+
+            if specialized_key in ml_models:
+                spec = ml_models[specialized_key]
+                spec_features = latest_day_features.reindex(columns=spec['feature_cols'], fill_value=0.0)
+                spec_return = float(spec['model'].predict(spec_features)[0])
+                specialized_predicted_price = current_close_price * (1 + spec_return)
+                specialized_model_type = spec.get('model_type')
+            else:
+                # Find matching sector key for ticker
+                matched_sector = None
+                for s_key, t_list in SECTOR_MAPPING.items():
+                    if ticker.upper() in t_list:
+                        matched_sector = s_key
+                        break
+
+                if matched_sector and f"{matched_sector}_model" in ml_models:
+                    try:
+                        s_scalers = ml_models.get(f"{matched_sector}_scalers", {})
+                        s_scaler = s_scalers.get(ticker.upper())
+                        s_features_list = ml_models.get(f"{matched_sector}_feature_cols", [])
+                        s_model = ml_models.get(f"{matched_sector}_model")
+
+                        if s_scaler is not None and s_model is not None and s_features_list:
+                            s_sub = df.reindex(columns=s_features_list).iloc[-1:].fillna(0.0).replace([np.inf, -np.inf], 0.0)
+                            s_scaled = pd.DataFrame(s_scaler.transform(s_sub), columns=s_features_list)
+
+                            # Attach one-hot ticker columns for that sector based on scalers registry
+                            for st_t in s_scalers.keys():
+                                s_scaled[f"is_ticker_{st_t}"] = 1.0 if st_t == ticker.upper() else 0.0
+
+                            if hasattr(s_model, 'feature_names_in_'):
+                                s_scaled = s_scaled.reindex(columns=s_model.feature_names_in_, fill_value=0.0)
+
+                            s_return = float(s_model.predict(s_scaled)[0])
+                            specialized_predicted_price = current_close_price * (1 + s_return)
+                            specialized_model_type = f"{matched_sector.replace('_', ' ').title()} Sector Model"
+                    except Exception as s_err:
+                        logger.warning(f"Sector model prediction failed for {ticker.upper()} ({matched_sector}): {s_err}")
+
             # Calculate Ensemble Metrics
             predictions = [rf_prediction, lr_prediction, xgb_prediction, lstm_prediction]
             ensemble_min = float(min(predictions))
@@ -270,14 +384,73 @@ async def get_prediction(payload: PredictionRequest):
                 lstm_series_return.loc[lstm_valid_indices] = batch_lstm_preds_return
                 df_sub['lstm_pred'] = (df_sub['close'] * (1 + lstm_series_return)).shift(1)
 
+            # Vectorized specialized-model backtest (MEBL/PSO or Sector Models), same
+            # shift(1) convention as every other model above: row i holds the
+            # prediction *for* day i, computed from day i-1's features.
+            history_cols = ['date', 'close', 'rf_pred', 'lr_pred', 'xgb_pred', 'lstm_pred']
+            if specialized_key in ml_models:
+                spec_df = df_sub[feature_cols].reindex(columns=spec['feature_cols'], fill_value=0.0)
+                spec_preds_return = pd.Series(spec['model'].predict(spec_df), index=df_sub.index)
+                df_sub['specialized_pred'] = (df_sub['close'] * (1 + spec_preds_return)).shift(1)
+                history_cols.append('specialized_pred')
+            elif matched_sector and f"{matched_sector}_model" in ml_models:
+                try:
+                    s_scalers = ml_models.get(f"{matched_sector}_scalers", {})
+                    s_scaler = s_scalers.get(ticker.upper())
+                    s_features_list = ml_models.get(f"{matched_sector}_feature_cols", [])
+                    s_model = ml_models.get(f"{matched_sector}_model")
+
+                    if s_scaler is not None and s_model is not None and s_features_list:
+                        df_sec = df_sub.reindex(columns=s_features_list).fillna(0.0).replace([np.inf, -np.inf], 0.0)
+                        df_sec_scaled = pd.DataFrame(s_scaler.transform(df_sec), columns=s_features_list, index=df_sub.index)
+
+                        for st_t in s_scalers.keys():
+                            df_sec_scaled[f"is_ticker_{st_t}"] = 1.0 if st_t == ticker.upper() else 0.0
+
+                        if hasattr(s_model, 'feature_names_in_'):
+                            df_sec_scaled = df_sec_scaled.reindex(columns=s_model.feature_names_in_, fill_value=0.0)
+
+                        sec_preds_return = pd.Series(s_model.predict(df_sec_scaled), index=df_sub.index)
+                        df_sub['specialized_pred'] = (df_sub['close'] * (1 + sec_preds_return)).shift(1)
+                        history_cols.append('specialized_pred')
+                except Exception as sec_backtest_err:
+                    logger.warning(f"Sector backtest prediction failed for {ticker.upper()} ({matched_sector}): {sec_backtest_err}")
+
+            # Overall backtested directional accuracy per model, over the full
+            # available df_sub history (not just the frontend's 7-day window).
+            backtest_dir_acc = {}
+            backtest_sample_size = {}
+            for key, col in [("rf", "rf_pred"), ("lr", "lr_pred"), ("xgb", "xgb_pred"), ("lstm", "lstm_pred"), ("specialized", "specialized_pred")]:
+                acc, n = _directional_accuracy(df_sub, col)
+                if acc is not None:
+                    backtest_dir_acc[key] = acc
+                    backtest_sample_size[key] = n
+
             # Select final columns and convert to dict
-            recent_history_df = df_sub.tail(1825)[['date', 'close', 'rf_pred', 'lr_pred', 'xgb_pred', 'lstm_pred']]
+            recent_history_df = df_sub.tail(1825)[history_cols]
             # Replace NaNs with None for JSON serialization
             recent_history_df = recent_history_df.where(pd.notnull(recent_history_df), None)
             recent_history = recent_history_df.to_dict(orient='records')
 
-            # Get latest sentiment
-            latest_sentiment = float(df['sentiment_score'].iloc[-1]) if 'sentiment_score' in df.columns else 0.0
+            # Get latest sentiment. Sentiment columns are intentionally excluded from
+            # the master CSV (DEAD_COLUMNS in build_features.py - coverage is too
+            # sparse to train on), so this was always reading a column that doesn't
+            # exist and silently returning 0.0. Pull the most recent real aggregate
+            # from stock_news_sentiment directly instead.
+            latest_sentiment = 0.0
+            try:
+                sent_query = text("""
+                    SELECT sentiment_score FROM stock_news_sentiment
+                    WHERE ticker = :ticker
+                    ORDER BY date DESC
+                    LIMIT 1
+                """)
+                with engine.connect() as conn:
+                    sent_row = conn.execute(sent_query, {"ticker": ticker.upper()}).fetchone()
+                if sent_row is not None:
+                    latest_sentiment = float(sent_row[0])
+            except Exception as sent_err:
+                logger.warning(f"Could not fetch latest sentiment for {ticker.upper()}: {sent_err}")
 
             # Query recent news from DB
             recent_news = []
@@ -328,7 +501,11 @@ async def get_prediction(payload: PredictionRequest):
                 historical_data=recent_history,
                 latest_sentiment=round(latest_sentiment, 2),
                 recent_news=recent_news,
-                latest_dividend=latest_dividend
+                latest_dividend=latest_dividend,
+                specialized_predicted_price=round(float(specialized_predicted_price), 2) if specialized_predicted_price is not None else None,
+                specialized_model_type=specialized_model_type,
+                backtest_directional_accuracy=backtest_dir_acc or None,
+                backtest_sample_size=backtest_sample_size or None,
             )
             return result
 
@@ -361,6 +538,8 @@ def verify_api_key(api_key: str = Depends(api_key_header)):
 async def reload_models(api_key: str = Depends(verify_api_key)):
     """Endpoint to hot-reload ML models from disk after retraining."""
     try:
+        psx_cache.clear()
+        logger.info("Cleared API cache for fresh prediction computation.")
         # Load RF
         ml_models["rf_predictor"] = joblib.load(os.path.join(MODELS_DIR, "baseline_rf_model.pkl"))
 
@@ -393,7 +572,36 @@ async def reload_models(api_key: str = Depends(verify_api_key)):
         lstm.eval()
         ml_models["lstm_predictor"] = lstm
 
-        return {"status": "success", "message": "All AI models successfully reloaded into memory!"}
+        # Per-ticker specialized models (MEBL, PSO) - see main.py lifespan for context.
+        for t in ("mebl", "pso"):
+            try:
+                ml_models[f"{t}_specialized"] = joblib.load(os.path.join(MODELS_DIR, f"{t}_1day_best_model.pkl"))
+            except Exception as e:
+                logger.error(f"Failed to reload {t.upper()} specialized model: {e}")
+
+        # Sector-Specific Models (Dynamic loading for all PSX sectors)
+        sectors = [
+            "banking", "cement", "oil_exploration", "oil_marketing", "technology", "automobile",
+            "fertilizer", "pharmaceuticals", "power", "food", "investment_banks", "refinery", "textile",
+            "cable_electrical", "chemical", "closed_end_funds", "engineering", "glass_ceramics",
+            "insurance", "leasing", "leather_tanneries", "misc_other", "modarabas", "paper_packaging",
+            "property", "reit", "sugar", "tobacco", "transport", "woollen",
+        ]
+        for s_key in sectors:
+            try:
+                sec_dir = os.path.join(MODELS_DIR, f"{s_key}_sector")
+                m_path = os.path.join(sec_dir, f"{s_key}_model.pkl")
+                sc_path = os.path.join(sec_dir, f"{s_key}_scalers.pkl")
+                fc_path = os.path.join(sec_dir, f"{s_key}_feature_cols.pkl")
+
+                if os.path.exists(m_path) and os.path.exists(sc_path) and os.path.exists(fc_path):
+                    ml_models[f"{s_key}_model"] = joblib.load(m_path)
+                    ml_models[f"{s_key}_scalers"] = joblib.load(sc_path)
+                    ml_models[f"{s_key}_feature_cols"] = joblib.load(fc_path)
+            except Exception as e:
+                logger.error(f"Failed to reload sector model '{s_key}': {e}")
+
+        return {"status": "success", "message": "All AI models & sector models successfully reloaded into memory!"}
     except Exception as e:
         logger.error(f"Failed to reload models: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error while reloading models.")

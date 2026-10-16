@@ -1,0 +1,68 @@
+{
+  "MEBL": {
+    "best_model": "lightgbm",
+    "bakeoff": {
+      "rf": {
+        "mean_da": 48.41308074670287,
+        "mean_naive_da": 50.45873071105424,
+        "pct_windows_beat_naive": 25.0,
+        "mean_mae": 0.015996526329304026,
+        "n_windows": 20
+      },
+      "xgboost": {
+        "mean_da": 49.88311698856,
+        "mean_naive_da": 50.45873071105424,
+        "pct_windows_beat_naive": 40.0,
+        "mean_mae": 0.015445383950525837,
+        "n_windows": 20
+      },
+      "lightgbm": {
+        "mean_da": 50.936598023259776,
+        "mean_naive_da": 50.45873071105424,
+        "pct_windows_beat_naive": 45.0,
+        "mean_mae": 0.014536387049623145,
+        "n_windows": 20
+      }
+    },
+    "tomorrow_prediction": {
+      "as_of_date": "2026-09-25",
+      "last_close": 548.1199951171875,
+      "predicted_return_t1": -0.0028726120305760387,
+      "predicted_direction": "DOWN",
+      "predicted_close_t1": 546.5454590250146
+    }
+  },
+  "PSO": {
+    "best_model": "xgboost",
+    "bakeoff": {
+      "rf": {
+        "mean_da": 48.6202007819665,
+        "mean_naive_da": 48.47437946664706,
+        "pct_windows_beat_naive": 55.00000000000001,
+        "mean_mae": 0.018199607498165946,
+        "n_windows": 20
+      },
+      "xgboost": {
+        "mean_da": 49.188366223285556,
+        "mean_naive_da": 48.47437946664706,
+        "pct_windows_beat_naive": 60.0,
+        "mean_mae": 0.01827661390940416,
+        "n_windows": 20
+      },
+      "lightgbm": {
+        "mean_da": 51.01138978030395,
+        "mean_naive_da": 48.47437946664706,
+        "pct_windows_beat_naive": 60.0,
+        "mean_mae": 0.018534724607519544,
+        "n_windows": 20
+      }
+    },
+    "tomorrow_prediction": {
+      "as_of_date": "2026-09-25",
+      "last_close": 354.3699951171875,
+      "predicted_return_t1": -0.0013660131953656673,
+      "predicted_direction": "DOWN",
+      "predicted_close_t1": 353.88592102781575
+    }
+  }
+}

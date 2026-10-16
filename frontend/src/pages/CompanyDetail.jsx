@@ -17,6 +17,7 @@ import { computeSignal } from "../lib/signal";
 import { computeReturns, PERFORMANCE_WINDOW_KEYS } from "../lib/performance";
 import { useSort } from "../lib/useSort";
 import { usePagination } from "../lib/usePagination";
+import { formatCompact, formatNumber } from "../lib/format";
 import { PaginationControls } from "../components/ui/pagination";
 
 const MODELS = [
@@ -25,6 +26,26 @@ const MODELS = [
   { key: "XGB", label: "XGBoost" },
   { key: "LSTM", label: "Deep Learning" },
 ];
+const SPECIALIZED_MODEL = { key: "SPX", label: "Ticker-Specific" };
+
+// MEBL/PSO carry a 5th, ticker-specific model (specialized_predicted_price /
+// specialized_pred) trained separately from the pooled RF/LR/XGB/LSTM ensemble
+// above - only show/wire it in when the API actually returned one.
+function modelsFor(data) {
+  return data.specialized_predicted_price != null ? [...MODELS, SPECIALIZED_MODEL] : MODELS;
+}
+function predictedPriceFor(data, modelType) {
+  return modelType === "SPX"
+    ? data.specialized_predicted_price
+    : { RF: data.rf_predicted_price, LR: data.lr_predicted_price, XGB: data.xgb_predicted_price, LSTM: data.lstm_predicted_price }[modelType];
+}
+const BACKTEST_KEY_FOR_MODEL = { RF: "rf", LR: "lr", XGB: "xgb", LSTM: "lstm", SPX: "specialized" };
+function backtestDirAccFor(data, modelType) {
+  const key = BACKTEST_KEY_FOR_MODEL[modelType];
+  const acc = data.backtest_directional_accuracy?.[key];
+  const n = data.backtest_sample_size?.[key];
+  return acc != null ? { acc, n } : null;
+}
 const RANGES = ["7D", "30D", "90D", "1Y", "5Y"];
 const PREDICTED_LINE_COLOR = "#f59e0b";
 
@@ -137,12 +158,13 @@ function PredictionRangeBar({ min, max, current, target }) {
   );
 }
 
-function PredictionCard({ data, modelType, setModelType }) {
-  const activePrediction = {
-    RF: data.rf_predicted_price, LR: data.lr_predicted_price, XGB: data.xgb_predicted_price, LSTM: data.lstm_predicted_price,
-  }[modelType];
-  const diff = activePrediction - data.current_price;
+function PredictionCard({ data, liveData, modelType, setModelType }) {
+  const activePrediction = predictedPriceFor(data, modelType);
+  const currentPrice = liveData?.price ?? data.current_price;
+  const diff = activePrediction - currentPrice;
   const signal = computeSignal(data);
+  const models = modelsFor(data);
+  const backtest = backtestDirAccFor(data, modelType);
 
   return (
     <Card className="border-primary/30 shadow-sm">
@@ -157,7 +179,7 @@ function PredictionCard({ data, modelType, setModelType }) {
       </CardHeader>
       <CardContent>
         <div className="mb-3 flex flex-wrap gap-1">
-          {MODELS.map((m) => (
+          {models.map((m) => (
             <button
               key={m.key}
               onClick={() => setModelType(m.key)}
@@ -174,7 +196,7 @@ function PredictionCard({ data, modelType, setModelType }) {
           {diff >= 0 ? "Target increase" : "Target decrease"} of Rs. {Math.abs(diff).toFixed(2)}
         </div>
 
-        <PredictionRangeBar min={data.ensemble_min} max={data.ensemble_max} current={data.current_price} target={activePrediction} />
+        <PredictionRangeBar min={data.ensemble_min} max={data.ensemble_max} current={currentPrice} target={activePrediction} />
 
         <div className="mt-4">
           <div className="flex justify-between text-xs font-semibold uppercase text-muted-foreground">
@@ -188,6 +210,17 @@ function PredictionCard({ data, modelType, setModelType }) {
             />
           </div>
         </div>
+        {backtest && (
+          <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-3 py-2">
+            <div>
+              <div className="text-xs font-semibold uppercase text-muted-foreground">Backtested Directional Accuracy</div>
+              <div className="text-[11px] text-muted-foreground">Over {backtest.n.toLocaleString()} trading days of history</div>
+            </div>
+            <span className={`text-lg font-bold tabular-nums ${backtest.acc >= 50 ? "text-positive" : "text-negative"}`}>
+              {backtest.acc.toFixed(1)}%
+            </span>
+          </div>
+        )}
         {signal && (
           <p className="mt-3 text-xs text-muted-foreground">
             Ensemble average implies a {signal.pctChange >= 0 ? "+" : ""}{signal.pctChange.toFixed(2)}% move.
@@ -238,9 +271,11 @@ function DividendCard({ dividend, currentPrice }) {
   );
 }
 
-function PriceChart({ data, modelType, timeRange, setTimeRange }) {
+function PriceChart({ data, liveData, modelType, timeRange, setTimeRange }) {
   const chartData = useMemo(() => {
-    let history = [...data.historical_data];
+    if (!data.historical_data || !data.historical_data.length) return [];
+    let history = data.historical_data.map((row) => ({ ...row }));
+
     const lastDate = new Date(history[history.length - 1].date);
     const cutoff = new Date(lastDate);
     if (timeRange === "7D") cutoff.setDate(cutoff.getDate() - 7);
@@ -250,15 +285,64 @@ function PriceChart({ data, modelType, timeRange, setTimeRange }) {
     if (timeRange === "5Y") cutoff.setFullYear(cutoff.getFullYear() - 5);
     history = history.filter((row) => new Date(row.date) >= cutoff);
 
-    const predKey = { RF: "rf_pred", LR: "lr_pred", XGB: "xgb_pred", LSTM: "lstm_pred" }[modelType];
-    history = history.map((row) => ({ ...row, predictedClose: row[predKey] }));
+    const predKey = { RF: "rf_pred", LR: "lr_pred", XGB: "xgb_pred", LSTM: "lstm_pred", SPX: "specialized_pred" }[modelType];
+    history = history.map((row) => ({
+      ...row,
+      predictedClose: row[predKey] != null ? row[predKey] : null,
+    }));
 
-    const predictedPrice = { RF: data.rf_predicted_price, LR: data.lr_predicted_price, XGB: data.xgb_predicted_price, LSTM: data.lstm_predicted_price }[modelType];
-    const nextDate = new Date(lastDate);
-    nextDate.setDate(lastDate.getDate() + 1);
-    history.push({ date: nextDate.toISOString().split("T")[0], predictedClose: predictedPrice });
+    // activePrediction (*_predicted_price from the API) is the forecast for
+    // whichever trading day comes right after the last row in historical_data -
+    // the API only ever exposes this one forward-looking number, it does not
+    // know "today" vs "tomorrow" on its own.
+    //  - If the live quote's date is newer than that last row, the live quote
+    //    IS the actual outcome for the day the forecast targets - show them
+    //    together on the same point (a completed, gradable pair), not as two
+    //    separate "today" / "tomorrow" dots.
+    //  - If historical_data's last row is already today (fully synced), that
+    //    row carries its own correct backend-computed prediction already,
+    //    and activePrediction is a genuinely new forecast for the day after -
+    //    so it gets its own point there.
+    //  - If there's no live data to confirm a newer day, there's nothing to
+    //    pair the forecast with yet, so it's shown as its own point one day
+    //    out as a placeholder, same as the synced-today case.
+    const activePrediction = predictedPriceFor(data, modelType);
+    const lastHistoricalDate = history[history.length - 1]?.date;
+    const todayAlreadySynced = liveData?.date != null && liveData.date === lastHistoricalDate;
+    // PSX's live quote page doesn't always refresh the instant a new session
+    // opens, so it can keep echoing the last known close under an unchanged
+    // (or missing) date. Only treat it as real, newer data when its own date
+    // is confirmed to be later than the last day already in historical_data -
+    // otherwise it's a stale repeat and should be skipped entirely rather than
+    // mislabeled onto today's x-position (it'll show up on its own once the
+    // backend actually has a row for it).
+    const liveIsNewDay = liveData?.price != null && liveData?.date != null && liveData.date > lastHistoricalDate;
+    let predictionPlaced = false;
+
+    if (liveData?.price && todayAlreadySynced) {
+      history[history.length - 1].close = liveData.price;
+    } else if (liveIsNewDay) {
+      history.push({
+        date: liveData.date,
+        close: liveData.price,
+        predictedClose: activePrediction != null ? activePrediction : null,
+        isLive: true,
+      });
+      predictionPlaced = true;
+    }
+
+    if (activePrediction != null && !predictionPlaced && history.length > 0) {
+      const anchorDate = new Date(history[history.length - 1].date);
+      const nextDate = new Date(anchorDate);
+      nextDate.setDate(anchorDate.getDate() + 1);
+      history.push({
+        date: nextDate.toISOString().split("T")[0],
+        close: null,
+        predictedClose: activePrediction,
+      });
+    }
     return history;
-  }, [data, modelType, timeRange]);
+  }, [data, liveData, modelType, timeRange]);
 
   const formatXAxisDate = (tickStr) => {
     if (!tickStr) return "";
@@ -299,10 +383,13 @@ function PriceChart({ data, modelType, timeRange, setTimeRange }) {
             <CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} strokeDasharray="4 4" />
             <XAxis dataKey="date" stroke="var(--muted-foreground)" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} tickFormatter={formatXAxisDate} minTickGap={tickGap} />
             <YAxis domain={["auto", "auto"]} orientation="right" stroke="var(--muted-foreground)" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-            <Tooltip contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--foreground)" }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--foreground)" }}
+              formatter={(val, name) => [val != null ? `Rs. ${Number(val).toFixed(2)}` : "—", name]}
+            />
             <ReferenceLine x={data.latest_date} stroke="var(--muted-foreground)" strokeDasharray="3 3" label={{ position: "insideTopLeft", value: "Today", fill: "var(--muted-foreground)", fontSize: 11 }} />
             <Area type="linear" dataKey="close" name="Actual Price" stroke="var(--primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorClose)" />
-            <Line type="linear" dataKey="predictedClose" name="Predicted Price" stroke={PREDICTED_LINE_COLOR} strokeWidth={2} strokeDasharray="4 4" dot={false} connectNulls />
+            <Line type="linear" dataKey="predictedClose" name="Predicted Price" stroke={PREDICTED_LINE_COLOR} strokeWidth={2} strokeDasharray="4 4" dot={{ r: 3, fill: PREDICTED_LINE_COLOR }} connectNulls={true} />
           </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
@@ -310,12 +397,227 @@ function PriceChart({ data, modelType, timeRange, setTimeRange }) {
   );
 }
 
-function fmtCompact(value) {
-  if (typeof value !== "number") return "—";
-  if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  if (Math.abs(value) >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  return value.toLocaleString();
+function PredictionPerformanceTable({ data, liveData, modelType }) {
+  const modelLabels = {
+    RF: "Random Forest",
+    LR: "Linear Regression",
+    XGB: "XGBoost",
+    LSTM: "Deep Learning (LSTM)",
+    SPX: data?.specialized_model_type || "Ticker/Sector Model",
+  };
+
+  const predKey = {
+    RF: "rf_pred",
+    LR: "lr_pred",
+    XGB: "xgb_pred",
+    LSTM: "lstm_pred",
+    SPX: "specialized_pred",
+  }[modelType];
+
+  const modelLabel = modelLabels[modelType] || modelType;
+
+  // Extract valid historical rows and incorporate liveData for today's live price when present
+  const validHistory = useMemo(() => {
+    if (!data?.historical_data) return [];
+    let list = data.historical_data.filter((row) => row.close != null && row.close > 0).map((row) => ({ ...row }));
+    if (!list.length) return [];
+
+    // Note: data[predKey] columns (e.g. rf_pred) are each day's prediction made
+    // FROM THE PRIOR day's features - already correct and verifiable against
+    // that day's actual close, so an existing row's value is never overwritten.
+    // The API's *_predicted_price (activePrediction) is the forecast for
+    // whatever trading day comes after the LAST row currently in the data -
+    // when that's today (today's EOD hasn't synced into historical_data yet),
+    // activePrediction legitimately *is* today's not-yet-graded prediction.
+    const activePrediction = predictedPriceFor(data, modelType);
+    const lastDate = list[list.length - 1].date;
+    // PSX's live quote can keep echoing an older close before a new session's
+    // page updates - only treat it as a genuinely new day (and log it here)
+    // once its own date is confirmed later than the last day already present;
+    // otherwise skip it rather than mislabel stale data onto today.
+    const todayAlreadySynced = liveData?.date != null && liveData.date === lastDate;
+    const liveIsNewDay = liveData?.price != null && liveData?.date != null && liveData.date > lastDate;
+
+    if (liveData?.price && todayAlreadySynced) {
+      list[list.length - 1].close = liveData.price;
+      list[list.length - 1].isLive = true;
+    } else if (liveIsNewDay) {
+      list.push({
+        date: liveData.date,
+        close: liveData.price,
+        [predKey]: activePrediction != null ? activePrediction : null,
+        isLive: true,
+      });
+    }
+    return list;
+  }, [data, liveData, modelType, predKey]);
+
+  // Get last 7 days of predictions, ordered newest date first
+  const rows = useMemo(() => {
+    if (!validHistory.length) return [];
+    const sliced = validHistory.slice(-7).reverse();
+    return sliced.map((row, i) => {
+      const actual = row.close;
+      const predicted = row[predKey] != null ? row[predKey] : null;
+      const errorRs = predicted != null ? predicted - actual : null;
+      const absErrorRs = errorRs != null ? Math.abs(errorRs) : null;
+      const errorPct = actual && absErrorRs != null ? (absErrorRs / actual) * 100 : null;
+
+      // Previous day's actual close to evaluate directional movement
+      const prevRow = sliced[i + 1] || (validHistory[validHistory.length - 8] ?? null);
+      let directionCorrect = null;
+      if (prevRow && prevRow.close != null && predicted != null) {
+        const actualDir = actual - prevRow.close >= 0;
+        const predDir = predicted - prevRow.close >= 0;
+        directionCorrect = actualDir === predDir;
+      }
+
+      return {
+        date: row.date,
+        actual,
+        predicted,
+        errorRs,
+        absErrorRs,
+        errorPct,
+        directionCorrect,
+        isLive: !!row.isLive,
+      };
+    });
+  }, [validHistory, predKey]);
+
+  // Compute 7-day performance metrics
+  const metrics = useMemo(() => {
+    const validRows = rows.filter((r) => r.predicted != null);
+    if (!validRows.length) return { mae: null, mape: null, dirAcc: null };
+
+    const totalError = validRows.reduce((acc, r) => acc + r.absErrorRs, 0);
+    const totalMape = validRows.reduce((acc, r) => acc + r.errorPct, 0);
+    const dirRows = validRows.filter((r) => r.directionCorrect != null);
+    const correctCount = dirRows.filter((r) => r.directionCorrect).length;
+
+    return {
+      mae: totalError / validRows.length,
+      mape: totalMape / validRows.length,
+      dirAcc: dirRows.length ? (correctCount / dirRows.length) * 100 : null,
+    };
+  }, [rows]);
+
+  if (!rows.length) return null;
+
+  return (
+    <Card className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-base font-bold">7-Day Prediction Performance Log</CardTitle>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Daily actual vs. predicted price evaluation for <span className="font-semibold text-foreground">{data.ticker}</span> using <span className="font-semibold text-primary">{modelLabel}</span>.
+          </p>
+        </div>
+        <Badge variant="outline" className="font-mono text-xs">
+          {modelType} Mode
+        </Badge>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="font-semibold">Date</TableHead>
+                <TableHead className="text-right font-semibold">Actual Price</TableHead>
+                <TableHead className="text-right font-semibold">Predicted Price</TableHead>
+                <TableHead className="text-right font-semibold">Error (Rs.)</TableHead>
+                <TableHead className="text-right font-semibold">Variance (%)</TableHead>
+                <TableHead className="text-center font-semibold">Direction</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => {
+                const formattedDate = new Date(r.date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                });
+                return (
+                  <TableRow key={r.date} className="hover:bg-muted/30">
+                    <TableCell className="font-medium tabular-nums flex items-center gap-1.5">
+                      {formattedDate}
+                      {r.isLive && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 bg-primary/10 text-primary border-primary/30">
+                          Live
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">
+                      Rs. {r.actual.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-primary">
+                      {r.predicted != null ? `Rs. ${r.predicted.toFixed(2)}` : "—"}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right tabular-nums font-medium ${
+                        r.errorRs == null
+                          ? "text-muted-foreground"
+                          : r.errorRs >= 0
+                          ? "text-amber-500"
+                          : "text-blue-500"
+                      }`}
+                    >
+                      {r.errorRs != null
+                        ? `${r.errorRs >= 0 ? "+" : ""}${r.errorRs.toFixed(2)}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {r.errorPct != null ? `±${r.errorPct.toFixed(2)}%` : "—"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {r.directionCorrect == null ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : r.directionCorrect ? (
+                        <Badge variant="positive" className="text-[10px] px-1.5 py-0.5">
+                          ✓ Match
+                        </Badge>
+                      ) : (
+                        <Badge variant="negative" className="text-[10px] px-1.5 py-0.5">
+                          ✗ Miss
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+          <div>
+            <span className="text-muted-foreground">7-Day MAE (Avg Error):</span>{" "}
+            <span className="font-bold tabular-nums text-foreground">
+              {metrics.mae != null ? `Rs. ${metrics.mae.toFixed(2)}` : "—"}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Avg Error Variance:</span>{" "}
+            <span className="font-bold tabular-nums text-foreground">
+              {metrics.mape != null ? `±${metrics.mape.toFixed(2)}%` : "—"}
+            </span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Directional Accuracy (last 7 days):</span>{" "}
+            <span
+              className={`font-bold tabular-nums ${
+                metrics.dirAcc != null && metrics.dirAcc >= 50
+                  ? "text-positive"
+                  : "text-negative"
+              }`}
+            >
+              {metrics.dirAcc != null ? `${metrics.dirAcc.toFixed(1)}%` : "—"}
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function SnapshotStat({ label, value }) {
@@ -335,8 +637,8 @@ function CompanySnapshot({ snapshot }) {
       <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <SnapshotStat label="52W High" value={snapshot.week_52_high != null ? `Rs. ${snapshot.week_52_high.toFixed(2)}` : "—"} />
         <SnapshotStat label="52W Low" value={snapshot.week_52_low != null ? `Rs. ${snapshot.week_52_low.toFixed(2)}` : "—"} />
-        <SnapshotStat label="Market Cap" value={snapshot.market_cap != null ? `Rs. ${fmtCompact(snapshot.market_cap)}` : "—"} />
-        <SnapshotStat label="Shares Outstanding" value={fmtCompact(snapshot.shares_outstanding)} />
+        <SnapshotStat label="Market Cap" value={snapshot.market_cap != null ? `Rs. ${formatCompact(snapshot.market_cap)}` : "—"} />
+        <SnapshotStat label="Shares Outstanding" value={formatCompact(snapshot.shares_outstanding)} />
         <SnapshotStat label="Free Float" value={snapshot.free_float_pct != null ? `${(snapshot.free_float_pct * 100).toFixed(1)}%` : "—"} />
         <SnapshotStat label="EPS (TTM)" value={snapshot.eps_trailing != null ? `Rs. ${snapshot.eps_trailing.toFixed(2)}` : "—"} />
       </CardContent>
@@ -356,15 +658,15 @@ function InsiderActivityCard({ snapshot }) {
       <CardContent className="grid grid-cols-3 gap-3 text-sm">
         <div>
           <div className="text-xs text-muted-foreground">Bought</div>
-          <div className="font-semibold tabular-nums text-positive">{fmtCompact(buy)}</div>
+          <div className="font-semibold tabular-nums text-positive">{formatCompact(buy)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Sold</div>
-          <div className="font-semibold tabular-nums text-negative">{fmtCompact(sell)}</div>
+          <div className="font-semibold tabular-nums text-negative">{formatCompact(sell)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Net Flow</div>
-          <div className={`font-semibold tabular-nums ${net >= 0 ? "text-positive" : "text-negative"}`}>{fmtCompact(net)}</div>
+          <div className={`font-semibold tabular-nums ${net >= 0 ? "text-positive" : "text-negative"}`}>{formatCompact(net)}</div>
         </div>
       </CardContent>
       <CardContent className="pt-0">
@@ -496,7 +798,7 @@ function PeerComparisonChart({ ticker, label, formatter = (v) => v.toFixed(2), d
 }
 
 const PEER_RATIO_METRICS = [
-  { key: "market_cap", label: "Market Cap", formatter: (v) => `Rs. ${fmtCompact(v)}` },
+  { key: "market_cap", label: "Market Cap", formatter: (v) => `Rs. ${formatCompact(v)}` },
   { key: "pe_ratio", label: "P/E Ratio", formatter: (v) => v.toFixed(1) },
   { key: "pb_ratio", label: "P/B Ratio", formatter: (v) => v.toFixed(1) },
   { key: "dividend_yield", label: "Dividend Yield", formatter: (v) => `${v.toFixed(1)}%`, scale: 100 },
@@ -610,10 +912,10 @@ function FinancialsChart({ fundamentals }) {
         <ComposedChart data={chartData} margin={{ top: 10, right: 0, left: 10, bottom: 0 }}>
           <CartesianGrid stroke="var(--border)" strokeOpacity={0.6} vertical={false} strokeDasharray="4 4" />
           <XAxis dataKey="period" stroke="var(--muted-foreground)" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-          <YAxis stroke="var(--muted-foreground)" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} tickFormatter={fmtCompact} />
+          <YAxis stroke="var(--muted-foreground)" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} tickFormatter={formatCompact} />
           <Tooltip
             contentStyle={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--foreground)" }}
-            formatter={(v) => fmtCompact(v)}
+            formatter={(v) => formatCompact(v)}
           />
           <Bar dataKey="Revenue" fill="var(--primary)" radius={[3, 3, 0, 0]} />
           <Bar dataKey="Net Income" fill="var(--positive)" radius={[3, 3, 0, 0]} />
@@ -674,9 +976,9 @@ function DividendsSection({ dividends }) {
 }
 
 const FUNDAMENTALS_COLUMNS = [
-  { key: "revenue", label: "Revenue" },
-  { key: "net_income", label: "Net Income" },
-  { key: "eps", label: "EPS" },
+  { key: "revenue", label: "Revenue (Rs.)" },
+  { key: "net_income", label: "Net Income (Rs.)" },
+  { key: "eps", label: "EPS (Rs.)" },
   { key: "roe", label: "ROE" },
   { key: "pe_ratio", label: "P/E" },
 ];
@@ -702,7 +1004,7 @@ function FundamentalsSection({ fundamentals }) {
             <TableCell className="font-medium">{row.report_date}</TableCell>
             {FUNDAMENTALS_COLUMNS.map((c) => (
               <TableCell key={c.key} className="text-right tabular-nums">
-                {typeof row[c.key] === "number" ? row[c.key].toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"}
+                {formatNumber(row[c.key])}
               </TableCell>
             ))}
           </TableRow>
@@ -760,50 +1062,105 @@ function ReportsSection({ reports }) {
   );
 }
 
+const companyPageCache = new Map();
+
 export function CompanyDetail() {
   const { ticker } = useParams();
-  const [data, setData] = useState(null);
-  const [company, setCompany] = useState(null);
-  const [liveData, setLiveData] = useState(null);
-  const [fundamentals, setFundamentals] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [snapshot, setSnapshot] = useState(null);
-  const [dividends, setDividends] = useState([]);
-  const [indices, setIndices] = useState([]);
+  const uppercaseTicker = ticker ? ticker.toUpperCase() : "";
+  const cachedState = companyPageCache.get(uppercaseTicker);
+
+  const [data, setData] = useState(cachedState?.data ?? null);
+  const [company, setCompany] = useState(cachedState?.company ?? null);
+  const [liveData, setLiveData] = useState(cachedState?.liveData ?? null);
+  const [fundamentals, setFundamentals] = useState(cachedState?.fundamentals ?? []);
+  const [events, setEvents] = useState(cachedState?.events ?? []);
+  const [snapshot, setSnapshot] = useState(cachedState?.snapshot ?? null);
+  const [dividends, setDividends] = useState(cachedState?.dividends ?? []);
+  const [indices, setIndices] = useState(cachedState?.indices ?? []);
   const [peers, setPeers] = useState(null);
   const [reports, setReports] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cachedState);
   const [error, setError] = useState(null);
-  const [modelType, setModelType] = useState("RF");
+  const [modelType, setModelType] = useState(cachedState?.data?.specialized_predicted_price != null ? "SPX" : "RF");
   const [timeRange, setTimeRange] = useState("30D");
   const [activeSection, setActiveSection] = useState("overview");
   const marketClosed = useMemo(isMarketClosedNow, []);
 
   useEffect(() => {
-    setLoading(true);
+    const cached = companyPageCache.get(uppercaseTicker);
+
+    if (cached) {
+      setData(cached.data);
+      setCompany(cached.company);
+      setLiveData(cached.liveData);
+      setSnapshot(cached.snapshot);
+      setFundamentals(cached.fundamentals || []);
+      setEvents(cached.events || []);
+      setDividends(cached.dividends || []);
+      setIndices(cached.indices || []);
+      setModelType(cached.data?.specialized_predicted_price != null ? "SPX" : "RF");
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
+
+    // Priority 1: Fetch top-fold critical data first (predict, company, realtime, snapshot)
     Promise.all([
       axios.post(`${API_BASE_URL}/api/predict`, { ticker }),
       axios.get(`${API_BASE_URL}/api/company/${ticker}`),
       axios.get(`${API_BASE_URL}/api/realtime/${ticker}`).catch(() => null),
-      axios.get(`${API_BASE_URL}/api/company/${ticker}/fundamentals`).catch(() => null),
-      axios.get(`${API_BASE_URL}/api/company/${ticker}/events`).catch(() => null),
       axios.get(`${API_BASE_URL}/api/company/${ticker}/snapshot`).catch(() => null),
-      axios.get(`${API_BASE_URL}/api/company/${ticker}/dividends`).catch(() => null),
-      axios.get(`${API_BASE_URL}/api/indices`).catch(() => null),
     ])
-      .then(([predRes, compRes, liveRes, fundRes, eventsRes, snapRes, divRes, indicesRes]) => {
-        setData(predRes.data);
-        setCompany(compRes.data);
-        setLiveData(liveRes?.data ?? null);
-        setFundamentals(fundRes?.data?.fundamentals ?? []);
-        setEvents(eventsRes?.data?.events ?? []);
-        setSnapshot(snapRes?.data ?? null);
-        setDividends(divRes?.data?.dividends ?? []);
-        setIndices(indicesRes?.data?.indices ?? []);
+      .then(([predRes, compRes, liveRes, snapRes]) => {
+        const newData = predRes.data;
+        const newComp = compRes.data;
+        const newLive = liveRes?.data ?? null;
+        const newSnap = snapRes?.data ?? null;
+
+        setData(newData);
+        setCompany(newComp);
+        setLiveData(newLive);
+        setSnapshot(newSnap);
+        if (!cached) {
+          setModelType(newData.specialized_predicted_price != null ? "SPX" : "RF");
+        }
+        setLoading(false);
+
+        // Priority 2: Fetch secondary sections in background
+        Promise.all([
+          axios.get(`${API_BASE_URL}/api/company/${ticker}/fundamentals`).catch(() => null),
+          axios.get(`${API_BASE_URL}/api/company/${ticker}/events`).catch(() => null),
+          axios.get(`${API_BASE_URL}/api/company/${ticker}/dividends`).catch(() => null),
+          axios.get(`${API_BASE_URL}/api/indices`).catch(() => null),
+        ]).then(([fundRes, eventsRes, divRes, indicesRes]) => {
+          const newFund = fundRes?.data?.fundamentals ?? [];
+          const newEvents = eventsRes?.data?.events ?? [];
+          const newDiv = divRes?.data?.dividends ?? [];
+          const newIndices = indicesRes?.data?.indices ?? [];
+
+          setFundamentals(newFund);
+          setEvents(newEvents);
+          setDividends(newDiv);
+          setIndices(newIndices);
+
+          // Update cache
+          companyPageCache.set(uppercaseTicker, {
+            data: newData,
+            company: newComp,
+            liveData: newLive,
+            snapshot: newSnap,
+            fundamentals: newFund,
+            events: newEvents,
+            dividends: newDiv,
+            indices: newIndices,
+          });
+        });
       })
-      .catch((err) => setError(err.response?.data?.detail || "Failed to load this company."))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        setError(err.response?.data?.detail || "Failed to load this company.");
+        setLoading(false);
+      });
   }, [ticker]);
 
   useEffect(() => {
@@ -889,18 +1246,19 @@ export function CompanyDetail() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-4 md:col-span-1">
               <PriceCard data={data} liveData={liveData} marketClosed={marketClosed} />
-              <PredictionCard data={data} modelType={modelType} setModelType={setModelType} />
+              <PredictionCard data={data} liveData={liveData} modelType={modelType} setModelType={setModelType} />
               <SentimentCard sentiment={data.latest_sentiment} />
-              <DividendCard dividend={data.latest_dividend} currentPrice={data.current_price} />
+              <DividendCard dividend={data.latest_dividend} currentPrice={liveData?.price ?? data.current_price} />
             </div>
-            <div className="md:col-span-2">
-              <PriceChart data={data} modelType={modelType} timeRange={timeRange} setTimeRange={setTimeRange} />
+            <div className="space-y-4 md:col-span-2">
+              <PriceChart data={data} liveData={liveData} modelType={modelType} timeRange={timeRange} setTimeRange={setTimeRange} />
+              <PredictionPerformanceTable data={data} liveData={liveData} modelType={modelType} />
             </div>
           </div>
 
           <CompanySnapshot snapshot={snapshot} />
 
-          <FiftyTwoWeekRangeBar low={snapshot?.week_52_low} high={snapshot?.week_52_high} current={data.current_price} />
+          <FiftyTwoWeekRangeBar low={snapshot?.week_52_low} high={snapshot?.week_52_high} current={liveData?.price ?? data.current_price} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">

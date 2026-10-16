@@ -1,0 +1,73 @@
+{
+  "engineering": {
+    "sector_key": "engineering",
+    "valid_tickers": [
+      "INIL",
+      "ISL",
+      "ASTL",
+      "MUGHAL"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 1.76,
+    "baseline_mape": 2.05,
+    "best_model_mae": 1.77,
+    "best_model_mape": 2.07,
+    "directional_accuracy": 50.23,
+    "lightgbm_dir_acc": 49.77,
+    "xgboost_dir_acc": 50.23
+  },
+  "chemical": {
+    "sector_key": "chemical",
+    "valid_tickers": [
+      "LOTCHEM",
+      "LCI",
+      "EPCL"
+    ],
+    "best_model_name": "XGBoost",
+    "baseline_mae": 1.19,
+    "baseline_mape": 1.66,
+    "best_model_mae": 1.62,
+    "best_model_mape": 3.09,
+    "directional_accuracy": 53.92,
+    "lightgbm_dir_acc": 53.31,
+    "xgboost_dir_acc": 53.92
+  },
+  "textile": {
+    "sector_key": "textile",
+    "valid_tickers": [
+      "ILP",
+      "KTML",
+      "MEHT",
+      "GADT",
+      "YOUW",
+      "IBFL",
+      "GATM",
+      "NML"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 2.81,
+    "baseline_mape": 2.16,
+    "best_model_mae": 2.9,
+    "best_model_mape": 2.24,
+    "directional_accuracy": 49.72,
+    "lightgbm_dir_acc": 49.72,
+    "xgboost_dir_acc": 45.8
+  },
+  "refinery": {
+    "sector_key": "refinery",
+    "valid_tickers": [
+      "ATRL",
+      "CNERGY",
+      "NRL",
+      "PRL"
+    ],
+    "best_model_name": "LightGBM",
+    "baseline_mae": 6.61,
+    "baseline_mape": 2.19,
+    "best_model_mae": 6.67,
+    "best_model_mape": 2.2,
+    "directional_accuracy": 53.11,
+    "lightgbm_dir_acc": 53.11,
+    "xgboost_dir_acc": 53.0
+  }
+}

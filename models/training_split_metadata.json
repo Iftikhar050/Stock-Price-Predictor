@@ -1,9 +1,9 @@
 {
-    "timestamp": "2026-08-26T17:46:09.577258",
-    "global_cutoff_date": "2025-08-28",
+    "timestamp": "2026-10-10T21:53:49.451797",
+    "global_cutoff_date": "2025-10-23",
     "test_trading_days_requested": 250,
     "min_train_trading_days_requested": 500,
-    "valid_tickers_count": 102,
+    "valid_tickers_count": 104,
     "excluded_tickers": [
         "HGFA"
     ]

@@ -4,16 +4,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Sortable
 import { SignalBadge } from "./SignalBadge";
 import { CompanyLogo } from "./CompanyLogo";
 import { useSort } from "../lib/useSort";
+import { formatNumber } from "../lib/format";
 
 function fmt(value, digits = 2) {
   return typeof value === "number" ? value.toFixed(digits) : "—";
-}
-
-function fmtCompact(value) {
-  if (typeof value !== "number") return "—";
-  if (Math.abs(value) >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
-  if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(2)}M`;
-  return value.toLocaleString();
 }
 
 const HEAD_CLASS = "py-2";
@@ -73,8 +67,8 @@ export function ScreenerTable({ rows, predictions = null, predictionsLoading = f
             <TableCell className={`${CELL_CLASS} text-right ${row.change_percent >= 0 ? "text-positive" : "text-negative"}`}>
               {row.change_percent >= 0 ? "▲" : "▼"} {fmt(Math.abs(row.change_percent))}%
             </TableCell>
-            <TableCell className={`${CELL_CLASS} text-right text-muted-foreground`}>{fmtCompact(row.volume)}</TableCell>
-            <TableCell className={`${CELL_CLASS} text-right text-muted-foreground`}>{fmtCompact(row.market_cap)}</TableCell>
+            <TableCell className={`${CELL_CLASS} text-right text-muted-foreground`}>{formatNumber(row.volume)}</TableCell>
+            <TableCell className={`${CELL_CLASS} text-right text-muted-foreground`}>{formatNumber(row.market_cap)}</TableCell>
             <TableCell className={`${CELL_CLASS} text-right`}>{fmt(row.pe_ratio)}</TableCell>
             <TableCell className={`${CELL_CLASS} text-right`}>{fmt(row.pb_ratio)}</TableCell>
             <TableCell className={`${CELL_CLASS} text-right`}>{row.dividend_yield != null ? `${(row.dividend_yield * 100).toFixed(2)}%` : "—"}</TableCell>

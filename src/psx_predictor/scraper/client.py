@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import requests
 import pandas as pd
@@ -57,33 +58,77 @@ class PSXScraper:
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
             "X-Requested-With": "XMLHttpRequest",
         }
-        logger.info(f"Falling back to PSX DPS historical data for {ticker} (yfinance had no data)")
+        logger.info(f"Falling back to PSX DPS historical data for {ticker} (yfinance had no data/stale)")
         try:
             r = requests.post(url, data={"symbol": ticker.upper()}, headers=headers, timeout=15)
-            if r.status_code != 200:
-                return pd.DataFrame()
-
-            soup = BeautifulSoup(r.text, "html.parser")
-            tables = soup.find_all("table")
-            if not tables:
-                return pd.DataFrame()
-
             rows = []
-            for row in tables[0].find_all("tr")[1:]:
-                cols = [c.text.strip() for c in row.find_all(["td", "th"])]
-                if len(cols) < 6:
-                    continue
-                try:
-                    rows.append({
-                        "date": datetime.strptime(cols[0], "%b %d, %Y").date(),
-                        "open": float(cols[1].replace(",", "")),
-                        "high": float(cols[2].replace(",", "")),
-                        "low": float(cols[3].replace(",", "")),
-                        "close": float(cols[4].replace(",", "")),
-                        "volume": float(cols[5].replace(",", "")),
-                    })
-                except (ValueError, IndexError):
-                    continue
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+                tables = soup.find_all("table")
+                if tables:
+                    for row in tables[0].find_all("tr")[1:]:
+                        cols = [c.text.strip() for c in row.find_all(["td", "th"])]
+                        if len(cols) < 6:
+                            continue
+                        try:
+                            rows.append({
+                                "date": datetime.strptime(cols[0], "%b %d, %Y").date(),
+                                "open": float(cols[1].replace(",", "")),
+                                "high": float(cols[2].replace(",", "")),
+                                "low": float(cols[3].replace(",", "")),
+                                "close": float(cols[4].replace(",", "")),
+                                "volume": float(cols[5].replace(",", "")),
+                            })
+                        except (ValueError, IndexError):
+                            continue
+
+            # If /historical endpoint failed or returned empty (e.g. 403 or no table), scrape live quote profile page
+            if not rows:
+                comp_url = f"https://dps.psx.com.pk/company/{ticker.upper()}"
+                comp_r = requests.get(comp_url, headers={"User-Agent": headers["User-Agent"]}, timeout=15)
+                if comp_r.status_code == 200:
+                    csoup = BeautifulSoup(comp_r.text, "html.parser")
+                    close_el = csoup.select_one('.quote__close')
+                    date_el = csoup.select_one('.quote__date')
+                    if close_el:
+                        m_close = re.search(r'([\d,]+(?:\.\d+)?)', close_el.text.strip())
+                        close_val = float(m_close.group(1).replace(',', '')) if m_close else None
+                        
+                        match_date = re.search(r'([A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2},\s+\d{4})', date_el.text.strip() if date_el else "")
+                        if match_date:
+                            raw_date_str = match_date.group(1).split(',', 1)[1].strip()
+                            parsed_date = datetime.strptime(raw_date_str, "%b %d, %Y").date()
+                        else:
+                            parsed_date = datetime.now().date()
+
+                        # The page repeats '.stats_item' blocks for several sections
+                        # (regular market, odd-lot, futures, etc.) reusing the same
+                        # labels (Open/High/Low/Volume) - later blocks are often
+                        # zeroed-out placeholders. Keep only the FIRST occurrence of
+                        # each label, which is always the real regular-market quote.
+                        stats_dict = {}
+                        for item in csoup.select('.stats_item'):
+                            lbl = item.select_one('.stats_label')
+                            val = item.select_one('.stats_value')
+                            if lbl and val:
+                                key = lbl.text.strip().lower()
+                                if key not in stats_dict:
+                                    stats_dict[key] = val.text.strip()
+
+                        open_val = float(stats_dict.get('open', str(close_val)).replace(',', ''))
+                        high_val = float(stats_dict.get('high', str(close_val)).replace(',', ''))
+                        low_val = float(stats_dict.get('low', str(close_val)).replace(',', ''))
+                        vol_val = float(stats_dict.get('volume', '0').replace(',', ''))
+
+                        if close_val is not None:
+                            rows.append({
+                                "date": parsed_date,
+                                "open": open_val,
+                                "high": high_val,
+                                "low": low_val,
+                                "close": close_val,
+                                "volume": vol_val,
+                            })
 
             if not rows:
                 return pd.DataFrame()
@@ -151,16 +196,22 @@ class PSXScraper:
             # whatever newer bars the PSX DPS fallback has.
             if not df.empty:
                 latest = pd.to_datetime(df['date']).max()
-                if (pd.Timestamp.now().normalize() - latest).days > 7:
-                    fallback_df = self.fetch_psx_dps_fallback(ticker)
+                # yfinance's PSX (.KA) feed routinely lags 1-2 trading days behind
+                # PSX's own site (confirmed 2026-10-09: yfinance stuck on a flat,
+                # zero-volume Oct 8 bar for HBL while dps.psx.com.pk already had a
+                # real Oct 9 close). Always top up with any newer PSX DPS bar
+                # instead of waiting for a full week of staleness - the old >7-day
+                # gate meant day-to-day predictions almost never saw the actual
+                # latest close.
+                fallback_df = self.fetch_psx_dps_fallback(ticker)
+                if not fallback_df.empty:
+                    fallback_df = fallback_df[pd.to_datetime(fallback_df['date']) > latest]
                     if not fallback_df.empty:
-                        fallback_df = fallback_df[pd.to_datetime(fallback_df['date']) > latest]
-                        if not fallback_df.empty:
-                            logger.info(
-                                f"{ticker}: yfinance feed stale since {latest.date()} - "
-                                f"topping up with {len(fallback_df)} newer PSX DPS row(s)."
-                            )
-                            df = pd.concat([df, fallback_df], ignore_index=True)
+                        logger.info(
+                            f"{ticker}: yfinance feed only current through {latest.date()} - "
+                            f"topping up with {len(fallback_df)} newer PSX DPS row(s)."
+                        )
+                        df = pd.concat([df, fallback_df], ignore_index=True)
 
         if df.empty:
             logger.warning(f"No EOD data available for {ticker} from either Yahoo Finance or PSX DPS. Skipping DB insert.")

@@ -8,8 +8,7 @@ import { Footer } from "./components/Footer";
 import { Home } from "./pages/Home";
 import { Screener } from "./pages/Screener";
 import { Compare } from "./pages/Compare";
-import { Sectors } from "./pages/Sectors";
-import { SectorDetail } from "./pages/SectorDetail";
+import { Dividends } from "./pages/Dividends";
 import { CompanyDetail } from "./pages/CompanyDetail";
 import { Markets } from "./pages/Markets";
 
@@ -27,8 +26,7 @@ function App() {
               <Route path="/markets" element={<Markets />} />
               <Route path="/markets/:tab" element={<Markets />} />
               <Route path="/compare" element={<Compare />} />
-              <Route path="/sectors" element={<Sectors />} />
-              <Route path="/sectors/:sector" element={<SectorDetail />} />
+              <Route path="/dividends" element={<Dividends />} />
               <Route path="/company/:ticker" element={<CompanyDetail />} />
             </Routes>
           </main>

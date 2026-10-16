@@ -256,7 +256,9 @@ def merge_sentiment(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         if pd.notna(row['sent_lag_3']):
             return row['sent_lag_3'] * 0.125
         return 0.0
-        
+
+    df['sentiment_score'] = df.apply(apply_decay, axis=1)
+
     # Also query corporate_announcements_pucars raw text announcements
     pucars_query = text("SELECT announcement_date as date, sentiment_score as pucars_sentiment FROM corporate_announcements_pucars WHERE ticker = :ticker ORDER BY announcement_date ASC")
     with engine.connect() as conn:
@@ -363,7 +365,34 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
             fund_df.drop(columns=['ticker'], inplace=True, errors='ignore')
         if 'created_at' in fund_df.columns:
             fund_df.drop(columns=['created_at'], inplace=True, errors='ignore')
-        
+
+    # Null out isolated single-quarter scale spikes in revenue/net_income: two
+    # independent scrapers (yfinance quarterly, PSX DPS annual) write into the
+    # same columns without agreeing on units (docs/known_issues_fundamentals_units.md),
+    # occasionally producing one garbage quarter ~1000x its neighbors that reverts
+    # immediately after - a real scale-convention change would persist, not snap
+    # back, so a value >=20x BOTH its immediate predecessor and successor is a
+    # parsing glitch, not a real earnings swing. Filtered here (read time, before
+    # the bfill/ffill below can propagate a spike into an adjacent NaN gap) rather
+    # than fixed in the DB, so the shared stock_fundamentals table is untouched.
+    # The query above is already ORDER BY report_date ASC, so no re-sort needed.
+    def _null_isolated_spikes(series: pd.Series, threshold: float = 20.0) -> pd.Series:
+        s = series.copy()
+        vals = s.values
+        for i in range(1, len(vals) - 1):
+            v, prev, nxt = vals[i], vals[i - 1], vals[i + 1]
+            if pd.isna(v) or v == 0 or pd.isna(prev) or pd.isna(nxt) or prev == 0 or nxt == 0:
+                continue
+            ratio_prev, ratio_next = abs(v / prev), abs(v / nxt)
+            if (ratio_prev >= threshold and ratio_next >= threshold) or \
+               (ratio_prev <= 1 / threshold and ratio_next <= 1 / threshold):
+                s.iloc[i] = np.nan
+        return s
+
+    for col in ['revenue', 'net_income']:
+        if col in fund_df.columns:
+            fund_df[col] = _null_isolated_spikes(fund_df[col])
+
     # Propagate ownership, insider, and ratio metrics across all report dates
     non_date_cols = [c for c in fund_df.columns if c != 'date']
     fund_df[non_date_cols] = fund_df[non_date_cols].bfill().ffill()
@@ -393,7 +422,7 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
         
     fund_df['date'] = pd.to_datetime(fund_df['date'])
     fund_df = fund_df.sort_values('date').reset_index(drop=True)
-    
+
     # pct_change() is +/-inf (not NaN) whenever the value 4 quarters back was
     # exactly 0 - a real reported 0 (or a data gap) rather than a genuine growth
     # rate. .replace(inf, nan) before the gap_days mask keeps that honestly null
@@ -546,8 +575,39 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
         return df
         
     macro_df['date'] = pd.to_datetime(macro_df['date'])
-    
-    pct_cols = ['sp500', 'nasdaq', 'dxy', 'gold', 'copper', 'coal', 'cotton', 'gas', 
+
+    # A deleted script (fetch_pbs_stats.py, removed for having no real scrapable
+    # source - see macro_pipeline.py's docstring) once wrote 9 hardcoded literal
+    # cpi_headline/cpi_core snapshots to this shared table labeled at these 9
+    # dates, before being replaced by the real SBP EasyData source (which
+    # republishes PBS's CPI release at its own, different dates). The actual
+    # inserted row isn't always exactly on the label date (e.g. the "2021-01-01"
+    # snapshot landed at 2021-02-01, "2022-06-01" at 2022-07-01 - some upsert
+    # rounded to a different day) so this matches by VALUE within a +/-45 day
+    # window of the label rather than requiring an exact date, and nulls
+    # whichever row(s) actually carry the fingerprinted pair. Those rows are
+    # still sitting in the DB and - since they're chronologically the "latest"
+    # value on/after their date until the next real SBP point - the ffill below
+    # would otherwise carry the fake number forward across every trading day
+    # until then. Nulling here lets ffill fall back to the real SBP-sourced
+    # value at the nearest earlier date instead. Affects every ticker equally
+    # (shared macro table), not a per-ticker fabrication.
+    _CPI_HARDCODED_FINGERPRINT = {
+        "2018-01-01": (4.4, 5.2), "2019-01-01": (7.2, 8.7), "2020-01-01": (14.6, 7.9),
+        "2021-01-01": (5.7, 5.4), "2022-06-01": (21.3, 11.5), "2023-05-01": (38.0, 20.0),
+        "2024-05-01": (11.8, 12.3), "2025-01-01": (6.9, 8.5), "2026-01-01": (5.8, 7.1),
+    }
+    if 'cpi_headline' in macro_df.columns and 'cpi_core' in macro_df.columns:
+        for d, (ch, cc) in _CPI_HARDCODED_FINGERPRINT.items():
+            window_lo, window_hi = pd.Timestamp(d) - pd.Timedelta(days=45), pd.Timestamp(d) + pd.Timedelta(days=45)
+            mask = (
+                macro_df['date'].between(window_lo, window_hi)
+                & (macro_df['cpi_headline'].round(1) == ch)
+                & (macro_df['cpi_core'].round(1) == cc)
+            )
+            macro_df.loc[mask, ['cpi_headline', 'cpi_core']] = np.nan
+
+    pct_cols = ['sp500', 'nasdaq', 'dxy', 'gold', 'copper', 'coal', 'cotton', 'gas',
                 'nikkei', 'hang_seng', 'shanghai', 'ftse', 'dax', 'vix']
                 
     raw_level_cols = ['pkr_usd_rate', 'brent_oil_price', 'us10y_yield'] + \
@@ -563,7 +623,7 @@ def merge_macro_indicators(df: pd.DataFrame, ticker: str, sector: str) -> pd.Dat
     for c in macro_df.columns:
         if c != 'date' and c != 'id':
             macro_df[c] = macro_df[c].ffill()
-            
+
     macro_df['pkr_usd_change_pct'] = macro_df['pkr_usd_rate'].pct_change()
     macro_df['oil_return_pct'] = macro_df['brent_oil_price'].pct_change()
     
@@ -725,6 +785,50 @@ def merge_market_index(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df['sector_relative_strength_20'] = sec_diff.rolling(window=20).sum().fillna(0.0)
         
     return df
+
+def merge_cross_sectional_return_rank(df: pd.DataFrame, ticker: str, window: int = 20) -> pd.DataFrame:
+    """Adds return_rank_vs_sector_20d / return_rank_vs_market_20d - this ticker's
+    percentile rank (0-1) of its own trailing `window`-day return against its sector
+    peers / the whole market on the same date. Distinct from sector_relative_strength_20
+    (a summed-difference ratio) - a rank is more robust to one outlier peer skewing an
+    average, and reads the same way regardless of how volatile the peer group is.
+
+    Requires the full cross-sectional distribution per date, not just a peer average,
+    so - unlike merge_market_index's other features - this pulls every ticker's raw
+    close series (sector-scoped and market-wide) rather than a single aggregated
+    series, pivots to wide form, and ranks THIS row on each date.
+    """
+    query = text("""
+        SELECT e.date, e.ticker, e.close, m.sector
+        FROM stock_eod_data e
+        JOIN stock_metadata m ON e.ticker = m.ticker
+        ORDER BY e.date ASC
+    """)
+    with engine.connect() as conn:
+        all_df = pd.read_sql(query, conn)
+
+    if all_df.empty or ticker not in all_df['ticker'].unique():
+        df['return_rank_vs_sector_20d'] = 0.5
+        df['return_rank_vs_market_20d'] = 0.5
+        return df
+
+    all_df['date'] = pd.to_datetime(all_df['date'])
+    wide_close = all_df.pivot_table(index='date', columns='ticker', values='close')
+    wide_return = wide_close.pct_change(window)
+
+    market_rank = wide_return.rank(axis=1, pct=True)[ticker].rename('return_rank_vs_market_20d')
+
+    own_sector = all_df.loc[all_df['ticker'] == ticker, 'sector'].iloc[0]
+    sector_tickers = all_df.loc[all_df['sector'] == own_sector, 'ticker'].unique()
+    sector_rank_full = wide_return[[c for c in sector_tickers if c in wide_return.columns]].rank(axis=1, pct=True)
+    sector_rank = sector_rank_full[ticker].rename('return_rank_vs_sector_20d') if ticker in sector_rank_full.columns else pd.Series(dtype=float)
+
+    rank_df = pd.concat([market_rank, sector_rank], axis=1).reset_index()
+    df = pd.merge(df, rank_df, on='date', how='left')
+    df['return_rank_vs_market_20d'] = df['return_rank_vs_market_20d'].fillna(0.5)
+    df['return_rank_vs_sector_20d'] = df['return_rank_vs_sector_20d'].fillna(0.5)
+    return df
+
 
 def calculate_relative_volume(df: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     """Calculates relative volume over a rolling window."""
@@ -1128,6 +1232,7 @@ def build_features(ticker: str) -> pd.DataFrame:
     df = calculate_atr(df)
     # df = encode_ticker(df, ticker) # Removed in favor of native categorical/embeddings
     df = merge_market_index(df, ticker)
+    df = merge_cross_sectional_return_rank(df, ticker)
 
     # 3. Merge Sentiment Data with Decay
     df = merge_sentiment(df, ticker)
@@ -1395,6 +1500,76 @@ def build_features(ticker: str) -> pd.DataFrame:
     max_history = df['history_days'].iloc[-1] if len(df) else 1
     df['history_maturity_ratio'] = df['history_days'] / max(max_history, 1)
 
+    # 4.6 Volatility/magnitude-target-oriented features (added to support a separate
+    # |next-day-return| target - signed direction is close to unpredictable in this
+    # data, but realized-volatility-adjacent features correlate with move MAGNITUDE
+    # meaningfully better; see feature_wrapper.py's volatility-target helpers).
+    if 'daily_return' not in df.columns:
+        df['daily_return'] = df['close'].pct_change()
+
+    # overnight_gap: known at T's own open, NOT usable for a fully pre-market
+    # next-day forecast made using only data through T-1's close - only valid as an
+    # input for a same-day/intraday model that already knows today's open.
+    df['overnight_gap'] = (df['open'] - df['close'].shift(1)) / df['close'].shift(1)
+    df['overnight_gap'] = df['overnight_gap'].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+    # intraday_range_pct: realized high-low range, distinct from close-to-close
+    # volatility - nonzero even on a day where open==close.
+    df['intraday_range_pct'] = (df['high'] - df['low']) / df['close'].shift(1)
+    df['intraday_range_pct'] = df['intraday_range_pct'].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    df['intraday_range_pct_10d'] = df['intraday_range_pct'].rolling(10, min_periods=3).mean().fillna(0.0)
+    df['intraday_range_pct_20d'] = df['intraday_range_pct'].rolling(20, min_periods=5).mean().fillna(0.0)
+
+    # EWMA realized volatility - more responsive to a regime shift than the existing
+    # simple rolling-std return_vol_10/return_vol_20 (equal-weighted) columns.
+    df['ewma_volatility_10'] = df['daily_return'].ewm(span=10, min_periods=5).std().fillna(0.0)
+    df['ewma_volatility_20'] = df['daily_return'].ewm(span=20, min_periods=10).std().fillna(0.0)
+
+    # vol_regime_ratio: short-vs-long realized vol - is volatility expanding or
+    # contracting, distinct from the absolute vol level already captured elsewhere.
+    # return_vol_60 isn't computed anywhere in this pipeline, so fall back to
+    # return_vol_20 as the "long" leg per the feature's own documented fallback rule.
+    if 'return_vol_10' in df.columns and 'return_vol_60' in df.columns:
+        denom = df['return_vol_60']
+    elif 'return_vol_10' in df.columns and 'return_vol_20' in df.columns:
+        denom = df['return_vol_20']
+    else:
+        denom = None
+    if 'return_vol_10' in df.columns and denom is not None:
+        df['vol_regime_ratio'] = (df['return_vol_10'] / denom.replace(0, np.nan)).fillna(1.0)
+    else:
+        df['vol_regime_ratio'] = 1.0
+
+    # Amihud illiquidity proxy - |return| per unit of PKR traded, rolling 20d average.
+    # Thin-trading PSX small/mid caps can show illiquidity-driven return behavior a
+    # pure technical indicator won't capture.
+    traded_value = (df['close'] * df['volume']).replace(0, np.nan)
+    amihud_daily = (df['daily_return'].abs() / traded_value)
+    df['amihud_illiquidity'] = amihud_daily.rolling(20, min_periods=5).mean().fillna(0.0)
+
+    # Consecutive up/down streak as of T-1 (never includes T's own return) - cheap
+    # momentum/reversal signal not already captured by the return_lag_1..10 columns.
+    up_day = (df['daily_return'].shift(1) > 0).astype(int)
+    down_day = (df['daily_return'].shift(1) < 0).astype(int)
+
+    def _streak(flags):
+        out = np.zeros(len(flags), dtype=int)
+        run = 0
+        for i, f in enumerate(flags):
+            run = run + 1 if f else 0
+            out[i] = run
+        return out
+
+    df['streak_up'] = _streak(up_day.to_numpy())
+    df['streak_down'] = _streak(down_day.to_numpy())
+
+    # ARCH-style explicit squared-lag-return features - squared-return
+    # autocorrelation (volatility clustering) is real in this data even though
+    # signed-return autocorrelation is near zero; the rolling vol columns implicitly
+    # average this transform but don't expose the raw lagged values directly.
+    for lag in (1, 5, 10):
+        df[f'lagged_squared_return_{lag}'] = (df['daily_return'].shift(lag) ** 2).fillna(0.0)
+
     # 4.5 Drop dead/no-signal columns (see DEAD_COLUMNS docstring above) so the
     # dataset saved below is training-ready, not padded with zero-variance inputs.
     df.drop(columns=[c for c in DEAD_COLUMNS if c in df.columns], inplace=True, errors='ignore')
@@ -1419,7 +1594,7 @@ def build_features(ticker: str) -> pd.DataFrame:
         logger.info(f"Saved finalized master dataset ready for ML to {master_path}")
         try:
             from src.psx_predictor.data.export_raw_text_datasets import export_raw_text_files_for_ticker
-            export_raw_text_files_for_ticker(ticker.upper())
+            export_raw_text_files_for_ticker(ticker.upper(), processed_dir=PROCESSED_DIR)
             logger.info(f"Successfully attached date-matched raw text PUCARS & news to {master_path}")
         except Exception as e_exp:
             logger.warning(f"Could not attach raw text datasets to {master_path}: {e_exp}")

@@ -5,6 +5,7 @@
 # endpoints for the company-detail page.
 # ---------------------------------------------------------
 import os
+import re
 import sys
 import time
 import logging
@@ -12,7 +13,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 if ROOT_DIR not in sys.path:
@@ -161,6 +162,12 @@ class RealtimePriceResponse(BaseModel):
     price: float
     change: float
     change_percent: float
+    date: str | None = Field(
+        None, description="Trading date this quote is actually for (YYYY-MM-DD), parsed from PSX's "
+        "own '.quote__date' label. PSX's displayed quote doesn't always refresh the moment a new "
+        "session opens - without this, a frontend can't tell a genuinely new day's price apart from "
+        "yesterday's close still being shown."
+    )
 
 
 def _fallback_realtime_from_db(ticker: str) -> RealtimePriceResponse | None:
@@ -184,6 +191,7 @@ def _fallback_realtime_from_db(ticker: str) -> RealtimePriceResponse | None:
         price=round(latest_close, 2),
         change=round(change, 2),
         change_percent=round(change_percent, 2),
+        date=rows[0].date.isoformat() if hasattr(rows[0].date, "isoformat") else str(rows[0].date),
     )
 
 
@@ -222,11 +230,23 @@ async def get_realtime_price(ticker: str):
         percent_str = percent_el.text.strip().replace('(', '').replace(')', '').replace('%', '')
         percent = float(percent_str)
 
+        quote_date = None
+        date_el = soup.select_one('.quote__date')
+        if date_el:
+            match_date = re.search(r'([A-Za-z]{3},\s+[A-Za-z]{3}\s+\d{1,2},\s+\d{4})', date_el.text.strip())
+            if match_date:
+                raw_date_str = match_date.group(1).split(',', 1)[1].strip()
+                try:
+                    quote_date = datetime.strptime(raw_date_str, "%b %d, %Y").date().isoformat()
+                except ValueError:
+                    quote_date = None
+
         result = RealtimePriceResponse(
             ticker=ticker,
             price=price,
             change=change,
-            change_percent=percent
+            change_percent=percent,
+            date=quote_date
         )
         set_cached(psx_cache, cache_key, result)
         return result

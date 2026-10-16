@@ -7,7 +7,7 @@ import joblib
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sqlalchemy import text
 from src.psx_predictor.db.connection import engine
@@ -158,8 +158,11 @@ def prepare_and_scale_data(lookback=30):
     X_num_train_all = np.vstack([x[0] for x in X_num_list])
     y_train_all = np.vstack([y[0] for y in y_list])
     
-    feature_scaler = MinMaxScaler()
-    target_scaler = MinMaxScaler()
+    # RobustScaler (median/IQR) instead of MinMaxScaler: a handful of extreme values
+    # (fat-tailed PSX returns, even post data-cleaning) would otherwise set the min/max
+    # and compress every other, well-behaved value into a tiny slice of [0, 1].
+    feature_scaler = RobustScaler()
+    target_scaler = RobustScaler()
     
     feature_scaler.fit(X_num_train_all)
     target_scaler.fit(y_train_all)
@@ -170,31 +173,44 @@ def prepare_and_scale_data(lookback=30):
     joblib.dump(ticker_to_id, os.path.join(MODELS_DIR, "ticker_to_id.pkl"))
     joblib.dump(sector_to_id, os.path.join(MODELS_DIR, "sector_to_id.pkl"))
     
-    train_datasets, test_datasets = [], []
-    
+    train_datasets, val_datasets, test_datasets = [], [], []
+
+    # Chronological per-ticker split, done BEFORE windowing: the last ~20% of each
+    # ticker's own training-period rows (in date order) becomes validation, the
+    # earlier ~80% becomes training. Splitting before StockDataset builds its sliding
+    # windows guarantees no window straddles the boundary - a random_split on the
+    # already-windowed data (the previous behavior) could put two overlapping
+    # lookback-30 windows, sharing up to 29 days of the same rows, on opposite sides.
     for i in range(len(X_num_list)):
         X_num_tr, X_num_te = X_num_list[i]
         X_cat_tr, X_cat_te = X_cat_list[i]
         y_tr, y_te = y_list[i]
-        
+
         if len(X_num_tr) > lookback:
-            X_num_tr_sc = feature_scaler.transform(X_num_tr)
-            y_tr_sc = target_scaler.transform(y_tr)
-            train_datasets.append(StockDataset(X_num_tr_sc, X_cat_tr, y_tr_sc, lookback))
-            
+            val_cut = int(len(X_num_tr) * 0.8)
+            X_num_sub, X_num_val = X_num_tr[:val_cut], X_num_tr[val_cut:]
+            X_cat_sub, X_cat_val = X_cat_tr[:val_cut], X_cat_tr[val_cut:]
+            y_sub, y_val = y_tr[:val_cut], y_tr[val_cut:]
+
+            X_num_sub_sc = feature_scaler.transform(X_num_sub)
+            y_sub_sc = target_scaler.transform(y_sub)
+            if len(X_num_sub) > lookback:
+                train_datasets.append(StockDataset(X_num_sub_sc, X_cat_sub, y_sub_sc, lookback))
+
+            if len(X_num_val) > lookback:
+                X_num_val_sc = feature_scaler.transform(X_num_val)
+                y_val_sc = target_scaler.transform(y_val)
+                val_datasets.append(StockDataset(X_num_val_sc, X_cat_val, y_val_sc, lookback))
+
         if len(X_num_te) > lookback:
             X_num_te_sc = feature_scaler.transform(X_num_te)
             y_te_sc = target_scaler.transform(y_te)
             test_datasets.append(StockDataset(X_num_te_sc, X_cat_te, y_te_sc, lookback))
-            
+
     train_dataset = ConcatDataset(train_datasets)
+    val_dataset = ConcatDataset(val_datasets)
     test_dataset = ConcatDataset(test_datasets)
-    
-    # 80/20 split on the train_dataset for validation
-    train_size = int(0.8 * len(train_dataset))
-    val_size = len(train_dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [train_size, val_size])
-    
+
     batch_size = 64
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
