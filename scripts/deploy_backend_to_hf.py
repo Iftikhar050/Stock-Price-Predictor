@@ -3,9 +3,11 @@ Pushes the API to a Hugging Face Space (Docker) and sets its secrets.
 
   python scripts/deploy_backend_to_hf.py <hf-username>/<space-name>
 
-Needs HF_TOKEN (a Hugging Face access token with write permission). Secrets
-are read from deploy/.env.production (gitignored - copy deploy/env.production.example)
-and stored as Space secrets, never committed. Uploads only what the image
+Needs HF_TOKEN (a Hugging Face access token with write permission), from the
+environment or deploy/.env.production. Secrets are read from
+deploy/.env.production (gitignored - copy deploy/env.production.example) and
+stored as Space secrets, never committed; HF_TOKEN itself is never sent to
+the Space. Uploads only what the image
 needs: code, the models the API loads, and the container files. Feature data
 is not uploaded here - the container downloads it from Supabase Storage.
 """
@@ -48,13 +50,13 @@ def main():
     if len(sys.argv) != 2 or "/" not in sys.argv[1]:
         sys.exit(__doc__)
     space_id = sys.argv[1]
-    token = os.environ.get("HF_TOKEN")
-    if not token:
-        sys.exit("Set HF_TOKEN to a Hugging Face write token.")
     if not os.path.exists(PROD_ENV):
         sys.exit(f"Missing {PROD_ENV} - copy deploy/env.production.example and fill it in.")
 
     secrets = {k: v for k, v in dotenv_values(PROD_ENV).items() if v}
+    token = os.environ.get("HF_TOKEN") or secrets.get("HF_TOKEN")
+    if not token:
+        sys.exit("Set HF_TOKEN (environment or deploy/.env.production) to a Hugging Face write token.")
     missing = [k for k in REQUIRED_SECRETS if k not in secrets]
     if missing:
         sys.exit(f"deploy/.env.production is missing: {', '.join(missing)}")

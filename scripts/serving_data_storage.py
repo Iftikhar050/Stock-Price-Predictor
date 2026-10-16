@@ -5,9 +5,10 @@ local folder and a private Supabase Storage bucket.
   python scripts/serving_data_storage.py upload   [dir]   # after the daily pipeline
   python scripts/serving_data_storage.py download [dir]   # on API container start
 
-Needs SUPABASE_URL and SUPABASE_SERVICE_KEY (Project Settings -> API in the
-Supabase dashboard). The bucket is created on first upload. A manifest.json is
-uploaded last, so a download never sees a half-finished upload's file list.
+Needs SUPABASE_URL and SUPABASE_SERVICE_KEY - from the environment (the
+deployed container gets them as Space secrets) or from deploy/.env.production.
+The bucket is created on first upload. A manifest.json is uploaded last, so a
+download never sees a half-finished upload's file list.
 """
 import json
 import os
@@ -17,9 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
-
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(ROOT_DIR, "deploy", ".env.production"))
 DEFAULT_DIR = os.path.join(ROOT_DIR, "data", "serving")
 BUCKET = os.environ.get("SERVING_BUCKET", "serving-data")
 MANIFEST = "manifest.json"
@@ -31,6 +31,11 @@ def _config():
     key = os.environ.get("SUPABASE_SERVICE_KEY", "")
     if not url or not key:
         sys.exit("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
+    # New-style secret keys (sb_secret_...) aren't JWTs and are rejected as a
+    # Bearer token; the apikey header alone authorizes them. Legacy
+    # service_role keys are JWTs and need both.
+    if key.startswith("sb_"):
+        return f"{url}/storage/v1", {"apikey": key}
     return f"{url}/storage/v1", {"Authorization": f"Bearer {key}", "apikey": key}
 
 
