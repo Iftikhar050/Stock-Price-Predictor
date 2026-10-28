@@ -238,18 +238,16 @@ INDEX_DEFS = [
     {"key": "kmi30", "name": "KMI-30", "column": "kmi30_index_level", "return_column": "kmi30_return_pct"},
     {"key": "kse30", "name": "KSE-30", "column": "kse30_index_level", "return_column": "kse30_return_pct"},
     {"key": "all_share", "name": "All Share Index", "column": "all_share_index_level", "return_column": "all_share_return_pct"},
+    # PSX's published sector indices. OGTI is one combined Oil & Gas index -
+    # it covers both Exploration and Marketing companies.
+    {"key": "banking", "name": "Banking (BKTI)", "column": "banking_sector_index_level", "return_column": "banking_sector_return_pct"},
+    {"key": "oil_gas", "name": "Oil & Gas (OGTI)", "column": "oil_gas_sector_index_level", "return_column": "oil_gas_sector_return_pct"},
 ]
 
 
 def _compute_indices():
-    query = text("""
-        SELECT date,
-               kse100_real_index_level, kse100_real_return_pct,
-               kmi30_index_level, kmi30_return_pct,
-               kse30_index_level, kse30_return_pct,
-               all_share_index_level, all_share_return_pct
-        FROM macro_indicators ORDER BY date ASC
-    """)
+    columns = ", ".join(f"{d['column']}, {d['return_column']}" for d in INDEX_DEFS)
+    query = text(f"SELECT date, {columns} FROM macro_indicators ORDER BY date ASC")
     with engine.connect() as conn:
         rows = conn.execute(query).mappings().fetchall()
 

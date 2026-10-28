@@ -82,17 +82,11 @@ function Hero({ tickerCount }) {
 }
 
 export function Home() {
-  const [sectors, setSectors] = useState([]);
   const [indices, setIndices] = useState(null);
   const [screenerPreview, setScreenerPreview] = useState(null);
   const [tickerCount, setTickerCount] = useState(null);
 
   useEffect(() => {
-    axios
-      .get(`${API_BASE_URL}/api/sectors`)
-      .then((res) => setSectors(res.data.sectors))
-      .catch((err) => console.error("Failed to fetch sectors", err));
-
     axios
       .get(`${API_BASE_URL}/api/indices`)
       .then((res) => setIndices(res.data.indices))
@@ -107,26 +101,22 @@ export function Home() {
       .catch((err) => console.error("Failed to fetch screener preview", err));
   }, []);
 
-  const indexSectors = sectors.filter((s) => s.index_level != null);
   const realIndices = (indices ?? []).filter((i) => i.level != null);
-  const cardsReady = indices !== null && sectors.length > 0;
+  const cardsReady = indices !== null;
 
   return (
     <div className="space-y-8">
       <Hero tickerCount={tickerCount} />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {cardsReady ? (
           <>
             {realIndices.map((idx) => (
               <IndexCard key={idx.key} label={idx.name} value={idx.level} changePercent={idx.change_percent} />
             ))}
-            {indexSectors.map((s) => (
-              <IndexCard key={s.sector} label={s.sector} value={s.index_level} />
-            ))}
           </>
         ) : (
-          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 col-span-full sm:col-span-1" />)
+          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-24 col-span-full sm:col-span-1" />)
         )}
       </div>
 

@@ -24,6 +24,8 @@ _ALL_COLS = {
     "kmi30_index_level": None, "kmi30_return_pct": None,
     "kse30_index_level": None, "kse30_return_pct": None,
     "all_share_index_level": None, "all_share_return_pct": None,
+    "banking_sector_index_level": None, "banking_sector_return_pct": None,
+    "oil_gas_sector_index_level": None, "oil_gas_sector_return_pct": None,
 }
 
 
@@ -45,7 +47,7 @@ def test_indices_includes_real_kse100(mocker):
     assert response.status_code == 200
     data = response.json()
     keys = [i["key"] for i in data["indices"]]
-    assert set(keys) == {"kse100", "kmi30", "kse30", "all_share"}
+    assert set(keys) == {"kse100", "kmi30", "kse30", "all_share", "banking", "oil_gas"}
     kse100 = next(i for i in data["indices"] if i["key"] == "kse100")
     assert kse100["level"] == 164776.44
     assert kse100["change_percent"] == -0.21

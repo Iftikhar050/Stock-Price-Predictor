@@ -1,11 +1,13 @@
 # dividends.py
 # ---------------------------------------------------------
 # Market-wide dividend table: trailing-12-month payout, yield, growth,
-# latest ex-date, payout ratio and payout frequency per active ticker.
+# latest ex-date, payout ratio and payout frequency per active ticker, plus
+# the next expected dividend and recent dividend news.
 # ---------------------------------------------------------
 import os
 import sys
 import math
+import re
 import threading
 from collections import defaultdict
 from datetime import date, timedelta
@@ -118,6 +120,156 @@ def _annual_dividend(paid, n):
     return current, sum(a for _, a in prior_block), None
 
 
+# Matching a payout to "the same one last year" allows this much drift.
+SEASON_SLACK_DAYS = 45
+UPCOMING_DAYS = 30
+NEWS_DAYS = 90
+NEWS_LIMIT = 150
+# Board meeting notices go out about a week ahead; an undated one older than
+# this has most likely already been held.
+UNDATED_MEETING_DAYS = 10
+# A date in a notice's title further out than this isn't the meeting date.
+MEETING_LEAD_DAYS = 60
+
+
+def _estimate_next_payout(paid, per_year, today):
+    """Next ex-date projected from the company's own calendar: the payout
+    that followed the one a year before the latest, moved forward a year.
+    Uses the real seasonal pattern rather than an even 365/n spacing - PSX
+    quarterly payers space their final dividend unevenly. None for irregular
+    payers or a single payout on record."""
+    if per_year is None or len(paid) < 2:
+        return None
+    last = paid[-1][0]
+    threshold = last - timedelta(days=365 - SEASON_SLACK_DAYS)
+    for d, _ in paid:
+        if d <= threshold:
+            continue
+        estimate = d + timedelta(days=365)
+        while estimate < today - timedelta(days=SEASON_SLACK_DAYS):
+            estimate += timedelta(days=365)
+        if estimate > last:
+            return estimate
+    return None
+
+
+MONTHS = {m: i for i, m in enumerate(
+    ["january", "february", "march", "april", "may", "june", "july",
+     "august", "september", "october", "november", "december"], start=1)}
+MONTH_RE = "(" + "|".join(MONTHS) + r"|sept|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)"
+DATE_PATTERNS = [
+    # 27 October 2026, 27th October, 2026
+    (re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+" + MONTH_RE + r"\.?,?\s+(\d{4})", re.I), ("d", "m", "y")),
+    # October 27, 2026
+    (re.compile(MONTH_RE + r"\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})", re.I), ("m", "d", "y")),
+    # 27-10-2026, 27/10/2026, 27.10.2026
+    (re.compile(r"\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b"), ("d", "m", "y")),
+]
+
+
+def _month_number(token):
+    token = token.lower()
+    return MONTHS.get(token) or next((n for name, n in MONTHS.items() if name.startswith(token[:3])), None)
+
+
+def _dates_in_title(title):
+    found = []
+    for pattern, order in DATE_PATTERNS:
+        for match in pattern.finditer(title):
+            parts = dict(zip(order, match.groups()))
+            month = int(parts["m"]) if parts["m"].isdigit() else _month_number(parts["m"])
+            try:
+                found.append(date(int(parts["y"]), month, int(parts["d"])))
+            except (TypeError, ValueError):
+                continue
+    return found
+
+
+def _meeting_date(title, published):
+    """The meeting date written in a board meeting notice's title, if any.
+    Titles also carry period-end dates ("quarter ended September 30, 2026")
+    and those always precede the notice, so only a date after publication
+    counts."""
+    dates = [d for d in _dates_in_title(title)
+             if published <= d <= published + timedelta(days=MEETING_LEAD_DAYS)]
+    return min(dates) if dates else None
+
+
+MEETING_RE = re.compile(r"board\s*meeting", re.I)
+# Meetings that won't consider a dividend, or have already happened.
+MEETING_SKIP_RE = re.compile(
+    r"other than financial|revoked|results of|decisions? of|in progress|outcome|unclaimed", re.I)
+
+
+def _upcoming_meetings(notices, today):
+    """{symbol: (meeting_date or None, notice_date, url)} for board meetings
+    still ahead. Only each company's latest board meeting notice counts: a
+    later revocation or "results of the meeting" notice supersedes it."""
+    latest = {}
+    for n in notices:
+        if MEETING_RE.search(n.title):
+            prev = latest.get(n.symbol)
+            if prev is None or n.published > prev.published:
+                latest[n.symbol] = n
+    meetings = {}
+    for symbol, n in latest.items():
+        if MEETING_SKIP_RE.search(n.title):
+            continue
+        meeting = _meeting_date(n.title, n.published)
+        if meeting is not None:
+            if meeting >= today:
+                meetings[symbol] = (meeting, n.published, n.url)
+        elif n.published >= today - timedelta(days=UNDATED_MEETING_DAYS):
+            meetings[symbol] = (None, n.published, n.url)
+    return meetings
+
+
+NEWS_KINDS = [
+    ("book_closure", re.compile(r"book\s*clos", re.I)),
+    ("paid", re.compile(r"\bcredit|disburse|payment of|dispatch|\bpaid\b|\bpays\b", re.I)),
+    ("declared", re.compile(r"declar|announce|approve|recommend|propos", re.I)),
+]
+DIVIDEND_RE = re.compile(r"dividend|book\s*clos|payout", re.I)
+NEWS_SKIP_RE = re.compile(r"unclaimed|federal consolidated fund", re.I)
+# "Lucky Cement credits ... - Investify": the source repeated as a suffix.
+SOURCE_SUFFIX_RE = re.compile(r"\s+[-|]\s+[^-|]{2,40}$")
+
+
+def _news_kind(title):
+    for kind, pattern in NEWS_KINDS:
+        if pattern.search(title):
+            return kind
+    return "news"
+
+
+def _dividend_news(notices, articles, names):
+    """Dividend items from PSX notices and media headlines, newest first.
+    News sites re-run the same headline days apart, so a repeat headline for
+    a company is dropped whatever its date."""
+    items, seen = [], set()
+    rows = sorted(notices + articles, key=lambda r: r[1], reverse=True)
+    for symbol, published, title, url, source in rows:
+        if symbol not in names or not DIVIDEND_RE.search(title) or NEWS_SKIP_RE.search(title):
+            continue
+        if source and title.endswith(source):
+            title = SOURCE_SUFFIX_RE.sub("", title)
+        key = (symbol, " ".join(title.lower().split()))
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append({
+            "symbol": symbol,
+            "name": names[symbol],
+            "date": published.isoformat(),
+            "title": title.strip(),
+            "kind": _news_kind(title),
+            "source": source or "PSX",
+            "url": url,
+        })
+    items.sort(key=lambda x: x["date"], reverse=True)
+    return items[:NEWS_LIMIT]
+
+
 def _compute_dividends():
     today = date.today()
     with engine.connect() as conn:
@@ -131,6 +283,15 @@ def _compute_dividends():
         eps_rows = conn.execute(text(
             "SELECT ticker, report_date, eps FROM stock_fundamentals WHERE report_date >= :since"
         ), {"since": today - timedelta(days=800)}).fetchall()
+        # PSX notices are stamped at midnight Pakistan time.
+        notices = conn.execute(text(
+            "SELECT symbol, (published_at AT TIME ZONE 'Asia/Karachi')::date AS published, title, url "
+            "FROM corporate_events WHERE published_at >= :since AND title IS NOT NULL"
+        ), {"since": today - timedelta(days=NEWS_DAYS)}).fetchall()
+        articles = conn.execute(text(
+            "SELECT ticker, (published_at AT TIME ZONE 'Asia/Karachi')::date AS published, headline, url, source "
+            "FROM stock_news WHERE published_at >= :since AND headline ~* 'dividend|book clos|payout'"
+        ), {"since": today - timedelta(days=NEWS_DAYS)}).fetchall()
 
     payouts_by_ticker = defaultdict(list)
     for r in div_rows:
@@ -142,8 +303,10 @@ def _compute_dividends():
 
     prices = get_price_snapshot()
     current_cutoff = today - timedelta(days=CURRENT_PAYER_DAYS)
+    meetings = _upcoming_meetings(notices, today)
+    names = {m.ticker: m.company_name for m in meta}
 
-    payers, non_payers = [], []
+    payers, non_payers, upcoming = [], [], []
     for m in meta:
         payouts = _dedupe_payouts(payouts_by_ticker.get(m.ticker, []))
         paid = [(d, a) for d, a in payouts if d <= today]
@@ -177,6 +340,27 @@ def _compute_dividends():
         else:
             payout = annual / eps
 
+        # A dated board meeting beats the estimate: it's where PSX companies
+        # declare dividends. Undated notices only go in the upcoming list.
+        estimate = _estimate_next_payout(paid, per_year, today)
+        meeting_date, notice_date, notice_url = meetings.get(m.ticker, (None, None, None))
+        if meeting_date is not None:
+            next_date, next_kind = meeting_date, "board_meeting"
+        elif estimate is not None:
+            next_date, next_kind = estimate, "estimated"
+        else:
+            next_date, next_kind = None, None
+
+        if notice_date is not None and (meeting_date is None or meeting_date <= today + timedelta(days=UPCOMING_DAYS)):
+            upcoming.append({"symbol": m.ticker, "name": m.company_name, "kind": "board_meeting",
+                             "date": meeting_date.isoformat() if meeting_date else None,
+                             "notice_date": notice_date.isoformat(), "url": notice_url,
+                             "last_amount": round(last_amount, 2)})
+        if estimate is not None and today <= estimate <= today + timedelta(days=UPCOMING_DAYS) and meeting_date is None:
+            upcoming.append({"symbol": m.ticker, "name": m.company_name, "kind": "estimated",
+                             "date": estimate.isoformat(), "notice_date": None, "url": None,
+                             "last_amount": round(last_amount, 2)})
+
         payers.append({
             "symbol": m.ticker,
             "name": m.company_name,
@@ -191,11 +375,22 @@ def _compute_dividends():
             "payout_ratio": round(payout, 4) if payout is not None else None,
             "payout_note": payout_note,
             "frequency": frequency,
+            "next_date": next_date.isoformat() if next_date else None,
+            "next_kind": next_kind,
+            "meeting_announced": notice_date is not None and meeting_date is None,
         })
 
     payers.sort(key=lambda x: (x["dividend_yield"] is None, -(x["dividend_yield"] or 0)))
     non_payers.sort(key=lambda x: x["last_ex_dividend_date"] or "", reverse=True)
-    return {"as_of": today.isoformat(), "dividends": payers, "non_payers": non_payers}
+    # Dated items first by date; undated board meetings after, newest notice first.
+    upcoming.sort(key=lambda x: (x["date"] is None, x["date"] or "", x["notice_date"] or ""))
+    news = _dividend_news(
+        [(n.symbol, n.published, n.title, n.url, None) for n in notices],
+        [(a.ticker, a.published, a.headline, a.url, a.source) for a in articles],
+        names,
+    )
+    return {"as_of": today.isoformat(), "dividends": payers, "non_payers": non_payers,
+            "upcoming": upcoming, "news": news}
 
 
 _compute_lock = threading.Lock()
