@@ -1,0 +1,1278 @@
+{
+  "xgb": {
+    "test_start": "2025-10-28",
+    "test_end": "2026-11-06",
+    "recorded_at": "2026-11-10T17:30:37",
+    "overall_accuracy": 49.6,
+    "tickers": {
+      "ABL": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "ABOT": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "AGP": {
+        "accuracy": 45.5,
+        "days": 266
+      },
+      "AHCL": {
+        "accuracy": 48.8,
+        "days": 254
+      },
+      "AICL": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "AIRLINK": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "AKBL": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "APL": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "ASTL": {
+        "accuracy": 50.4,
+        "days": 266
+      },
+      "ATLH": {
+        "accuracy": 54.1,
+        "days": 266
+      },
+      "ATRL": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "AVN": {
+        "accuracy": 51.2,
+        "days": 254
+      },
+      "BAFL": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "BAHL": {
+        "accuracy": 44.4,
+        "days": 266
+      },
+      "BNWM": {
+        "accuracy": 52.3,
+        "days": 266
+      },
+      "BOP": {
+        "accuracy": 54.1,
+        "days": 266
+      },
+      "BWCL": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "CHCC": {
+        "accuracy": 42.5,
+        "days": 266
+      },
+      "CNERGY": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "COLG": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "CPHL": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "DCR": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "DGKC": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "EFERT": {
+        "accuracy": 45.5,
+        "days": 266
+      },
+      "ENGROH": {
+        "accuracy": 49.3,
+        "days": 227
+      },
+      "EPCL": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "FABL": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "FATIMA": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "FCCL": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "FFC": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "FFL": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "FHAM": {
+        "accuracy": 54.5,
+        "days": 266
+      },
+      "GADT": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "GAL": {
+        "accuracy": 49.8,
+        "days": 227
+      },
+      "GATM": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "GHGL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "GHNI": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "GLAXO": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "HALEON": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "HBL": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "HCAR": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "HINOON": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "HMB": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "HUBC": {
+        "accuracy": 44.1,
+        "days": 254
+      },
+      "HUMNL": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "IBFL": {
+        "accuracy": 54.9,
+        "days": 266
+      },
+      "ILP": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "INDU": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "INIL": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "ISL": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "JDWS": {
+        "accuracy": 60.2,
+        "days": 266
+      },
+      "JVDC": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "KAPCO": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "KEL": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "KOHC": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "KTML": {
+        "accuracy": 54.5,
+        "days": 266
+      },
+      "LCI": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "LOTCHEM": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "LUCK": {
+        "accuracy": 43.2,
+        "days": 266
+      },
+      "MARI": {
+        "accuracy": 52.3,
+        "days": 266
+      },
+      "MCB": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "MEBL": {
+        "accuracy": 44.4,
+        "days": 266
+      },
+      "MEHT": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "MLCF": {
+        "accuracy": 41.7,
+        "days": 266
+      },
+      "MTL": {
+        "accuracy": 51.9,
+        "days": 266
+      },
+      "MUGHAL": {
+        "accuracy": 53.0,
+        "days": 266
+      },
+      "MUREB": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "NATF": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "NBP": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "NESTLE": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "NML": {
+        "accuracy": 45.9,
+        "days": 266
+      },
+      "NRL": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "OGDC": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "PABC": {
+        "accuracy": 53.0,
+        "days": 266
+      },
+      "PAEL": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "PAKT": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "PGLC": {
+        "accuracy": 55.6,
+        "days": 266
+      },
+      "PIBTL": {
+        "accuracy": 51.9,
+        "days": 266
+      },
+      "PIOC": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "PKGS": {
+        "accuracy": 52.3,
+        "days": 266
+      },
+      "POL": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "POWER": {
+        "accuracy": 48.5,
+        "days": 266
+      },
+      "PPL": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "PRL": {
+        "accuracy": 45.9,
+        "days": 266
+      },
+      "PSEL": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "PSO": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "PSX": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "PTC": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "RMPL": {
+        "accuracy": 53.0,
+        "days": 266
+      },
+      "SAZEW": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "SCBPL": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "SEARL": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "SHFA": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "SNGP": {
+        "accuracy": 51.9,
+        "days": 266
+      },
+      "SRVI": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "SSGC": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "SYS": {
+        "accuracy": 47.4,
+        "days": 266
+      },
+      "TGL": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "THALL": {
+        "accuracy": 55.3,
+        "days": 266
+      },
+      "TRG": {
+        "accuracy": 54.5,
+        "days": 266
+      },
+      "UBL": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "UPFL": {
+        "accuracy": 54.1,
+        "days": 266
+      },
+      "WAFI": {
+        "accuracy": 51.1,
+        "days": 227
+      },
+      "YOUW": {
+        "accuracy": 51.9,
+        "days": 266
+      }
+    }
+  },
+  "sector": {
+    "test_start": "2025-10-28",
+    "test_end": "2026-11-06",
+    "recorded_at": "2026-11-10T19:49:57",
+    "overall_accuracy": 51.7,
+    "tickers": {
+      "ABL": {
+        "accuracy": 52.5,
+        "days": 240
+      },
+      "ABOT": {
+        "accuracy": 48.8,
+        "days": 240
+      },
+      "AGP": {
+        "accuracy": 50.4,
+        "days": 242
+      },
+      "AHCL": {
+        "accuracy": 49.6,
+        "days": 228
+      },
+      "AICL": {
+        "accuracy": 51.3,
+        "days": 238
+      },
+      "AIRLINK": {
+        "accuracy": 53.8,
+        "days": 238
+      },
+      "AKBL": {
+        "accuracy": 54.0,
+        "days": 237
+      },
+      "APL": {
+        "accuracy": 52.3,
+        "days": 237
+      },
+      "ASTL": {
+        "accuracy": 47.7,
+        "days": 237
+      },
+      "ATLH": {
+        "accuracy": 51.1,
+        "days": 235
+      },
+      "ATRL": {
+        "accuracy": 56.1,
+        "days": 237
+      },
+      "AVN": {
+        "accuracy": 55.6,
+        "days": 225
+      },
+      "BAFL": {
+        "accuracy": 52.8,
+        "days": 235
+      },
+      "BAHL": {
+        "accuracy": 47.5,
+        "days": 238
+      },
+      "BNWM": {
+        "accuracy": 53.4,
+        "days": 238
+      },
+      "BOP": {
+        "accuracy": 48.3,
+        "days": 238
+      },
+      "BWCL": {
+        "accuracy": 51.7,
+        "days": 238
+      },
+      "CHCC": {
+        "accuracy": 55.8,
+        "days": 240
+      },
+      "CNERGY": {
+        "accuracy": 50.0,
+        "days": 240
+      },
+      "COLG": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "CPHL": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "DCR": {
+        "accuracy": 57.9,
+        "days": 242
+      },
+      "DGKC": {
+        "accuracy": 51.2,
+        "days": 240
+      },
+      "EFERT": {
+        "accuracy": 43.4,
+        "days": 242
+      },
+      "ENGROH": {
+        "accuracy": 53.7,
+        "days": 227
+      },
+      "EPCL": {
+        "accuracy": 54.6,
+        "days": 240
+      },
+      "FABL": {
+        "accuracy": 46.2,
+        "days": 240
+      },
+      "FATIMA": {
+        "accuracy": 47.9,
+        "days": 240
+      },
+      "FCCL": {
+        "accuracy": 50.8,
+        "days": 240
+      },
+      "FFC": {
+        "accuracy": 48.8,
+        "days": 240
+      },
+      "FFL": {
+        "accuracy": 55.0,
+        "days": 240
+      },
+      "FHAM": {
+        "accuracy": 54.0,
+        "days": 239
+      },
+      "GADT": {
+        "accuracy": 54.0,
+        "days": 239
+      },
+      "GAL": {
+        "accuracy": 48.5,
+        "days": 227
+      },
+      "GATM": {
+        "accuracy": 50.0,
+        "days": 240
+      },
+      "GHGL": {
+        "accuracy": 55.4,
+        "days": 240
+      },
+      "GHNI": {
+        "accuracy": 52.9,
+        "days": 240
+      },
+      "GLAXO": {
+        "accuracy": 56.2,
+        "days": 240
+      },
+      "HALEON": {
+        "accuracy": 45.9,
+        "days": 242
+      },
+      "HBL": {
+        "accuracy": 50.8,
+        "days": 240
+      },
+      "HCAR": {
+        "accuracy": 40.8,
+        "days": 238
+      },
+      "HGFA": {
+        "accuracy": 56.9,
+        "days": 248
+      },
+      "HINOON": {
+        "accuracy": 41.5,
+        "days": 236
+      },
+      "HMB": {
+        "accuracy": 43.3,
+        "days": 238
+      },
+      "HUBC": {
+        "accuracy": 52.2,
+        "days": 228
+      },
+      "HUMNL": {
+        "accuracy": 52.1,
+        "days": 238
+      },
+      "IBFL": {
+        "accuracy": 58.9,
+        "days": 224
+      },
+      "ILP": {
+        "accuracy": 54.1,
+        "days": 242
+      },
+      "INDU": {
+        "accuracy": 48.8,
+        "days": 240
+      },
+      "INIL": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "ISL": {
+        "accuracy": 47.5,
+        "days": 240
+      },
+      "JDWS": {
+        "accuracy": 59.7,
+        "days": 236
+      },
+      "JVDC": {
+        "accuracy": 55.4,
+        "days": 240
+      },
+      "KAPCO": {
+        "accuracy": 53.8,
+        "days": 240
+      },
+      "KEL": {
+        "accuracy": 50.8,
+        "days": 240
+      },
+      "KOHC": {
+        "accuracy": 53.3,
+        "days": 240
+      },
+      "KTML": {
+        "accuracy": 53.8,
+        "days": 240
+      },
+      "LCI": {
+        "accuracy": 56.2,
+        "days": 240
+      },
+      "LOTCHEM": {
+        "accuracy": 53.9,
+        "days": 241
+      },
+      "LUCK": {
+        "accuracy": 52.7,
+        "days": 241
+      },
+      "MARI": {
+        "accuracy": 46.1,
+        "days": 241
+      },
+      "MCB": {
+        "accuracy": 51.5,
+        "days": 241
+      },
+      "MEBL": {
+        "accuracy": 51.9,
+        "days": 241
+      },
+      "MEHT": {
+        "accuracy": 48.1,
+        "days": 241
+      },
+      "MLCF": {
+        "accuracy": 56.8,
+        "days": 241
+      },
+      "MTL": {
+        "accuracy": 51.9,
+        "days": 241
+      },
+      "MUGHAL": {
+        "accuracy": 53.1,
+        "days": 243
+      },
+      "MUREB": {
+        "accuracy": 53.9,
+        "days": 241
+      },
+      "NATF": {
+        "accuracy": 51.2,
+        "days": 240
+      },
+      "NBP": {
+        "accuracy": 46.7,
+        "days": 240
+      },
+      "NESTLE": {
+        "accuracy": 55.0,
+        "days": 242
+      },
+      "NML": {
+        "accuracy": 53.7,
+        "days": 242
+      },
+      "NRL": {
+        "accuracy": 57.1,
+        "days": 240
+      },
+      "OGDC": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "PABC": {
+        "accuracy": 49.6,
+        "days": 242
+      },
+      "PAEL": {
+        "accuracy": 51.2,
+        "days": 240
+      },
+      "PAKT": {
+        "accuracy": 53.8,
+        "days": 240
+      },
+      "PGLC": {
+        "accuracy": 59.7,
+        "days": 238
+      },
+      "PIBTL": {
+        "accuracy": 49.2,
+        "days": 242
+      },
+      "PIOC": {
+        "accuracy": 51.7,
+        "days": 240
+      },
+      "PKGS": {
+        "accuracy": 52.9,
+        "days": 240
+      },
+      "POL": {
+        "accuracy": 51.2,
+        "days": 240
+      },
+      "POWER": {
+        "accuracy": 46.7,
+        "days": 240
+      },
+      "PPL": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "PRL": {
+        "accuracy": 57.1,
+        "days": 238
+      },
+      "PSEL": {
+        "accuracy": 52.9,
+        "days": 240
+      },
+      "PSO": {
+        "accuracy": 50.8,
+        "days": 240
+      },
+      "PSX": {
+        "accuracy": 51.2,
+        "days": 242
+      },
+      "PTC": {
+        "accuracy": 52.5,
+        "days": 242
+      },
+      "RMPL": {
+        "accuracy": 54.1,
+        "days": 242
+      },
+      "SAZEW": {
+        "accuracy": 39.5,
+        "days": 238
+      },
+      "SCBPL": {
+        "accuracy": 54.6,
+        "days": 238
+      },
+      "SEARL": {
+        "accuracy": 49.6,
+        "days": 238
+      },
+      "SHFA": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "SNGP": {
+        "accuracy": 51.9,
+        "days": 241
+      },
+      "SRVI": {
+        "accuracy": 50.6,
+        "days": 241
+      },
+      "SSGC": {
+        "accuracy": 46.5,
+        "days": 241
+      },
+      "SYS": {
+        "accuracy": 51.0,
+        "days": 241
+      },
+      "TGL": {
+        "accuracy": 52.1,
+        "days": 240
+      },
+      "THALL": {
+        "accuracy": 50.4,
+        "days": 240
+      },
+      "TRG": {
+        "accuracy": 47.5,
+        "days": 238
+      },
+      "UBL": {
+        "accuracy": 48.3,
+        "days": 238
+      },
+      "UPFL": {
+        "accuracy": 59.7,
+        "days": 236
+      },
+      "WAFI": {
+        "accuracy": 55.1,
+        "days": 227
+      },
+      "YOUW": {
+        "accuracy": 50.0,
+        "days": 238
+      }
+    }
+  },
+  "rf": {
+    "test_start": "2025-10-28",
+    "test_end": "2026-11-06",
+    "recorded_at": "2026-11-10T18:15:48",
+    "overall_accuracy": 48.4,
+    "tickers": {
+      "ABL": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "ABOT": {
+        "accuracy": 47.4,
+        "days": 266
+      },
+      "AGP": {
+        "accuracy": 47.4,
+        "days": 266
+      },
+      "AHCL": {
+        "accuracy": 47.6,
+        "days": 254
+      },
+      "AICL": {
+        "accuracy": 48.5,
+        "days": 266
+      },
+      "AIRLINK": {
+        "accuracy": 44.0,
+        "days": 266
+      },
+      "AKBL": {
+        "accuracy": 50.4,
+        "days": 266
+      },
+      "APL": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "ASTL": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "ATLH": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "ATRL": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "AVN": {
+        "accuracy": 47.6,
+        "days": 254
+      },
+      "BAFL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "BAHL": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "BNWM": {
+        "accuracy": 50.4,
+        "days": 266
+      },
+      "BOP": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "BWCL": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "CHCC": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "CNERGY": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "COLG": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "CPHL": {
+        "accuracy": 45.5,
+        "days": 266
+      },
+      "DCR": {
+        "accuracy": 51.9,
+        "days": 266
+      },
+      "DGKC": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "EFERT": {
+        "accuracy": 43.2,
+        "days": 266
+      },
+      "ENGROH": {
+        "accuracy": 46.7,
+        "days": 227
+      },
+      "EPCL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "FABL": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "FATIMA": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "FCCL": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "FFC": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "FFL": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "FHAM": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "GADT": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "GAL": {
+        "accuracy": 48.5,
+        "days": 227
+      },
+      "GATM": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "GHGL": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "GHNI": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "GLAXO": {
+        "accuracy": 48.5,
+        "days": 266
+      },
+      "HALEON": {
+        "accuracy": 45.5,
+        "days": 266
+      },
+      "HBL": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "HCAR": {
+        "accuracy": 44.4,
+        "days": 266
+      },
+      "HINOON": {
+        "accuracy": 44.7,
+        "days": 266
+      },
+      "HMB": {
+        "accuracy": 45.5,
+        "days": 266
+      },
+      "HUBC": {
+        "accuracy": 45.7,
+        "days": 254
+      },
+      "HUMNL": {
+        "accuracy": 50.8,
+        "days": 266
+      },
+      "IBFL": {
+        "accuracy": 54.1,
+        "days": 266
+      },
+      "ILP": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "INDU": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "INIL": {
+        "accuracy": 47.4,
+        "days": 266
+      },
+      "ISL": {
+        "accuracy": 45.9,
+        "days": 266
+      },
+      "JDWS": {
+        "accuracy": 54.5,
+        "days": 266
+      },
+      "JVDC": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "KAPCO": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "KEL": {
+        "accuracy": 48.9,
+        "days": 266
+      },
+      "KOHC": {
+        "accuracy": 44.7,
+        "days": 266
+      },
+      "KTML": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "LCI": {
+        "accuracy": 43.6,
+        "days": 266
+      },
+      "LOTCHEM": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "LUCK": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "MARI": {
+        "accuracy": 44.7,
+        "days": 266
+      },
+      "MCB": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "MEBL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "MEHT": {
+        "accuracy": 52.6,
+        "days": 266
+      },
+      "MLCF": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "MTL": {
+        "accuracy": 53.0,
+        "days": 266
+      },
+      "MUGHAL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "MUREB": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "NATF": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "NBP": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "NESTLE": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "NML": {
+        "accuracy": 45.9,
+        "days": 266
+      },
+      "NRL": {
+        "accuracy": 53.8,
+        "days": 266
+      },
+      "OGDC": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "PABC": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "PAEL": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "PAKT": {
+        "accuracy": 53.0,
+        "days": 266
+      },
+      "PGLC": {
+        "accuracy": 54.9,
+        "days": 266
+      },
+      "PIBTL": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "PIOC": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "PKGS": {
+        "accuracy": 50.4,
+        "days": 266
+      },
+      "POL": {
+        "accuracy": 51.9,
+        "days": 266
+      },
+      "POWER": {
+        "accuracy": 46.6,
+        "days": 266
+      },
+      "PPL": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "PRL": {
+        "accuracy": 51.5,
+        "days": 266
+      },
+      "PSEL": {
+        "accuracy": 48.1,
+        "days": 266
+      },
+      "PSO": {
+        "accuracy": 49.2,
+        "days": 266
+      },
+      "PSX": {
+        "accuracy": 49.6,
+        "days": 266
+      },
+      "PTC": {
+        "accuracy": 45.9,
+        "days": 266
+      },
+      "RMPL": {
+        "accuracy": 51.1,
+        "days": 266
+      },
+      "SAZEW": {
+        "accuracy": 38.7,
+        "days": 266
+      },
+      "SCBPL": {
+        "accuracy": 53.8,
+        "days": 266
+      },
+      "SEARL": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "SHFA": {
+        "accuracy": 42.5,
+        "days": 266
+      },
+      "SNGP": {
+        "accuracy": 45.1,
+        "days": 266
+      },
+      "SRVI": {
+        "accuracy": 48.5,
+        "days": 266
+      },
+      "SSGC": {
+        "accuracy": 47.7,
+        "days": 266
+      },
+      "SYS": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "TGL": {
+        "accuracy": 47.0,
+        "days": 266
+      },
+      "THALL": {
+        "accuracy": 47.4,
+        "days": 266
+      },
+      "TRG": {
+        "accuracy": 46.2,
+        "days": 266
+      },
+      "UBL": {
+        "accuracy": 50.0,
+        "days": 266
+      },
+      "UPFL": {
+        "accuracy": 52.3,
+        "days": 266
+      },
+      "WAFI": {
+        "accuracy": 50.2,
+        "days": 227
+      },
+      "YOUW": {
+        "accuracy": 51.1,
+        "days": 266
+      }
+    }
+  }
+}
