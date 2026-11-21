@@ -25,7 +25,7 @@ MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
 from src.psx_predictor.db.repository import get_active_tickers
-from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.models.utils import choose_global_cutoff, refit_on_all_data
 from src.psx_predictor.models.feature_wrapper import prepare_data
 
 
@@ -64,8 +64,11 @@ def train_and_evaluate():
             X_test_pso = X[test_mask]
             close_test_pso = current_close[test_mask]
             
-    X_train = pd.concat(X_train_list, ignore_index=True)
-    X_test = pd.concat(X_test_list, ignore_index=True)
+    # Pooling leaves NaN in every column a ticker doesn't have (e.g. the other
+    # tickers' search_trend_<ticker>). Ridge can't take NaN, and the API fills
+    # absent features with 0 at prediction time, so train on the same.
+    X_train = pd.concat(X_train_list, ignore_index=True).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    X_test = pd.concat(X_test_list, ignore_index=True).reindex(columns=X_train.columns).replace([np.inf, -np.inf], np.nan).fillna(0.0)
     y_train = pd.concat(y_train_list, ignore_index=True)
     y_test = pd.concat(y_test_list, ignore_index=True)
     close_test_all = pd.concat(close_test_list, ignore_index=True)
@@ -95,15 +98,11 @@ def train_and_evaluate():
     logger.info(f"RMSE: Rs. {rmse:.2f}")
     logger.info(f"MAPE: {mape:.2f}%")
     
-    # Save Model
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
-    joblib.dump(model, model_path)
-    logger.info(f"Saved trained model artifact to {model_path}")
-    
     # Plotting Actual vs Predicted
     if dates_test_pso is not None:
-        preds_pso_return = model.predict(X_test_pso)
+        # The pooled frame has every ticker's columns (e.g. search_trend_<ticker>);
+        # PSO's own frame lacks the other tickers' ones.
+        preds_pso_return = model.predict(X_test_pso.reindex(columns=X_train.columns).fillna(0.0))
         preds_pso_price = close_test_pso * (1 + preds_pso_return)
         actual_pso_price = close_test_pso * (1 + y_test_pso)
         
@@ -121,6 +120,20 @@ def train_and_evaluate():
         plot_path = os.path.join(REPORTS_DIR, "lr_predictions.png")
         plt.savefig(plot_path, dpi=300)
         logger.info(f"Saved prediction visualization to {plot_path}")
+    # Test metrics and the plot above come from the train-only fit; the saved
+    # model is refit on every row so it also learns the most recent year.
+    if refit_on_all_data():
+        X_all = pd.concat([X_train, X_test], ignore_index=True)
+        y_all = pd.concat([y_train, y_test], ignore_index=True)
+        logger.info(f"Refitting on all {len(X_all)} samples (train + test) for the saved model...")
+        model.fit(X_all, y_all)
+
+    # Save Model
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
+    joblib.dump(model, model_path)
+    logger.info(f"Saved trained model artifact to {model_path}")
+
 
 if __name__ == '__main__':
     train_and_evaluate()

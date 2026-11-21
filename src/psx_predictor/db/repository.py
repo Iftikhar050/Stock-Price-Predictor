@@ -1,10 +1,11 @@
 import logging
 import pandas as pd
+from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from src.psx_predictor.db.connection import engine
 from src.psx_predictor.db.models import (
-    Base, StockEODData, StockNews, StockNewsSentiment, StockFundamentals,
+    Base, StockEODData, StockNews, StockNewsSentiment, StockFundamentals, StockFinancialPeriod,
     MacroIndicators, CorporateEvent, TopicSentimentDaily, CircuitBreakerEvent
 )
 
@@ -169,6 +170,29 @@ def upsert_stock_fundamentals(df: pd.DataFrame) -> bool:
         return True
     except Exception as e:
         logger.error(f"Database error upserting fundamentals: {e}")
+        return False
+
+def upsert_financial_periods(df: pd.DataFrame) -> bool:
+    """
+    Upserts reported periods into stock_financial_periods, keyed by
+    (ticker, period_end, period_type, source) so different sources and
+    quarterly vs annual figures never overwrite each other.
+    """
+    if df is None or df.empty:
+        return False
+    keys = ['ticker', 'period_end', 'period_type', 'source']
+    records = df.astype(object).where(df.notna(), None).to_dict(orient='records')
+    stmt = insert(StockFinancialPeriod).values(records)
+    update_dict = {c: getattr(stmt.excluded, c) for c in df.columns
+                   if c not in keys and hasattr(stmt.excluded, c)}
+    update_dict['created_at'] = func.now()
+    upsert_stmt = stmt.on_conflict_do_update(index_elements=keys, set_=update_dict)
+    try:
+        with engine.begin() as conn:
+            conn.execute(upsert_stmt)
+        return True
+    except Exception as e:
+        logger.error(f"Database error upserting financial periods: {e}")
         return False
 
 def upsert_circuit_breaker_events(df: pd.DataFrame) -> bool:

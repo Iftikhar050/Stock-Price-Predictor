@@ -35,29 +35,58 @@ if not logger.handlers:
     logger.addHandler(ch)
 
 MODELS_DIR = os.path.join(ROOT_DIR, "models")
+HOLDOUT_PATH = os.path.join(MODELS_DIR, "holdout_accuracy.json")
+_holdout_cache = {"mtime": None, "data": {}}
+
+
+def _holdout_accuracy() -> dict:
+    """Per-ticker directional accuracy on each model family's held-out test
+    period, written at training time (models/utils.save_holdout_accuracy).
+    Re-read whenever the file changes."""
+    try:
+        mtime = os.path.getmtime(HOLDOUT_PATH)
+    except OSError:
+        return {}
+    if mtime != _holdout_cache["mtime"]:
+        import json
+        with open(HOLDOUT_PATH) as f:
+            _holdout_cache.update(mtime=mtime, data=json.load(f))
+    return _holdout_cache["data"]
+
+
+def _fmt_day(iso: str) -> str:
+    return pd.Timestamp(iso).strftime("%d %b %Y").lstrip("0")
+
+
+def _unseen_accuracy(ticker: str, spec: dict | None) -> tuple[dict, dict, dict]:
+    """(accuracy %, days, basis) per model key, measured only on days the
+    model never trained on. Models without such a measurement are left out
+    rather than re-scored on their own training days, which is in-sample and
+    reads far higher (e.g. 85% vs ~49% on unseen days)."""
+    holdout = _holdout_accuracy()
+    acc, days, basis = {}, {}, {}
+
+    def from_holdout(key, family, label):
+        entry = holdout.get(family, {})
+        row = entry.get("tickers", {}).get(ticker)
+        if row:
+            acc[key], days[key] = row["accuracy"], row["days"]
+            basis[key] = (f"{label}held-out test, {_fmt_day(entry['test_start'])} – "
+                          f"{_fmt_day(entry['test_end'])}")
+
+    from_holdout("rf", "rf", "")
+    from_holdout("xgb", "xgb", "")
+    if spec is not None:
+        wf = (spec.get("walk_forward_summary") or {}).get(spec.get("model_type"), {})
+        if wf.get("mean_da") is not None:
+            acc["specialized"] = round(float(wf["mean_da"]), 1)
+            basis["specialized"] = f"walk-forward test over {int(wf.get('n_windows', 0))} periods"
+    else:
+        from_holdout("specialized", "sector", "sector model, ")
+    return acc, days, basis
+
 
 router = APIRouter()
-
-
-def _directional_accuracy(df: pd.DataFrame, pred_col: str) -> tuple[float | None, int]:
-    """
-    Overall backtested directional accuracy for one model's predicted-price
-    column, over however much history is available (not just a recent window).
-    Uses the same shift(1) one-step-ahead convention as the rest of this file:
-    row i's prediction was computed from day i-1's features, so it's compared
-    against the actual move from day i-1's close to day i's close.
-    """
-    if pred_col not in df.columns:
-        return None, 0
-    valid = df[["close", pred_col]].copy()
-    valid["prev_close"] = valid["close"].shift(1)
-    valid = valid.dropna(subset=[pred_col, "prev_close"])
-    if valid.empty:
-        return None, 0
-    actual_dir = (valid["close"] - valid["prev_close"]) >= 0
-    pred_dir = (valid[pred_col] - valid["prev_close"]) >= 0
-    matches = int((actual_dir == pred_dir).sum())
-    return round(matches / len(valid) * 100, 1), len(valid)
 
 
 class PredictionRequest(BaseModel):
@@ -102,12 +131,15 @@ class PredictionResponse(BaseModel):
         None, description="Which model family the specialized prediction came from (e.g. 'lightgbm', 'xgboost')."
     )
     backtest_directional_accuracy: dict[str, float] | None = Field(
-        None, description="Overall directional accuracy (%) per model, backtested over the available "
-                           "history (up to ~5 years) - not the small, noisier 7-day rolling figure shown "
-                           "in the performance log table. Keys: rf, lr, xgb, lstm, specialized."
+        None, description="Directional accuracy (%) per model on days that model never trained on "
+                           "(its held-out test or walk-forward test). Models with no such measurement "
+                           "are omitted. Keys: rf, lr, xgb, lstm, specialized."
     )
     backtest_sample_size: dict[str, int] | None = Field(
-        None, description="Number of days each backtest_directional_accuracy figure is computed over."
+        None, description="Number of unseen days each backtest_directional_accuracy figure covers, where known."
+    )
+    backtest_basis: dict[str, str] | None = Field(
+        None, description="Which test each backtest_directional_accuracy figure comes from."
     )
 
 
@@ -170,6 +202,8 @@ async def get_prediction(payload: PredictionRequest):
                 lr_features = latest_day_features.reindex(columns=lr_model.feature_names_in_, fill_value=0.0)
             else:
                 lr_features = latest_day_features
+            # Ridge can't take NaN; train_regression.py fills gaps with 0 too.
+            lr_features = lr_features.replace([np.inf, -np.inf], np.nan).fillna(0.0)
             lr_return = lr_model.predict(lr_features)[0]
             lr_prediction = current_close_price * (1 + lr_return)
 
@@ -206,7 +240,9 @@ async def get_prediction(payload: PredictionRequest):
 
             recent_30_df = df[feature_cols].tail(lookback)
             if scaler_cols is not None:
-                recent_30_df = recent_30_df.reindex(columns=scaler_cols, fill_value=0.0)
+                # Same 0-fill the LSTM was trained with (train_lstm.py).
+                recent_30_df = (recent_30_df.reindex(columns=scaler_cols, fill_value=0.0)
+                                .replace([np.inf, -np.inf], np.nan).fillna(0.0))
             elif expected_scaler_n < len(feature_cols):
                 recent_30_df = recent_30_df.iloc[:, :expected_scaler_n]
 
@@ -336,6 +372,7 @@ async def get_prediction(payload: PredictionRequest):
                 df_sub_lr = df_sub[feature_cols].reindex(columns=lr_model.feature_names_in_, fill_value=0.0)
             else:
                 df_sub_lr = df_sub[feature_cols]
+            df_sub_lr = df_sub_lr.replace([np.inf, -np.inf], np.nan).fillna(0.0)
             lr_preds_return = pd.Series(lr_model.predict(df_sub_lr), index=df_sub.index)
             df_sub['lr_pred'] = (df_sub['close'] * (1 + lr_preds_return)).shift(1)
 
@@ -353,7 +390,8 @@ async def get_prediction(payload: PredictionRequest):
             # Batch sequence generation for LSTM
             df_sub_scaler = df_sub[feature_cols]
             if scaler_cols is not None:
-                df_sub_scaler = df_sub_scaler.reindex(columns=scaler_cols, fill_value=0.0)
+                df_sub_scaler = (df_sub_scaler.reindex(columns=scaler_cols, fill_value=0.0)
+                                 .replace([np.inf, -np.inf], np.nan).fillna(0.0))
             elif expected_scaler_n < len(feature_cols):
                 df_sub_scaler = df_sub_scaler.iloc[:, :expected_scaler_n]
             all_features_scaled = scaler.transform(df_sub_scaler.values)
@@ -414,15 +452,11 @@ async def get_prediction(payload: PredictionRequest):
                 except Exception as sec_backtest_err:
                     logger.warning(f"Sector backtest prediction failed for {ticker.upper()} ({matched_sector}): {sec_backtest_err}")
 
-            # Overall backtested directional accuracy per model, over the full
-            # available df_sub history (not just the frontend's 7-day window).
-            backtest_dir_acc = {}
-            backtest_sample_size = {}
-            for key, col in [("rf", "rf_pred"), ("lr", "lr_pred"), ("xgb", "xgb_pred"), ("lstm", "lstm_pred"), ("specialized", "specialized_pred")]:
-                acc, n = _directional_accuracy(df_sub, col)
-                if acc is not None:
-                    backtest_dir_acc[key] = acc
-                    backtest_sample_size[key] = n
+            # Directional accuracy on days each model never trained on. Scoring
+            # the models over df_sub's history instead is in-sample - they were
+            # trained on those same days - and overstates them badly.
+            backtest_dir_acc, backtest_sample_size, backtest_basis = _unseen_accuracy(
+                ticker.upper(), ml_models.get(specialized_key))
 
             # Select final columns and convert to dict
             recent_history_df = df_sub.tail(1825)[history_cols]
@@ -504,6 +538,7 @@ async def get_prediction(payload: PredictionRequest):
                 specialized_model_type=specialized_model_type,
                 backtest_directional_accuracy=backtest_dir_acc or None,
                 backtest_sample_size=backtest_sample_size or None,
+                backtest_basis=backtest_basis or None,
             )
             return result
 

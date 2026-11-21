@@ -25,7 +25,8 @@ MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
 from src.psx_predictor.db.repository import get_active_tickers
-from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.models.utils import (choose_global_cutoff, refit_on_all_data, evaluate_only,
+                                            directional_hits, save_holdout_accuracy)
 from src.psx_predictor.db.connection import engine
 from sqlalchemy import text
 import datetime
@@ -42,6 +43,7 @@ def train_and_evaluate():
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
     close_test_list = []
+    test_tickers, test_dates = [], []
     
     dates_test_diag, y_test_diag, X_test_diag, close_test_diag = None, None, None, None
     diagnostic_candidates = ['PSO', 'LUCK', 'FFC']
@@ -63,6 +65,8 @@ def train_and_evaluate():
         y_train_list.append(y[train_mask])
         y_test_list.append(y[test_mask])
         close_test_list.append(current_close[test_mask])
+        test_tickers += [ticker] * int(test_mask.sum())
+        test_dates += list(pd.to_datetime(dates[test_mask]))
         
         if ticker == target_diag_ticker:
             dates_test_diag = dates[test_mask]
@@ -119,18 +123,13 @@ def train_and_evaluate():
     logger.info(f"MAE:  Rs. {mae:.2f}")
     logger.info(f"RMSE: Rs. {rmse:.2f}")
     logger.info(f"MAPE: {mape:.2f}%")
-    
-    # Save Model
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
-    joblib.dump(model, model_path)
-    joblib.dump(list(X_train['ticker'].cat.categories), os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
-    joblib.dump(list(X_train['sector'].cat.categories), os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))
-    logger.info(f"Saved trained model artifact to {model_path}")
+    save_holdout_accuracy("xgb", test_tickers, directional_hits(y_test, predictions_return), test_dates)
     
     # Plotting Actual vs Predicted
     if dates_test_diag is not None:
-        preds_diag_return = model.predict(X_test_diag)
+        # The pooled frame has every ticker's columns (e.g. search_trend_<ticker>);
+        # one ticker's own frame lacks the others'.
+        preds_diag_return = model.predict(X_test_diag.reindex(columns=X_train.columns))
         preds_diag_price = close_test_diag * (1 + preds_diag_return)
         actual_diag_price = close_test_diag * (1 + y_test_diag)
         
@@ -148,6 +147,31 @@ def train_and_evaluate():
         plot_path = os.path.join(REPORTS_DIR, "xgboost_predictions.png")
         plt.savefig(plot_path, dpi=300)
         logger.info(f"Saved prediction visualization to {plot_path}")
+    if evaluate_only():
+        logger.info("EVALUATE_ONLY=1 - held-out accuracy recorded, no model saved.")
+        return
+
+    # Test metrics and the plot above come from the train-only fit; the saved
+    # model is refit on every row so it also learns the most recent year.
+    # Categories are rebuilt from all rows, so a ticker that only has data
+    # after the cutoff isn't coded as missing.
+    X_fit, y_fit = X_train, y_train
+    if refit_on_all_data():
+        X_fit = pd.concat(X_train_list + X_test_list, ignore_index=True)
+        X_fit['ticker'] = X_fit['ticker'].astype('category')
+        X_fit['sector'] = X_fit['sector'].astype('category')
+        y_fit = pd.concat(y_train_list + y_test_list, ignore_index=True)
+        logger.info(f"Refitting on all {len(X_fit)} samples (train + test) for the saved model...")
+        model.fit(X_fit, y_fit)
+
+    # Save Model
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
+    joblib.dump(model, model_path)
+    joblib.dump(list(X_fit['ticker'].cat.categories), os.path.join(MODELS_DIR, "xgb_ticker_categories.pkl"))
+    joblib.dump(list(X_fit['sector'].cat.categories), os.path.join(MODELS_DIR, "xgb_sector_categories.pkl"))
+    logger.info(f"Saved trained model artifact to {model_path}")
+
 
 if __name__ == '__main__':
     train_and_evaluate()

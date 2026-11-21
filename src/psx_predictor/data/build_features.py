@@ -91,6 +91,11 @@ DEAD_COLUMNS = [
     'corporate_news_sentiment_count', 'macro_news_sentiment_count', 'policy_rate_surprise',
     'mpc_date_flag', 'global_oil_supply_shock_flag', 'panic_selling_proxy', 'reserve_changes',
     'budget_season_flag', 'ramadan_flag',
+    # 2026-11: dead at the source. msci_fm_close has repeated one value since
+    # 2020-01-01 (Yahoo returns no data for its ticker, FM, "possibly
+    # delisted"), and market_total_traded_value has been NULL in
+    # macro_indicators since 2023 - both reach the models only as constants.
+    'msci_fm_close', 'market_total_traded_value',
 ]
 
 def load_data(ticker: str) -> pd.DataFrame:
@@ -349,6 +354,103 @@ def merge_circuit_breakers(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     df['hit_lower_circuit'] = df['date'].isin(lower_dates).astype(int)
     return df
 
+# Days between a reporting period's end and the day its figures are treated as
+# known. An assumption, not a PSX-published figure: quarterly results usually
+# appear within about a month, annual ones within two to three months, so 60
+# days avoids most look-ahead without leaving figures stale for long.
+REPORT_PUBLICATION_LAG_DAYS = 60
+
+
+# Annual reports come out later than quarterly ones.
+ANNUAL_PUBLICATION_LAG_DAYS = 90
+# Four consecutive quarter-ends span about 273 days; allow a little slack.
+TTM_QUARTER_SPAN_DAYS = (250, 300)
+
+
+def clean_period_fundamentals(ticker: str) -> pd.DataFrame | None:
+    """Trailing-12-month revenue / net income / EPS (+ YoY growth) and the
+    latest balance-sheet figures, from stock_financial_periods' tagged
+    quarters and years. One row per date a new figure becomes public, so it
+    can be as-of joined onto trading days. None when the ticker has no tagged
+    periods. Yahoo is used whenever it covers the ticker; PSX DPS years only
+    when it doesn't - the two disagree for some tickers, and PSX's years are
+    labelled 31 Dec whatever the real fiscal year end."""
+    query = text("SELECT * FROM stock_financial_periods WHERE ticker = :ticker ORDER BY period_end")
+    with engine.connect() as conn:
+        periods = pd.read_sql(query, conn, params={"ticker": ticker.upper()})
+    if periods.empty:
+        return None
+    source = "yfinance" if (periods["source"] == "yfinance").any() else "psx_dps"
+    periods = periods[periods["source"] == source].copy()
+    periods["period_end"] = pd.to_datetime(periods["period_end"])
+    periods = periods.sort_values("period_end")
+    # Yahoo often leaves one of net income / EPS blank for a period; fill each
+    # from the other via the share count, so all three flow items describe the
+    # same periods. Revenue below zero is a data error, not a figure.
+    shares = periods["shares_outstanding"].ffill().bfill()
+    periods["eps"] = periods["eps"].fillna(periods["net_income"] / shares)
+    periods["net_income"] = periods["net_income"].fillna(periods["eps"] * shares)
+    periods.loc[periods["revenue"] < 0, "revenue"] = np.nan
+    lag = np.where(periods["period_type"] == "A", ANNUAL_PUBLICATION_LAG_DAYS, REPORT_PUBLICATION_LAG_DAYS)
+    periods["available"] = periods["period_end"] + pd.to_timedelta(lag, unit="D")
+
+    def candidates(avail: pd.DataFrame, col: str) -> dict:
+        """{'Q': (end, sum of the last 4 consecutive quarters), 'A': (end,
+        latest year)} - whichever exist among the periods public so far."""
+        out = {}
+        q = avail[(avail["period_type"] == "Q") & avail[col].notna()].tail(4)
+        if len(q) == 4:
+            span = (q["period_end"].iloc[-1] - q["period_end"].iloc[0]).days
+            if TTM_QUARTER_SPAN_DAYS[0] <= span <= TTM_QUARTER_SPAN_DAYS[1]:
+                out["Q"] = (q["period_end"].iloc[-1], float(q[col].sum()))
+        a = avail[(avail["period_type"] == "A") & avail[col].notna()].tail(1)
+        if not a.empty:
+            out["A"] = (a["period_end"].iloc[0], float(a[col].iloc[0]))
+        return out
+
+    def newest(c: dict):
+        if not c:
+            return None
+        if "Q" in c and "A" in c:
+            return c["A"] if c["A"][0] >= c["Q"][0] else c["Q"]  # same end: prefer the audited year
+        return next(iter(c.values()))
+
+    rows, history = [], {c: {} for c in ("revenue", "net_income", "eps")}
+    for day in sorted(periods["available"].unique()):
+        avail = periods[periods["available"] <= day]
+        row = {"date": day}
+        # One 12-month period for all three, picked by net income, so revenue,
+        # profit and EPS never come from different periods; an item only falls
+        # back to its own newest figure when that period lacks it.
+        cands = {col: candidates(avail, col) for col in ("revenue", "net_income", "eps")}
+        basis = newest(cands["net_income"])
+        basis_kind = next((k for k, v in cands["net_income"].items() if v == basis), None)
+        for col, out in (("revenue", "revenue"), ("net_income", "net_income"), ("eps", "eps_trailing")):
+            same = [v for k, v in sorted(cands[col].items(), key=lambda kv: kv[0] != basis_kind)
+                    if basis and v[0] == basis[0]]
+            got = same[0] if same else newest(cands[col])
+            row[out] = got[1] if got else np.nan
+            if got:
+                history[col][got[0]] = got[1]
+        # Year-on-year growth: this 12-month figure vs the one ending ~a year earlier.
+        for col, out in (("revenue", "revenue_growth"), ("net_income", "profit_growth"), ("eps", "eps_growth_yoy")):
+            ends = sorted(history[col])
+            growth = np.nan
+            if ends:
+                end, now = ends[-1], history[col][ends[-1]]
+                prior = [e for e in ends if abs((end - e).days - 365) <= 45]
+                base = history[col][prior[-1]] if prior else np.nan
+                if pd.notna(base) and base != 0:
+                    # vs |base| so a loss turning into a profit reads as growth
+                    growth = now / abs(base) - np.sign(base)
+            row[out] = growth
+        for col in ("total_assets", "total_debt", "shares_outstanding"):
+            latest = avail[avail[col].notna()].sort_values("period_end").tail(1)
+            row[col] = float(latest[col].iloc[0]) if not latest.empty else np.nan
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
     Queries stock_fundamentals, merges it using as-of/backward-fill semantics.
@@ -449,11 +551,44 @@ def merge_fundamentals(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     fund_df.drop(columns=['gap_days'], inplace=True, errors='ignore')
 
     fund_df.rename(columns={'eps': 'eps_trailing'}, inplace=True)
-    
-    df = pd.merge(df, fund_df, on='date', how='left')
-    
+
+    # As-of join on the date a report is actually public, not an exact-date
+    # join on its period end. Period ends are often weekends (31 Dec 2023 was a
+    # Sunday), and an exact join silently dropped every such report - 42% of
+    # stock_fundamentals rows never reached the features, leaving values
+    # "frozen" at the last report that happened to fall on a trading day. And a
+    # quarter's figures aren't known on its last day: PSX companies publish
+    # weeks later, so using them from the period end leaked the future.
+    fund_df['date'] = (fund_df['date'] + pd.Timedelta(days=REPORT_PUBLICATION_LAG_DAYS)).astype(df['date'].dtype)
+    fund_df = fund_df.sort_values('date')
+    df = df.sort_values('date')
+    overlapping = [c for c in fund_df.columns if c != 'date' and c in df.columns]
+    df = pd.merge_asof(df.drop(columns=overlapping), fund_df, on='date', direction='backward')
+
+    # Days before the first published report have no fundamentals. They used
+    # to be back-filled with that first report, which leaked later figures
+    # into earlier history; 0.0 is the same "no data" convention used above
+    # for tickers with no fundamentals at all.
     cols_to_fill = [c for c in fund_df.columns if c not in ['date', 'ticker', 'created_at'] and c in df.columns]
-    df[cols_to_fill] = df[cols_to_fill].ffill().bfill().fillna(0.0).astype(float)
+    df[cols_to_fill] = df[cols_to_fill].fillna(0.0).astype(float)
+
+    # stock_fundamentals mixes annual and quarterly figures (and units) in the
+    # same columns, so the headline flow items, their growth and the balance-
+    # sheet totals come from the tagged periods instead, as trailing-12-month
+    # figures - for every ticker that has them.
+    clean = clean_period_fundamentals(ticker)
+    if clean is not None and not clean.empty:
+        clean['date'] = clean['date'].astype(df['date'].dtype)
+        # Balance-sheet totals keep the older value where no tagged figure is
+        # public yet (shares_outstanding drives daily market cap); flow items
+        # and growth don't - their older values are the mixed-up ones.
+        stock_items = ['total_assets', 'total_debt', 'shares_outstanding']
+        clean = clean.sort_values('date').rename(columns={c: f'{c}__clean' for c in clean.columns if c != 'date'})
+        df = pd.merge_asof(df, clean, on='date', direction='backward')
+        for c in [c[:-len('__clean')] for c in clean.columns if c.endswith('__clean')]:
+            fresh = df.pop(f'{c}__clean')
+            df[c] = fresh.combine_first(df[c]) if c in stock_items and c in df.columns else fresh.fillna(0.0)
+            df[c] = df[c].astype(float)
     
     # Calculate Ratios
     df['pe_ratio'] = np.nan

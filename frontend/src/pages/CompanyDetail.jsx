@@ -44,7 +44,8 @@ function backtestDirAccFor(data, modelType) {
   const key = BACKTEST_KEY_FOR_MODEL[modelType];
   const acc = data.backtest_directional_accuracy?.[key];
   const n = data.backtest_sample_size?.[key];
-  return acc != null ? { acc, n } : null;
+  const basis = data.backtest_basis?.[key];
+  return acc != null ? { acc, n, basis } : null;
 }
 const RANGES = ["7D", "30D", "90D", "1Y", "5Y"];
 const PREDICTED_LINE_COLOR = "#f59e0b";
@@ -210,17 +211,28 @@ function PredictionCard({ data, liveData, modelType, setModelType }) {
             />
           </div>
         </div>
-        {backtest && (
-          <div className="mt-4 flex items-center justify-between rounded-lg bg-muted px-3 py-2">
-            <div>
-              <div className="text-xs font-semibold uppercase text-muted-foreground">Backtested Directional Accuracy</div>
-              <div className="text-[11px] text-muted-foreground">Over {backtest.n.toLocaleString()} trading days of history</div>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg bg-muted px-3 py-2">
+          <div>
+            <div
+              className="text-xs font-semibold uppercase text-muted-foreground"
+              title="Share of days the model called the next day's direction correctly, counted only on days it never trained on"
+            >
+              Directional Accuracy on Unseen Days
             </div>
+            <div className="text-[11px] text-muted-foreground">
+              {backtest
+                ? [backtest.basis, backtest.n ? `${backtest.n.toLocaleString()} trading days` : null].filter(Boolean).join(" · ")
+                : "Not measured for this model on days it never trained on"}
+            </div>
+          </div>
+          {backtest ? (
             <span className={`text-lg font-bold tabular-nums ${backtest.acc >= 50 ? "text-positive" : "text-negative"}`}>
               {backtest.acc.toFixed(1)}%
             </span>
-          </div>
-        )}
+          ) : (
+            <span className="text-lg font-bold text-muted-foreground">—</span>
+          )}
+        </div>
         {signal && (
           <p className="mt-3 text-xs text-muted-foreground">
             Ensemble average implies a {signal.pctChange >= 0 ? "+" : ""}{signal.pctChange.toFixed(2)}% move.

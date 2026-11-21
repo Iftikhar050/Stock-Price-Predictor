@@ -178,9 +178,11 @@ class PSXScraper:
         
         return df
 
-    def sync_ticker(self, ticker: str) -> bool:
+    def sync_ticker(self, ticker: str, end_date=None) -> bool:
         """
         End-to-End method: Fetches, cleans, and upserts a ticker's data into PostgreSQL.
+        end_date (a date) drops bars after it - e.g. yesterday, so a run during
+        trading hours doesn't store today's unfinished intraday bar.
         """
         raw_df = self.fetch_raw_data(ticker)
         if raw_df.empty:
@@ -212,6 +214,9 @@ class PSXScraper:
                             f"topping up with {len(fallback_df)} newer PSX DPS row(s)."
                         )
                         df = pd.concat([df, fallback_df], ignore_index=True)
+
+        if end_date is not None and not df.empty:
+            df = df[pd.to_datetime(df['date']).dt.date <= end_date]
 
         if df.empty:
             logger.warning(f"No EOD data available for {ticker} from either Yahoo Finance or PSX DPS. Skipping DB insert.")

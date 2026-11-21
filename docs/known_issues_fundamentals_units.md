@@ -1,5 +1,15 @@
 # Known issue: `stock_fundamentals` mixes incompatible units/sources
 
+## Fix applied (2026-11-10): model features no longer read the mixed columns
+
+Three separate faults made the fundamentals features "frozen" or wrong:
+
+1. **Exact-date join.** `build_features.merge_fundamentals` joined reports to trading days on `report_date` exactly. Quarter ends are often weekends (31 Dec 2023 was a Sunday), so 1,177 of 2,770 rows (42%) never reached the features. It now joins as-of on the date a report is public: period end + 60 days (`REPORT_PUBLICATION_LAG_DAYS`, an assumption), and no longer back-fills the first report into earlier history.
+2. **Annual and quarterly figures in one column.** `stock_fundamentals` is keyed by `(ticker, report_date)` and every writer overwrites the columns it supplies, so a 31 Dec row could hold PSX's annual revenue beside Yahoo's Q4 EPS. A new table, `stock_financial_periods`, keys each row by `(ticker, period_end, period_type 'Q'|'A', source)`. `FundamentalsScraper.sync_financial_periods` writes Yahoo's quarterly and annual statements at their real period ends; `PsxDpsScraper` also writes its annual rows there (dated 31 Dec, PSX gives only the year). `clean_period_fundamentals` turns them into trailing-12-month revenue / net income / EPS (sum of 4 consecutive quarters, or the latest year, all three from the same period), YoY growth, and the latest balance-sheet totals. Yahoo is used wherever it covers a ticker (91 of 105); PSX years only otherwise (14), since the two disagree for some tickers.
+3. **No refresh.** Fundamentals updated only when `scripts/update_fundamentals.py` was run by hand. `update_kse100_eod.py` now refreshes each ticker's tagged periods weekly.
+
+`stock_fundamentals` itself is unchanged and still feeds the company page and the other fundamentals columns (ROE, debt/equity, book value...). Known residuals: tagged history only reaches back as far as Yahoo/PSX expose (about 4 years of annual figures), so earlier days carry no flow figures; HGFA (a closed-end fund) gets implausibly small PSX figures.
+
 **Status**: the dominant cause (PSX DPS annual scraper) fixed 2026-09-08. See "Fix applied" below. A smaller, effectively unfixable residual remains from `fundamentals_scraper.py`'s (yfinance) rolling quarterly window - see "Residual issue" below.
 
 ## Fix applied (2026-09-08)

@@ -222,6 +222,33 @@ class StockFundamentals(Base):
         default=lambda: datetime.now(timezone.utc)
     )
 
+class StockFinancialPeriod(Base):
+    """
+    One reported financial period per row - a quarter ('Q') or a full fiscal
+    year ('A') - tagged by source, with flow items in full PKR. Kept apart
+    from stock_fundamentals, whose single (ticker, report_date) key let a
+    quarterly scrape and an annual scrape overwrite each other's columns on
+    the same date, leaving rows that mix a year's revenue with a quarter's EPS.
+    """
+    __tablename__ = "stock_financial_periods"
+
+    ticker: Mapped[str] = mapped_column(String(20), primary_key=True)
+    period_end: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
+    period_type: Mapped[str] = mapped_column(String(1), primary_key=True)  # 'Q' or 'A'
+    source: Mapped[str] = mapped_column(String(20), primary_key=True)  # 'yfinance' or 'psx_dps'
+
+    revenue: Mapped[float] = mapped_column(Float, nullable=True)
+    net_income: Mapped[float] = mapped_column(Float, nullable=True)
+    eps: Mapped[float] = mapped_column(Float, nullable=True)
+    total_assets: Mapped[float] = mapped_column(Float, nullable=True)
+    total_debt: Mapped[float] = mapped_column(Float, nullable=True)
+    shares_outstanding: Mapped[float] = mapped_column(Float, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+
 class MacroIndicators(Base):
     """
     SQLAlchemy ORM Model for Daily/Periodic Macroeconomic Data.

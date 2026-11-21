@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 import yfinance as yf
 from datetime import datetime
-from src.psx_predictor.db.repository import upsert_stock_fundamentals
+from src.psx_predictor.db.repository import upsert_stock_fundamentals, upsert_financial_periods
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -185,3 +185,52 @@ class FundamentalsScraper:
         except Exception as e:
             logger.error(f"Error fetching fundamentals for {ticker}: {e}")
             return False
+
+    def sync_financial_periods(self, ticker: str) -> bool:
+        """Writes Yahoo's quarterly AND annual statements to
+        stock_financial_periods, each row tagged 'Q' or 'A' at its real period
+        end (e.g. 30 June for a June fiscal year) in full PKR. sync_fundamentals
+        above only reads the quarterly statements and stores them untagged."""
+        yf_ticker = f"{ticker.upper()}.KA"
+        try:
+            stock = yf.Ticker(yf_ticker)
+            frames = {
+                "Q": (stock.quarterly_financials, stock.quarterly_balance_sheet),
+                "A": (stock.financials, stock.balance_sheet),
+            }
+        except Exception as e:
+            logger.error(f"Error fetching financial statements for {ticker}: {e}")
+            return False
+
+        def pick(df, names, d):
+            if df is None or df.empty or d not in df.columns:
+                return None
+            for n in names:
+                if n in df.index and pd.notna(df.loc[n, d]):
+                    return float(df.loc[n, d])
+            return None
+
+        rows = []
+        for period_type, (inc, bal) in frames.items():
+            dates = set(inc.columns if inc is not None else []) | set(bal.columns if bal is not None else [])
+            for d in sorted(dates):
+                row = {
+                    "revenue": pick(inc, ["Total Revenue"], d),
+                    "net_income": pick(inc, ["Net Income Common Stockholders", "Net Income"], d),
+                    "eps": pick(inc, ["Basic EPS", "Diluted EPS"], d),
+                    "total_assets": pick(bal, ["Total Assets"], d),
+                    "total_debt": pick(bal, ["Total Debt"], d),
+                    "shares_outstanding": pick(bal, ["Ordinary Shares Number", "Share Issued"], d)
+                                          or pick(inc, ["Basic Average Shares"], d),
+                }
+                if all(v is None for v in row.values()):
+                    continue
+                rows.append({"ticker": ticker.upper(), "period_end": pd.Timestamp(d).date(),
+                             "period_type": period_type, "source": "yfinance", **row})
+        if not rows:
+            logger.warning(f"No financial statements found for {ticker}.")
+            return False
+        ok = upsert_financial_periods(pd.DataFrame(rows))
+        if ok:
+            logger.info(f"Stored {len(rows)} tagged financial periods for {ticker} from Yahoo Finance.")
+        return ok

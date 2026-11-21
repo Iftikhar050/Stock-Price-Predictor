@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import warnings
 import numpy as np
 import pandas as pd
 import joblib
@@ -8,10 +9,15 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 from sklearn.preprocessing import RobustScaler
+
+# Scalers are fit on named columns (so predict.py can align by name) but
+# transform plain arrays here, which sklearn warns about on every call.
+warnings.filterwarnings("ignore", message="X does not have valid feature names")
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sqlalchemy import text
 from src.psx_predictor.db.connection import engine
-from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.models.utils import choose_global_cutoff, refit_on_all_data
+from src.psx_predictor.models.feature_wrapper import get_feature_columns
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
@@ -121,30 +127,39 @@ def prepare_and_scale_data(lookback=30):
     sector_to_id = {s: i for i, s in enumerate(unique_sectors)}
     
     X_num_list, X_cat_list, y_list = [], [], []
-    feature_cols_len = 0
-    
+
+    # Tickers' master CSVs don't share one column set (each has its own
+    # search_trend_<ticker> etc.), so inputs are one fixed, named list: the
+    # union of every ticker's numeric feature columns, missing ones as 0. The
+    # scaler is fit on named columns, which predict.py lines up by name - the
+    # same 0-fill the API applies. get_feature_columns() is the selection
+    # predict.py uses, which also keeps text columns out.
+    exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
+    frames = {}
+    feature_cols = []
     for ticker in valid_tickers:
         file_path = os.path.join(PROCESSED_DIR, f"{ticker.upper()}_master.csv")
         try:
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(file_path, low_memory=False)
         except Exception:
             logger.warning(f"Feature file not found for {ticker}, skipping.")
             continue
-            
         df['target_return_t1'] = (df['close'].shift(-1) - df['close']) / df['close']
         df.dropna(subset=['target_return_t1'], inplace=True)
-        
-        exclude_cols = ['ticker', 'date', 'created_at', 'target_return_t1', 'close']
-        feature_cols = [col for col in df.columns if col not in exclude_cols]
-        feature_cols_len = len(feature_cols)
-        
+        cols = get_feature_columns(df, exclude_cols)
+        feature_cols += [c for c in cols if c not in set(feature_cols)]
+        frames[ticker] = df[['date', 'target_return_t1'] + cols].copy()
+    feature_cols_len = len(feature_cols)
+
+    for ticker, df in frames.items():
         dates = pd.to_datetime(df['date'])
         df['sector'] = ticker_sectors.get(ticker, "")
         
         df['ticker_id'] = ticker_to_id[ticker]
         df['sector_id'] = df['sector'].map(sector_to_id).fillna(0).astype(int)
         
-        X_num = df[feature_cols].values
+        X_num = (df.reindex(columns=feature_cols).replace([np.inf, -np.inf], np.nan)
+                 .fillna(0.0).to_numpy(dtype=np.float32))
         X_cat = df[['ticker_id', 'sector_id']].values
         y_raw = df[['target_return_t1']].values
         
@@ -164,7 +179,7 @@ def prepare_and_scale_data(lookback=30):
     feature_scaler = RobustScaler()
     target_scaler = RobustScaler()
     
-    feature_scaler.fit(X_num_train_all)
+    feature_scaler.fit(pd.DataFrame(X_num_train_all, columns=feature_cols))
     target_scaler.fit(y_train_all)
     
     os.makedirs(MODELS_DIR, exist_ok=True)
@@ -216,7 +231,8 @@ def prepare_and_scale_data(lookback=30):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
-    return train_loader, val_loader, test_loader, target_scaler, feature_cols_len, len(valid_tickers), len(unique_sectors)
+    raw_splits = (X_num_list, X_cat_list, y_list, feature_cols)
+    return train_loader, val_loader, test_loader, target_scaler, feature_cols_len, len(valid_tickers), len(unique_sectors), raw_splits
 
 def train_lstm_pipeline():
     logger.info("Starting Deep Learning LSTM Pipeline...")
@@ -225,7 +241,7 @@ def train_lstm_pipeline():
     logger.info(f"Using device: {device}")
     
     lookback = 30
-    train_loader, val_loader, test_loader, target_scaler, input_dim, num_tickers, num_sectors = prepare_and_scale_data(lookback=lookback)
+    train_loader, val_loader, test_loader, target_scaler, input_dim, num_tickers, num_sectors, raw_splits = prepare_and_scale_data(lookback=lookback)
     
     # 2. Initialize Model, Loss, and Optimizer
     model = LSTMModel(input_dim=input_dim, num_tickers=num_tickers, num_sectors=num_sectors, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
@@ -236,6 +252,7 @@ def train_lstm_pipeline():
     epochs = 100
     early_stopping = EarlyStopping(patience=10, min_delta=1e-5)
     best_val_loss = float('inf')
+    best_epoch = 1
     model_path = os.path.join(MODELS_DIR, "lstm_model.pth")
     
     for epoch in range(epochs):
@@ -268,6 +285,7 @@ def train_lstm_pipeline():
         
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
+            best_epoch = epoch + 1
             torch.save(model.state_dict(), model_path)
             
         early_stopping(avg_val_loss)
@@ -303,6 +321,51 @@ def train_lstm_pipeline():
     logger.info(f"MAE:  {mae * 100:.2f}%")
     logger.info(f"RMSE: {rmse * 100:.2f}%")
     logger.info(f"Model weights saved to {model_path}")
+
+    if refit_on_all_data():
+        refit_lstm_on_all_data(raw_splits, best_epoch, lookback, input_dim, num_tickers, num_sectors, device, model_path)
+
+
+def refit_lstm_on_all_data(raw_splits, epochs, lookback, input_dim, num_tickers, num_sectors, device, model_path):
+    """The model evaluated above never saw the test period. Train a fresh one
+    on every row - scalers re-fit on all rows too - for the epoch count that
+    gave the best validation loss, since there's no held-out data left to
+    early-stop on. Overwrites the saved weights and scalers."""
+    X_num_list, X_cat_list, y_list, feature_cols = raw_splits
+    X_num_full = [np.vstack(pair) for pair in X_num_list]
+    X_cat_full = [np.vstack(pair) for pair in X_cat_list]
+    y_full = [np.vstack(pair) for pair in y_list]
+
+    feature_scaler = RobustScaler().fit(pd.DataFrame(np.vstack(X_num_full), columns=feature_cols))
+    target_scaler = RobustScaler().fit(np.vstack(y_full))
+
+    datasets = [
+        StockDataset(feature_scaler.transform(xn), xc, target_scaler.transform(yy), lookback)
+        for xn, xc, yy in zip(X_num_full, X_cat_full, y_full) if len(xn) > lookback
+    ]
+    loader = DataLoader(ConcatDataset(datasets), batch_size=64, shuffle=True)
+    logger.info(f"Refitting LSTM on all {sum(len(d) for d in datasets)} windows (train + test) for {epochs} epochs...")
+
+    model = LSTMModel(input_dim=input_dim, num_tickers=num_tickers, num_sectors=num_sectors, hidden_dim=64, num_layers=2, dropout=0.2).to(device)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    for epoch in range(epochs):
+        model.train()
+        total = 0.0
+        for (X_num, X_cat), y_batch in loader:
+            X_num, X_cat, y_batch = X_num.to(device), X_cat.to(device), y_batch.to(device)
+            optimizer.zero_grad()
+            loss = criterion(model(X_num, X_cat), y_batch)
+            loss.backward()
+            optimizer.step()
+            total += loss.item()
+        if (epoch + 1) % 5 == 0 or epoch + 1 == epochs:
+            logger.info(f"Refit epoch [{epoch+1}/{epochs}] | Train Loss: {total / len(loader):.5f}")
+
+    torch.save(model.state_dict(), model_path)
+    joblib.dump(feature_scaler, os.path.join(MODELS_DIR, "feature_scaler_lstm.pkl"))
+    joblib.dump(target_scaler, os.path.join(MODELS_DIR, "target_scaler_lstm.pkl"))
+    logger.info(f"Saved all-data LSTM weights to {model_path} and refit scalers.")
 
 if __name__ == '__main__':
     train_lstm_pipeline()

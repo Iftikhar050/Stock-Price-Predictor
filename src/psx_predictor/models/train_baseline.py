@@ -25,7 +25,8 @@ MODELS_DIR = os.path.join(ROOT_DIR, "models")
 REPORTS_DIR = os.path.join(ROOT_DIR, "reports", "figures")
 
 from src.psx_predictor.db.repository import get_active_tickers
-from src.psx_predictor.models.utils import choose_global_cutoff
+from src.psx_predictor.models.utils import (choose_global_cutoff, refit_on_all_data, evaluate_only,
+                                            directional_hits, save_holdout_accuracy)
 from src.psx_predictor.models.feature_wrapper import prepare_data
 
 
@@ -38,6 +39,7 @@ def train_and_evaluate():
     X_train_list, X_test_list = [], []
     y_train_list, y_test_list = [], []
     close_test_list = []
+    test_tickers, test_dates = [], []
     dates_test_pso, y_test_pso, preds_pso, close_test_pso = None, None, None, None
     
     for ticker in valid_tickers:
@@ -57,6 +59,8 @@ def train_and_evaluate():
         y_train_list.append(y[train_mask])
         y_test_list.append(y[test_mask])
         close_test_list.append(current_close[test_mask])
+        test_tickers += [ticker] * int(test_mask.sum())
+        test_dates += list(dates_dt[test_mask])
         
         if ticker == 'PSO':
             dates_test_pso = dates[test_mask]
@@ -94,16 +98,13 @@ def train_and_evaluate():
     logger.info(f"MAE:  Rs. {mae:.2f}")
     logger.info(f"RMSE: Rs. {rmse:.2f}")
     logger.info(f"MAPE: {mape:.2f}%")
-    
-    # Save Model
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
-    joblib.dump(model, model_path)
-    logger.info(f"Saved trained model artifact to {model_path}")
+    save_holdout_accuracy("rf", test_tickers, directional_hits(y_test, predictions_return), test_dates)
     
     # Plotting Actual vs Predicted (Only for PSO to keep chart clean)
     if dates_test_pso is not None:
-        preds_pso_return = model.predict(X_test_pso)
+        # The pooled frame has every ticker's columns (e.g. search_trend_<ticker>);
+        # PSO's own frame lacks the other tickers' ones.
+        preds_pso_return = model.predict(X_test_pso.reindex(columns=X_train.columns))
         preds_pso_price = close_test_pso * (1 + preds_pso_return)
         actual_pso_price = close_test_pso * (1 + y_test_pso)
         
@@ -121,6 +122,24 @@ def train_and_evaluate():
         plot_path = os.path.join(REPORTS_DIR, "baseline_predictions.png")
         plt.savefig(plot_path, dpi=300)
         logger.info(f"Saved prediction visualization to {plot_path}")
+    if evaluate_only():
+        logger.info("EVALUATE_ONLY=1 - held-out accuracy recorded, no model saved.")
+        return
+
+    # Test metrics and the plot above come from the train-only fit; the saved
+    # model is refit on every row so it also learns the most recent year.
+    if refit_on_all_data():
+        X_all = pd.concat([X_train, X_test], ignore_index=True)
+        y_all = pd.concat([y_train, y_test], ignore_index=True)
+        logger.info(f"Refitting on all {len(X_all)} samples (train + test) for the saved model...")
+        model.fit(X_all, y_all)
+
+    # Save Model
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = os.path.join(MODELS_DIR, MODEL_FILENAME)
+    joblib.dump(model, model_path)
+    logger.info(f"Saved trained model artifact to {model_path}")
+
 
 if __name__ == '__main__':
     train_and_evaluate()

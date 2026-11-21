@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from bs4 import BeautifulSoup
 from datetime import datetime
-from src.psx_predictor.db.repository import upsert_stock_fundamentals
+from src.psx_predictor.db.repository import upsert_stock_fundamentals, upsert_financial_periods
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -135,6 +135,7 @@ class PsxDpsScraper:
                         ff_shares_val = self._parse_val(v_text)
 
             records = []
+            annual_periods = []
             
             # 1. Process Table 7 (Ratios per year)
             ratio_table = tables[6]
@@ -200,6 +201,13 @@ class PsxDpsScraper:
                     'market_cap': mcap_val
                 }
                 records.append(rec)
+                # The same year as a tagged annual period. PSX labels it only
+                # by year, so its period end is recorded as 31 Dec - which is
+                # late (never early) for a company whose fiscal year ends sooner.
+                annual_periods.append({
+                    'ticker': ticker, 'period_end': rep_date, 'period_type': 'A', 'source': 'psx_dps',
+                    'revenue': rev_val, 'net_income': net_val, 'eps': eps_val, 'shares_outstanding': shares_val,
+                })
                 
             # 3. Process Table 6 (Quarterly Financial Statements) - previously scraped past
             # without being parsed, even though it renders on every company page alongside
@@ -266,6 +274,10 @@ class PsxDpsScraper:
             df = df.drop_duplicates(subset=['ticker', 'report_date'], keep='first')
             
             success = upsert_stock_fundamentals(df)
+            periods = pd.DataFrame(annual_periods)
+            if not periods.empty:
+                periods = periods.dropna(how='all', subset=['revenue', 'net_income', 'eps'])
+                upsert_financial_periods(periods)
             if success:
                 logger.info(f"Successfully upserted official PSX DPS fundamentals for {ticker} ({len(df)} reports).")
             return success
