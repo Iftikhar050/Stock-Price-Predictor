@@ -91,3 +91,6 @@ data/serving/
 
 # Production secrets for deploy/ scripts
 deploy/.env.production
+
+# strategy research model-prediction cache
+data/research_cache/

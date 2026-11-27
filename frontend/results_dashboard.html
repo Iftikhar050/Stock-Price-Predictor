@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSX Strategy Research</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f5f4;--card:#ffffff;--ink:#16221f;--mute:#5a6b66;--line:#d9e1de;--soft:#eaf0ee;
+  --acc:#0f766e;--acc-soft:#d5ece8;--good:#15803d;--good-soft:#dcf2e3;--bad:#b42318;--bad-soft:#fbe3e0;
+  --warn:#a15c07;--warn-soft:#fbeed6;--bench:#8b9894;--ink-bar:#334a44;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1513;--card:#15201d;--ink:#e4ece9;--mute:#9aaba6;--line:#283733;--soft:#1b2925;
+  --acc:#2dd4bf;--acc-soft:#123a35;--good:#4ade80;--good-soft:#123321;--bad:#f87171;--bad-soft:#3a1715;
+  --warn:#fbbf24;--warn-soft:#3a2a0b;--bench:#7d8c88;--ink-bar:#b9cac5}}
+:root[data-theme="dark"]{
+  --bg:#0d1513;--card:#15201d;--ink:#e4ece9;--mute:#9aaba6;--line:#283733;--soft:#1b2925;
+  --acc:#2dd4bf;--acc-soft:#123a35;--good:#4ade80;--good-soft:#123321;--bad:#f87171;--bad-soft:#3a1715;
+  --warn:#fbbf24;--warn-soft:#3a2a0b;--bench:#7d8c88;--ink-bar:#b9cac5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+h1,h2{font-family:"Source Serif 4",Georgia,serif;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:2rem;line-height:1.2;margin:0 0 6px}
+h2{font-size:1.4rem;margin:44px 0 6px}
+h3{font-size:1.05rem;margin:0 0 4px}
+p{margin:0 0 10px;max-width:68ch}
+.sub{color:var(--mute)}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;font-weight:700;color:var(--mute)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.answer{border-left:6px solid var(--warn);padding:20px 22px}
+.answer p{font-size:1.15rem;margin:6px 0 0;max-width:none}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.q{display:flex;flex-direction:column;gap:8px}
+.q .verdict{display:inline-flex;align-self:flex-start;font-weight:700;font-size:.85rem;padding:2px 10px;border-radius:99px}
+.v-no{background:var(--bad-soft);color:var(--bad)}.v-maybe{background:var(--warn-soft);color:var(--warn)}.v-yes{background:var(--good-soft);color:var(--good)}
+.q .big{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.q p{font-size:.95rem;margin:0;color:var(--mute)}
+.hbar{display:grid;grid-template-columns:minmax(150px,240px) 1fr 120px;align-items:center;gap:10px;margin:9px 0}
+.hbar .lbl{font-size:.95rem;line-height:1.25}
+.hbar .lbl small{display:block;color:var(--mute);font-size:.8rem}
+.hbar .track{height:22px;background:var(--soft);border-radius:6px;position:relative;overflow:hidden}
+.hbar .fill{height:100%;border-radius:6px}
+.hbar .val{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.note{font-size:.88rem;color:var(--mute);margin-top:10px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.pills button{font:inherit;font-size:.9rem;padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.pills button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--card)}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.9rem;color:var(--mute);margin-top:8px}
+.legend i{display:inline-block;width:16px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px}
+svg{width:100%;height:auto;display:block}
+.chartwrap{position:relative}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.85rem;box-shadow:0 4px 14px rgb(0 0 0 / .12);white-space:nowrap;display:none}
+.gauge{height:18px;background:var(--soft);border-radius:9px;position:relative;margin:28px 0 30px}
+.gauge .fill{height:100%;border-radius:9px;background:var(--warn)}
+.gauge .mark{position:absolute;top:-8px;bottom:-8px;width:3px;background:var(--ink)}
+.gauge .mark span,.gauge .cur span{position:absolute;white-space:nowrap;font-size:.82rem;transform:translateX(-50%)}
+.gauge .mark span{top:-20px;font-weight:700}
+.gauge .cur{position:absolute;top:0;bottom:0}
+.gauge .cur span{bottom:-24px;color:var(--warn);font-weight:700}
+.pair{display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center;margin:10px 0}
+.pair b{font-variant-numeric:tabular-nums}
+.pair .bars{display:flex;flex-direction:column;gap:4px}
+.mini{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.mini .t{flex:1;height:12px;background:var(--soft);border-radius:4px;position:relative}
+.mini .t div{height:100%;border-radius:4px}
+.mini span{width:150px;color:var(--mute)}
+.mini em{font-style:normal;width:52px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{counter-increment:s;padding:10px 0 10px 44px;position:relative;border-bottom:1px solid var(--line)}
+.steps li:last-child{border-bottom:0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:30px;height:30px;border-radius:50%;background:var(--acc-soft);color:var(--acc);font-weight:700;display:grid;place-items:center}
+details{margin-top:14px}
+details>summary{cursor:pointer;font-weight:600;padding:10px 0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:7px 9px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:220px}
+th{color:var(--mute);font-weight:600;vertical-align:bottom}
+tr.grp td{background:var(--soft);font-weight:700;text-align:left}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn);margin-left:6px;font-weight:700}
+dl.gloss{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 16px;margin:0}
+dl.gloss dt{font-weight:700}dl.gloss dd{margin:0;color:var(--mute)}
+ul{margin:6px 0 0;padding-left:20px}li{margin:5px 0}
+#msg{margin-top:18px}
+@media (max-width:620px){.hbar{grid-template-columns:1fr 112px}.hbar .lbl{grid-column:1 / -1}dl.gloss{grid-template-columns:1fr}h1{font-size:1.6rem}}
+@media (prefers-reduced-motion:no-preference){.hbar .fill,.gauge .fill{transition:width .5s ease}}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">PSX stock prediction · strategy research</div>
+  <h1>Can our models make money on the PSX?</h1>
+  <p class="sub" id="meta">Loading results…</p>
+
+  <div id="msg" class="card" hidden>
+    <p>Could not load <code>results.json</code>. Open this page through the app (http://localhost:5173/results_dashboard.html), or choose the file:</p>
+    <label><input id="pick" type="file" accept=".json"></label>
+  </div>
+
+  <div id="app" hidden>
+    <div class="card answer" style="margin-top:18px">
+      <div class="eyebrow">The short answer</div>
+      <p id="short"></p>
+    </div>
+
+    <h2>Three questions, three answers</h2>
+    <div class="grid" id="qa"></div>
+
+    <h2>What PKR 100,000 would have become</h2>
+    <p class="sub" id="moneySub"></p>
+    <div class="card" id="money"></div>
+
+    <h2>Growth over time</h2>
+    <p class="sub">Pick a strategy to compare it with the KSE-100 (or, for the PSO and MEBL models, with simply holding that stock). Hover the chart to read values.</p>
+    <div class="pills" id="pills" role="group" aria-label="Choose a strategy"></div>
+    <div class="card">
+      <div class="chartwrap"><svg id="chart" viewBox="0 0 800 300" role="img" aria-label="Growth of 100 rupees over time"></svg><div class="tip" id="tip"></div></div>
+      <div class="legend"><span><i style="background:var(--acc)"></i><span id="lgA">Strategy</span></span><span><i style="background:var(--bench)"></i><span id="lgB">Benchmark</span></span></div>
+      <p class="note" id="chartNote"></p>
+    </div>
+
+    <h2>Why we are not recommending the best strategy yet</h2>
+    <div class="card">
+      <p id="luckText"></p>
+      <div class="gauge" id="gauge"></div>
+      <p class="note">We tested many versions of each idea. When you try enough versions, one of them will look good by pure chance — like flipping 30 coins and calling the luckiest one "skilled". This test asks: after allowing for the number of tries, how sure can we be that the winner's lead is real? Science usually asks for 95%.</p>
+    </div>
+
+    <h2>Good years and bad years</h2>
+    <p class="sub">Yearly return of the best candidate compared with simply holding an equal mix of the same stocks.</p>
+    <div class="card" id="periods"></div>
+
+    <h2>How good are the predictions themselves?</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Guessing up or down</h3>
+        <p class="sub" style="font-size:.92rem">How often the model called the direction right, compared with always guessing "up".</p>
+        <div id="dir"></div>
+      </div>
+      <div class="card">
+        <h3>Guessing the size of the move</h3>
+        <p class="sub" style="font-size:.92rem">Average error of the model's predicted % move, compared with always guessing "no change". Lower is better.</p>
+        <div id="err"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Is the model's confidence honest?</h3>
+      <p class="sub" style="font-size:.92rem">When the model says "X% chance this stock rises over the next 5 days", how often did it actually rise?</p>
+      <div id="cal"></div>
+    </div>
+
+    <h2>What we recommend</h2>
+    <div class="card"><ol class="steps" id="next"></ol></div>
+
+    <h2>Words used on this page</h2>
+    <div class="card">
+      <dl class="gloss">
+        <dt>Yearly return (CAGR)</dt><dd>The average growth per year, compounded. 20% means 100 becomes 120 in a typical year.</dd>
+        <dt>Risk-adjusted score (Sharpe)</dt><dd>Return divided by how bumpy the ride was. Higher is better; above 1 is good, below 0.5 is weak.</dd>
+        <dt>Worst fall (max drawdown)</dt><dd>The biggest drop from a high point to a later low. −45% means 100 fell to 55 at some point.</dd>
+        <dt>Equal-weight basket</dt><dd>Owning all the same stocks in equal amounts and doing nothing clever. The fair yardstick, because it includes dividends and costs like the strategies do.</dd>
+        <dt>KSE-100</dt><dd>The index itself. It excludes dividends (often 5–8% a year on the PSX), so it understates what an investor actually earned.</dd>
+        <dt>Holdout</dt><dd>The last two years (Nov 2024–Nov 2026), kept locked away and looked at only once at the very end, as a final honest test.</dd>
+        <dt>Costs</dt><dd>Every trade pays about 0.3% each way (commission, tax, fees, price slippage). Trading every day adds up fast.</dd>
+        <dt>Luck test (deflated Sharpe)</dt><dd>How confident we can be that a strategy's lead is real skill and not the luckiest of many tries.</dd>
+      </dl>
+    </div>
+
+    <details class="card" style="margin-top:44px">
+      <summary>All strategies tested — full numbers</summary>
+      <p class="sub">2015–2026, after trading costs, before tax. Grouped by type of idea.</p>
+      <div class="scroll"><table id="tbl"></table></div>
+    </details>
+    <details class="card">
+      <summary>Findings in detail</summary><ul id="find"></ul>
+    </details>
+    <details class="card">
+      <summary>Risks and limits</summary><ul id="risk"></ul>
+    </details>
+    <details class="card">
+      <summary>Assumptions behind the numbers</summary><ul id="assume"></ul>
+    </details>
+  </div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num=(n,d=1)=>n==null||isNaN(n)?"–":Number(n).toFixed(d);
+const pct=(n,d=1)=>n==null||isNaN(n)?"–":(n>0?"+":"")+Number(n).toFixed(d)+"%";
+const pkr=v=>"PKR "+Math.round(v).toLocaleString("en-US");
+
+const BEST="s3_k20_n20_buf";
+const FRIENDLY={
+  s3_k20_n20_buf:["Best candidate: monthly stock ranking","Top 20 stocks by momentum, near 52-week high, low volatility"],
+  s3_pit:["Best candidate, survivorship-checked","Same idea, using each month's 100 most-traded stocks"],
+  b_ew:["Equal-weight basket","All the same stocks, equal amounts — the fair yardstick"],
+  b_kse100:["KSE-100 index","Price only, no dividends"],
+  b_random:["Random stock picks","Same number of trades, stocks picked at random"],
+  s4_h20_n20:["AI stock ranking (LightGBM)","Machine-learning version of the ranking"],
+  s1_MEBL:["Current MEBL model, traded daily","The app's MEBL prediction, acted on every day"],
+  b_bh_MEBL:["Just holding MEBL","Buy once, never trade"],
+  s1_PSO:["Current PSO model, traded daily","The app's PSO prediction, acted on every day"],
+  b_bh_PSO:["Just holding PSO","Buy once, never trade"]
+};
+const GROUPS=[
+  ["Yardsticks (do nothing clever)",s=>s.kind==="baseline"],
+  ["Stock ranking with simple rules",s=>s.kind==="factor"],
+  ["Stock ranking with AI",s=>s.kind==="ml_rank"],
+  ["Add-ons: market filter or position sizing",s=>s.kind==="overlay"],
+  ["AI up/down prediction with confidence filter",s=>s.kind==="ml_direction"],
+  ["The app's current PSO / MEBL models",s=>s.kind==="current_model"]
+];
+let D,S={};
+
+fetch("results.json").then(r=>r.ok?r.json():Promise.reject()).then(render).catch(()=>{$("msg").hidden=false;$("meta").textContent="";});
+$("pick").addEventListener("change",e=>{const f=e.target.files[0];if(f)f.text().then(t=>render(JSON.parse(t)));});
+
+function render(d){
+  D=d;(d.strategies||[]).forEach(s=>S[s.id]=s);
+  $("msg").hidden=true;$("app").hidden=false;
+  const r=d.data_range||{};
+  $("meta").textContent=`Tested on ${r.start||"?"} to ${r.end||"?"} · ${(d.strategies||[]).length} strategies · ${d.trials_counted||"?"} versions counted in the luck test · updated ${d.generated_at||""}`;
+
+  const best=S[BEST],ew=S.b_ew,k=S.b_kse100,pso=S.s1_PSO,mebl=S.s1_MEBL,bhm=S.b_bh_MEBL;
+  const hz=d.horizon_accuracy||[];const h1=hz.find(h=>h.horizon==="1d")||{};
+  const dsr=best?.deflated_sharpe_dev;
+  $("short").innerHTML=`<strong>Not reliably — not yet.</strong> Predicting tomorrow's price does not work, and the app's current PSO and MEBL models should not be used for trading. One simple idea, ranking stocks once a month, did better than simply holding an equal mix of the same stocks over 12 years (${pct(best?.metrics.cagr_pct)} a year vs ${pct(ew?.metrics.cagr_pct)}), but we cannot yet rule out that it was luck. It is worth watching, not betting on.`;
+
+  $("qa").innerHTML=[
+    {v:"no",cls:"v-no",q:"Can we predict tomorrow's price?",big:`${num(h1.directional_pct)}% right`,
+     p:`On up-or-down calls the model is right ${num(h1.directional_pct)}% of the time — barely better than a coin. Its price-size guesses are less accurate than just saying "no change".`},
+    {v:"no",cls:"v-no",q:"Would trading the current PSO / MEBL models make money?",big:`PSO ${pct(pso?.metrics.cagr_pct)} a year`,
+     p:`Acting on the PSO model every day lost money after costs. The MEBL model made ${pct(mebl?.metrics.cagr_pct)} a year — but just holding MEBL made ${pct(bhm?.metrics.cagr_pct)}.`},
+    {v:"maybe",cls:"v-maybe",q:"Is any strategy worth considering?",big:`${pct(best?.metrics.cagr_pct)} a year`,
+     p:`A monthly ranking of 20 stocks beat an equal mix of the same stocks (${pct(ew?.metrics.cagr_pct)}). But the luck test gives only ${Math.round((dsr||0)*100)}% confidence, and in the last two years it merely matched the KSE-100.`}
+  ].map(x=>`<div class="card q"><span class="verdict ${x.cls}">${x.v==="no"?"No":"Maybe — needs more proof"}</span><h3>${x.q}</h3><div class="big">${x.big}</div><p>${x.p}</p></div>`).join("");
+
+  // money
+  const ids=["s3_k20_n20_buf","b_ew","b_kse100","b_random","s4_h20_n20","b_bh_MEBL","s1_MEBL","b_bh_PSO","s1_PSO"].filter(i=>S[i]);
+  const vals=ids.map(i=>100000*(1+S[i].metrics.net_return_pct/100));
+  const mx=Math.max(...vals);
+  $("moneySub").textContent=`Invested on ${r.start} and left to run until ${r.end}, after all trading costs, before tax.`;
+  $("money").innerHTML=ids.map((i,n)=>{const v=vals[n],f=FRIENDLY[i]||[S[i].name,""];
+    const col=i===BEST?"var(--acc)":v<100000?"var(--bad)":i.startsWith("b_")?"var(--bench)":"var(--ink-bar)";
+    return `<div class="hbar"><div class="lbl">${esc(f[0])}<small>${esc(f[1])}</small></div><div class="track"><div class="fill" style="width:${Math.max(1,v/mx*100)}%;background:${col}"></div></div><div class="val ${v<100000?"neg":""}">${pkr(v)}</div></div>`}).join("")+
+    `<p class="note">Teal = best candidate · grey = yardsticks · red = lost money. The KSE-100 bar excludes dividends, so it looks a little worse than an investor actually did.</p>`;
+
+  // pills + chart
+  const pillIds=["s3_k20_n20_buf","s3_pit","b_ew","s4_h20_n20","s1_MEBL","s1_PSO"].filter(i=>S[i]);
+  $("pills").innerHTML=pillIds.map(i=>`<button data-id="${i}" aria-pressed="false">${esc((FRIENDLY[i]||[S[i].name])[0])}</button>`).join("");
+  $("pills").querySelectorAll("button").forEach(b=>b.onclick=()=>pick(b.dataset.id));
+  pick(BEST);
+
+  // luck gauge
+  const pass=0.95,val=dsr||0;
+  $("luckText").innerHTML=`The best candidate scored <strong>${Math.round(val*100)}%</strong> on the luck test. We set the bar at <strong>95%</strong> before seeing any results. It is in the "promising" zone — better than most versions we tried — but not proven.`;
+  $("gauge").innerHTML=`<div class="fill" style="width:${val*100}%"></div><div class="mark" style="left:${pass*100}%"><span>95% needed</span></div><div class="cur" style="left:${val*100}%"><span>${Math.round(val*100)}% scored</span></div>`;
+
+  // periods
+  const per=["2015-2017","2018-2020","2021-2024","holdout"];
+  const lab={"2015-2017":"2015–2017","2018-2020":"2018–2020 (incl. COVID crash)","2021-2024":"2021–2024","holdout":"Last 2 years (locked test)"};
+  const pv=per.flatMap(p=>[best?.breakdown?.periods?.[p]?.cagr_pct,ew?.breakdown?.periods?.[p]?.cagr_pct]).filter(v=>v!=null);
+  const pm=Math.max(...pv.map(Math.abs),1);
+  $("periods").innerHTML=per.filter(p=>best?.breakdown?.periods?.[p]).map(p=>{
+    const a=best.breakdown.periods[p].cagr_pct,b=ew.breakdown.periods[p].cagr_pct;
+    return `<div class="pair"><b style="grid-column:1 / -1;font-weight:600">${lab[p]}</b><div></div><div class="bars">
+      <div class="mini"><span>Best candidate</span><div class="t"><div style="width:${Math.abs(a)/pm*100}%;background:${a<0?"var(--bad)":"var(--acc)"}"></div></div><em>${pct(a)}</em></div>
+      <div class="mini"><span>Equal-weight basket</span><div class="t"><div style="width:${Math.abs(b)/pm*100}%;background:var(--bench)"></div></div><em>${pct(b)}</em></div></div></div>`}).join("")+
+    `<p class="note">${upDown(best)} It mostly rides the market; it does not protect you in a crash.</p>`;
+
+  // prediction quality
+  const dm=Math.max(...hz.map(h=>Math.max(h.directional_pct,h.always_up_pct)));
+  $("dir").innerHTML=hz.map(h=>`<div class="pair"><b>${h.horizon.replace("d"," day"+(h.horizon==="1d"?"":"s"))}</b><div class="bars">
+     <div class="mini"><span>Model</span><div class="t"><div style="width:${h.directional_pct/dm*100}%;background:var(--acc)"></div></div><em>${num(h.directional_pct)}%</em></div>
+     <div class="mini"><span>Always "up"</span><div class="t"><div style="width:${h.always_up_pct/dm*100}%;background:var(--bench)"></div></div><em>${num(h.always_up_pct)}%</em></div></div></div>`).join("")+
+    `<p class="note">50% would be a coin flip. The model is only 1–4 points better than always saying "up".</p>`;
+  const em=Math.max(...hz.map(h=>Math.max(h.mae_pct,h.mae_zero_pct)));
+  $("err").innerHTML=hz.map(h=>`<div class="pair"><b>${h.horizon.replace("d"," day"+(h.horizon==="1d"?"":"s"))}</b><div class="bars">
+     <div class="mini"><span>Model's error</span><div class="t"><div style="width:${h.mae_pct/em*100}%;background:var(--bad)"></div></div><em>${num(h.mae_pct,2)}%</em></div>
+     <div class="mini"><span>"No change" error</span><div class="t"><div style="width:${h.mae_zero_pct/em*100}%;background:var(--bench)"></div></div><em>${num(h.mae_zero_pct,2)}%</em></div></div></div>`).join("")+
+    `<p class="note">At every horizon the model's error is <strong>larger</strong> than guessing "no change". This is why the exact predicted price on the site should not be trusted.</p>`;
+  const cal=(d.calibration||[]).filter(c=>c.bucket.startsWith("5d"));
+  $("cal").innerHTML=cal.map(c=>`<div class="pair"><b>${Math.round(c.predicted*100)}%</b><div class="bars">
+     <div class="mini"><span>Model said</span><div class="t"><div style="width:${c.predicted*100}%;background:var(--warn)"></div></div><em>${Math.round(c.predicted*100)}%</em></div>
+     <div class="mini"><span>Actually rose</span><div class="t"><div style="width:${c.actual*100}%;background:var(--acc)"></div></div><em>${Math.round(c.actual*100)}%</em></div></div></div>`).join("")+
+    `<p class="note">If the confidence were honest, the two bars would match. When the model is most sure (around 73%), stocks rose only about half the time — so a "high confidence" signal adds very little.</p>`;
+
+  const L=(id,a)=>$(id).innerHTML=(a||[]).map(x=>`<li>${esc(x)}</li>`).join("")||"<li>None reported</li>";
+  L("next",d.next_steps);L("find",d.findings);L("risk",d.risks);L("assume",d.assumptions);
+  table();
+}
+
+function upDown(s){const r=s?.breakdown?.regimes;if(!r||!r.uptrend)return"";
+  return `When the market was rising it made about ${pct(r.uptrend.ann_return_pct,0)} a year; when the market was falling it lost about ${Math.abs(r.downtrend.ann_return_pct).toFixed(0)}% a year.`;}
+
+function pick(id){
+  const s=S[id];if(!s)return;
+  $("pills").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.id===id));
+  const single=id.includes("PSO")||id.includes("MEBL");
+  $("lgA").textContent=(FRIENDLY[id]||[s.name])[0];
+  $("lgB").textContent=single?`Just holding ${id.includes("PSO")?"PSO":"MEBL"}`:"KSE-100 index (no dividends)";
+  const m=s.metrics;
+  $("chartNote").innerHTML=`${esc(s.description)}<br><strong>${pct(m.cagr_pct)}</strong> a year · worst fall <strong>${num(m.max_drawdown_pct)}%</strong> · risk-adjusted score <strong>${num(m.sharpe,2)}</strong> · ${m.trades??"–"} trades.`;
+  draw(s.equity||[],s.benchmark||[]);
+}
+
+function draw(a,b){
+  const svg=$("chart"),W=800,H=300,p={l:54,r:12,t:12,b:30};
+  if(!a.length){svg.innerHTML="";return}
+  const ds=[...new Set(a.concat(b).map(x=>x.d))].sort();
+  const t=d=>new Date(d).getTime(),t0=t(ds[0]),t1=t(ds[ds.length-1]);
+  const vs=a.concat(b).map(x=>x.v),lo=Math.min(...vs,100),hi=Math.max(...vs);
+  const useLog=hi/lo>6,f=v=>useLog?Math.log(v):v;
+  const X=d=>p.l+(t(d)-t0)/(t1-t0)*(W-p.l-p.r);
+  const Y=v=>H-p.b-(f(v)-f(lo))/(f(hi)-f(lo))*(H-p.t-p.b);
+  const path=s=>s.map((x,i)=>(i?"L":"M")+X(x.d).toFixed(1)+" "+Y(x.v).toFixed(1)).join("");
+  let g="";
+  const ticks=useLog?[50,100,200,400,800,1600,3200].filter(v=>v>=lo*0.9&&v<=hi*1.1):Array.from({length:5},(_,i)=>lo+(hi-lo)*i/4);
+  ticks.forEach(v=>{const y=Y(v);g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${p.l-8}" y="${y+4}" text-anchor="end" font-size="12" fill="var(--mute)">${Math.round(v)}</text>`});
+  const y0=new Date(ds[0]).getFullYear(),y1=new Date(ds[ds.length-1]).getFullYear();
+  for(let y=y0+1;y<=y1;y+=y1-y0>8?2:1){const x=X(`${y}-01-01`);g+=`<text x="${x}" y="${H-8}" text-anchor="middle" font-size="12" fill="var(--mute)">${y}</text>`}
+  g+=`<line x1="${p.l}" x2="${W-p.r}" y1="${Y(100)}" y2="${Y(100)}" stroke="var(--mute)" stroke-dasharray="4 4" opacity=".6"/>`;
+  g+=`<path d="${path(b)}" fill="none" stroke="var(--bench)" stroke-width="2"/><path d="${path(a)}" fill="none" stroke="var(--acc)" stroke-width="2.6"/>`;
+  g+=`<line id="hov" y1="${p.t}" y2="${H-p.b}" stroke="var(--mute)" opacity="0"/><rect x="${p.l}" y="${p.t}" width="${W-p.l-p.r}" height="${H-p.t-p.b}" fill="transparent" id="hit"/>`;
+  svg.innerHTML=g;
+  const tip=$("tip"),hov=svg.querySelector("#hov"),bm=Object.fromEntries(b.map(x=>[x.d,x.v]));
+  svg.querySelector("#hit").onmousemove=e=>{
+    const r=svg.getBoundingClientRect(),xs=(e.clientX-r.left)/r.width*W;
+    let best=a[0];for(const x of a)if(Math.abs(X(x.d)-xs)<Math.abs(X(best.d)-xs))best=x;
+    const bv=bm[best.d]??b.reduce((q,x)=>Math.abs(t(x.d)-t(best.d))<Math.abs(t(q.d)-t(best.d))?x:q,b[0]||{}).v;
+    hov.setAttribute("x1",X(best.d));hov.setAttribute("x2",X(best.d));hov.setAttribute("opacity","1");
+    tip.style.display="block";tip.innerHTML=`<strong>${best.d}</strong><br>${esc($("lgA").textContent)}: ${num(best.v,0)}<br>${esc($("lgB").textContent)}: ${num(bv,0)}`;
+    const px=X(best.d)/W*r.width;tip.style.left=Math.min(px+12,r.width-tip.offsetWidth-4)+"px";tip.style.top="8px";};
+  svg.querySelector("#hit").onmouseleave=()=>{tip.style.display="none";hov.setAttribute("opacity","0")};
+}
+
+function table(){
+  const cols=[["Yearly return","cagr_pct",1,true],["Total return","net_return_pct",0,true],["Risk-adj. score","sharpe",2],["Worst fall","max_drawdown_pct",1],["Winning trades","win_rate_pct",0],["Trades","trades",0]];
+  let h=`<thead><tr><th>Strategy</th>${cols.map(c=>`<th>${c[0]}</th>`).join("")}<th>Luck test</th><th>Last 2 yrs</th></tr></thead><tbody>`;
+  for(const [g,fn] of GROUPS){
+    const rows=D.strategies.filter(fn).sort((a,b)=>(b.metrics.cagr_pct||0)-(a.metrics.cagr_pct||0));
+    if(!rows.length)continue;
+    h+=`<tr class="grp"><td colspan="${cols.length+3}">${g}</td></tr>`;
+    h+=rows.map(s=>`<tr><td>${esc((FRIENDLY[s.id]||[s.name])[0])}${s.id===BEST?'<span class="tag">best candidate</span>':""}</td>`+
+      cols.map(c=>{const v=s.metrics[c[1]];return `<td class="${c[3]?(v>0?"pos":v<0?"neg":""):""}">${v==null?"–":(c[3]?pct(v,c[2]):num(v,c[2])+(c[1].endsWith("pct")?"%":""))}</td>`}).join("")+
+      `<td>${s.deflated_sharpe_dev!=null?Math.round(s.deflated_sharpe_dev*100)+"%":"–"}</td><td class="${(s.holdout_metrics?.cagr_pct||0)<0?"neg":""}">${pct(s.holdout_metrics?.cagr_pct)}</td></tr>`).join("");
+  }
+  $("tbl").innerHTML=h+"</tbody>";
+}
+</script>
+</body>
+</html>

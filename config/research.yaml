@@ -1,0 +1,52 @@
+# Strategy research configuration (scripts/run_strategy_research.py).
+# Every number here is an assumption the report repeats; change it here, not in code.
+
+seed: 42
+data:
+  start: "2012-01-01"          # 2008-11 has too many bad prints and the 2008 price freeze
+  end: "2026-11-20"
+  kse100_csv: "~/Downloads/Karachi 100 Historical Data (2).csv"
+periods:
+  oos_start: "2015-01-01"      # first out-of-sample day (models need ~3 years to train)
+  holdout_start: "2024-11-21"  # final untouched holdout: last 24 months
+  reveal_holdout: false        # stays false until the code is final; then one run with true
+universe:
+  min_adv_pkr: 2000000         # 20-day median traded value needed to enter a position
+  min_history_days: 250
+  pit_top_n: 100               # point-in-time universe: top N by trailing 60-day turnover
+data_cleaning:
+  impossible_move: 0.11        # |daily return| above this (and above Rs 1.05) cannot happen
+                               # under PSX circuit breakers -> treated as a data artefact
+  penny_cap: 0.30              # cap on the Rs 1 leg for low-priced (adjusted) stocks
+  holiday_zero_volume_share: 0.5   # only used if no exchange calendar is available
+execution:
+  fill: "next_close"           # signal at close t, fill at close t+1
+  account_pkr: 10000000
+  max_adv_fraction: 0.10       # a day's trade in one name <= 10% of its 20-day median value
+  circuit_band_pre_2020: 0.05  # scrip-level circuit breaker (or Rs 1, whichever is higher)
+  circuit_band_from_2020: 0.075
+  circuit_change_date: "2020-03-01"
+costs:                          # per side, fraction of traded value
+  commission: 0.0015           # PSX standard 0.15% (3 paisa/share minimum not modelled)
+  sales_tax_on_commission: 0.13  # Sindh 13%
+  exchange_clearing_cdc_secp: 0.00015
+  cvt_on_buys: 0.0002          # capital value tax on purchases [NEEDS VERIFICATION]
+  slippage_by_adv:             # [min ADV PKR, one-way slippage]
+    - [50000000, 0.0010]
+    - [10000000, 0.0020]
+    - [2000000, 0.0040]
+    - [0, 0.0075]
+  cgt_rate: 0.15               # capital gains tax, used for the after-tax estimate only
+models:
+  refit_every_days: 63         # quarterly walk-forward refits, expanding window
+  embargo_days: 5
+  lgbm:
+    n_estimators: 300
+    learning_rate: 0.05
+    num_leaves: 15
+    min_child_samples: 200
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    verbose: -1
+random_baseline_seeds: 20

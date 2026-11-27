@@ -1,0 +1,46 @@
+{
+ "headline": "No strategy cleared the bar for a robust, profitable edge. The best candidate, a monthly ranking of liquid stocks by momentum, closeness to the 52-week high and low volatility, beat an equal-weight portfolio by about 4.5% a year over 2015-2026, but after testing 30 variants that edge is not statistically reliable; in the untouched 2025-26 holdout it matched rather than beat the KSE-100, and the current daily PSO/MEBL models lose money or lag buy-and-hold after costs.",
+ "assumptions": [
+  "Signals use data up to the close of day t; trades fill at the close of day t+1. Unfilled orders retry on later days.",
+  "Costs per side: commission 0.15% plus 13% Sindh sales tax on it, 0.015% exchange/clearing/CDC/SECP fees, CVT 0.02% on purchases [NEEDS VERIFICATION], and slippage of 0.10% to 0.75% by liquidity tier. Round trip in liquid names is about 0.6%.",
+  "The 3 paisa per share minimum commission is not modelled, so stocks under about Rs 20 are slightly flattered; the liquidity filter excludes most of them.",
+  "Scrip circuit breaker: 5% (or Rs 1) before March 2020, 7.5% (or Rs 1) after. A stock closing at its limit cannot be bought (upper) or sold (lower) that day. A planned rise to 10% is unconfirmed.",
+  "A day's trade in one stock is capped at 10% of its 20-day median traded value, for a PKR 10m account. Zero-volume days and impossible price prints are untradeable.",
+  "T+2 settlement modelled as no leverage: both legs settle two days later, so same-day sale proceeds can fund same-day purchases, but cash never goes negative.",
+  "Long-only: short selling on PSX needs a stock borrow and is limited in practice.",
+  "Results are before tax. An after-tax estimate applies 15% capital gains tax to each year's gain (field cagr_after_cgt_pct).",
+  "Stock prices are Yahoo Finance dividend- and split-adjusted closes, so strategies earn dividends. The KSE-100 is a price index without dividends (PSX yields are often 5-8% a year), so it understates a fair benchmark; the equal-weight portfolio of the same stocks is the fairer comparison.",
+  "Chart benchmark line: the KSE-100 for portfolio strategies; buy-and-hold of the stock itself for the PSO and MEBL strategies.",
+  "Universe: the app's current 105 stocks (survivorship bias: past members that dropped out are missing). A point-in-time check rebuilds the universe monthly from the 100 most traded stocks then.",
+  "Development period 2015-01-01 to 2024-11-20 (all selection decisions); final holdout 2024-11-21 to 2026-11-20, run once. Metrics in the table cover 2015-2026; dev_metrics and holdout_metrics are in the file.",
+  "Models: LightGBM with fixed settings (no tuning), refit every 63 trading days on an expanding window, training rows whose label overlaps the test block removed plus a 5-day embargo. Seed 42.",
+  "Selection rule, fixed before results: deflated Sharpe ratio of at least 0.95 on the development period (corrects for all 30 variants), and beat the equal-weight portfolio on Sharpe and CAGR, and beat the 95th percentile of 20 random portfolios with the same turnover.",
+  "Data cleaning: 193 non-trading days stored by the price source were dropped (exchange calendar from the KSE-100 file); 2,686 impossible prints (moves beyond any circuit limit, e.g. splits not adjusted, spikes that revert) had their return set to zero and were untradeable."
+ ],
+ "findings": [
+  "Predicting a stock's next-day price does not work: the models' average error is larger than simply predicting 'no change' at every horizon (1 day: 1.71% vs 1.66%; 20 days: 9.3% vs 8.8%). Direction is right 51-53% of the time against 49-52% for always guessing 'up'.",
+  "The current PSO model loses money when traded (-17% a year after costs, 2015-2026) and the confident-only version still loses (-12%). The MEBL model makes 15% a year but buy-and-hold MEBL made 38%. Neither should be used for trading as is.",
+  "The edge that exists is in ranking stocks against each other over weeks, not timing one stock: momentum over 6 months, nearness to the 52-week high and low volatility each pointed the right way in every sub-period.",
+  "The best rule-based ranking (top 20, monthly, keep holdings while in the top 40) made 21.3% a year with Sharpe 1.13 over 2015-2026, versus 16.8% / 0.81 for equal-weight and 14.6% / 0.69 for random picks with the same turnover. Its deflated Sharpe on the development period is 0.61: not strong enough evidence after 30 trials.",
+  "The edge is uneven: Sharpe 0.98 in 2015-17, 0.32 in 2018-20, 2.0 in 2021-24, 1.35 in the holdout. It earned 45% a year while the KSE-100 was above its 200-day average and lost 17% a year while below (equal-weight: +50% and -33%), so it is mostly a better way to be long, with some cushioning, not protection.",
+  "Machine learning did not add value over the simple rules: the LightGBM ranking made 5-17% a year with deeper drawdowns (60-73%), and the confidence-gated direction model 4-11%.",
+  "The model's confidence is not honest: when it says 73% chance of a rise over 5 days, the stock rises 53% of the time. Confidence filters therefore cut returns instead of improving them.",
+  "Survivorship check: on a point-in-time universe the ranking still made 22.5% a year (17.6% on the development period vs 18.9% on today's stocks), so survivorship bias is modest here.",
+  "A market filter (50% invested when the KSE-100 is below its 200-day average) reduced drawdown slightly (-43.5% vs -47.6%) but cost 4.6% a year of return; fully exiting cost far more."
+ ],
+ "risks": [
+  "Not statistically proven: the best strategy's advantage could be luck after 30 variants (deflated Sharpe 0.61 of the required 0.95).",
+  "Drawdowns near 45-48% occurred even for the best strategies (May 2017 to March 2020; equal-weight fell 56% over the same stretch): any long-only PSX strategy carries most of the market's risk.",
+  "The 2021-2024 period and the holdout were strong bull markets; results in a long bear market are weaker (2018-20 Sharpe 0.3).",
+  "Costs and the CVT rate are partly third-party figures [NEEDS VERIFICATION]; slippage in stressed markets can exceed the assumed 0.1-0.75%.",
+  "Yahoo price data needed heavy cleaning (unadjusted splits, spikes, zero-volume rows); errors that look plausible cannot be detected.",
+  "Universe is today's 105 stocks; the point-in-time check helps but Yahoo drops some delisted names entirely."
+ ],
+ "next_steps": [
+  "Do not replace or extend the live prediction models with any of these strategies yet; nothing met the pre-set robustness rule.",
+  "Stop presenting a point price forecast as precise: show a likely range (move-size models showed real signal) and the honest unseen-day accuracy.",
+  "Paper-trade the best candidate (factor ranking, top 20, monthly, buffer) for 6-12 months with no changes, then re-test; that adds genuinely new out-of-sample evidence.",
+  "Get cleaner prices (PSX's own adjusted history or a vendor) and KSE-100 total-return data, and verify CVT and fee rates with a broker.",
+  "If more research is wanted, test only a few pre-registered ideas (e.g. sector-neutral ranking) so the multiple-testing penalty stays small."
+ ]
+}
